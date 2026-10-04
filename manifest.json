@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "pix.bar",
+  "name": "Better Bar",
+  "version": "1.0.0",
+  "author": "pixllbeat",
+  "description": "A dynamic-island status bar for Hyprland, built on Quickshell",
+  "license": "MIT",
+  "kinds": [
+    "bar"
+  ],
+  "entryPoints": {
+    "bar": "shell.qml"
+  }
+}

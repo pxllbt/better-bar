@@ -1,0 +1,2091 @@
+pragma ComponentBehavior: Bound
+
+import QtQuick
+import QtQuick.Effects
+import QtMultimedia
+import Quickshell
+import Quickshell.Io
+import Quickshell.Widgets
+import "../Singletons"
+import "../components"
+
+/**
+ * Wallpaper surface: a filmstrip over the wallpaper directory, rendered as one
+ * of the pill's surfaces. Thumbs come from the Walls singleton snapshot, newest
+ * first. The focused thumb is large and fully lit; neighbours shrink, dim and
+ * desaturate as they slide under it, so the strip reads as depth. Arrow keys
+ * and wheel move focus, clicking a neighbour glides to it, Enter or a tap on
+ * the focused thumb applies it via wallpaper.sh (strip stays open so you can
+ * keep trying picks). Hold the focused thumb for the heat duration to trash the
+ * file (press-and-hold confirm, same as the clipboard wipe); progress sweeps
+ * along the thumb's lower edge and drains on early release.
+ *
+ * Typing any printable character while the strip is open reveals a filter
+ * field and narrows the local list to wallpapers whose name contains what you
+ * type — nothing leaves the machine. A wallpaper glyph chip beside the kind
+ * filter toggles wallhaven browse instead: click it and the strip shows the
+ * default wallhaven feed. Wallhaven typing behaves like the local filter —
+ * bare keys seed and focus the persistent search field, Backspace returns to
+ * it after a finished search — and Enter fires the tag search. Wallhaven
+ * thumbs are
+ * wallhaven's own thumb CDN URLs handed directly to QML Image, so nothing is
+ * stored on disk until a pick downloads the full file into the wallpaper
+ * directory. Escape, an emptied query or a finished pick all fall back to the
+ * local view.
+ *
+ * The header carries three chips. Left of the refresh control a scaling-glyph
+ * chip opens the fit dropdown (Cover / Contain / Stretch / Center), persisted
+ * to flags and applied in place so the wallpapers on screen rescale without a
+ * transition; to its left a label chip opens the kind filter (all / still /
+ * live) for the strip; to its left a wallpaper glyph toggles wallhaven
+ * browse. Dropdowns are keyboard-driven: arrows move the sliding selection
+ * bar, Return picks, Escape closes just the menu.
+ */
+PillSurface {
+    id: root
+
+    property int focusIndex: 0
+
+    /**
+     * Search mode. While off the strip browses local files and bare keys are
+     * watched for the first printable character; while on the filter field is
+     * shown, holds focus and the strip narrows the local list to names matching
+     * the query.
+     */
+    property bool searching: false
+    property string query: ""
+
+    /**
+     * Wallhaven browse mode: when on, the strip shows wallhaven results (the
+     * default feed with no query; the search field refines it on Enter); when
+     * off, the local strip with type-to-filter narrowing the snapshot in place.
+     */
+    property bool whSource: false
+    /** WallWidgy browse mode: when on, the strip pages through the chosen wallwidgy collection — every desktop wallpaper the library holds, newest first, sliced out of its full cached index. */
+    property bool wwSource: false
+    /** The WallWidgy collection the batch draws from; the category dropdown swaps it and re-fetches. */
+    property string wwCategory: "all"
+    /** True while the wallhaven search field holds keyboard focus; shell.qml routes bare keys to the field only while it's false. */
+    readonly property bool whTyping: searchField.input.activeFocus
+    property var wallResults: []
+    /** The current WallWidgy page: desktop wallpapers sliced out of the collection index the script caches, newest first. */
+    property var wwResults: []
+    /** Which WallWidgy page the strip shows; the chevrons move it through the filtered collection. */
+    property int wwPage: 0
+    /** How many desktop wallpapers the current WallWidgy collection holds, so paging stops at the last page. */
+    property int wwTotal: 0
+    /** True while a remote source answers with a block or error page; the strip stops fetching and retries on its own timer. */
+    property bool whBlocked: false
+    /** Disk-cache mapping for remote thumbs: wallhaven URL -> local path, warmed by `thumbPump`. */
+    property var thumbLocal: ({})
+    /** The thumb URLs of the current chunk still waiting to be cached. */
+    property var thumbQueue: []
+    /** Bumped whenever a thumb lands, so tile sources rebind to their new local file. */
+    property int thumbTick: 0
+    /**
+     * How many thumbnail fetches may be in flight at once.
+     *
+     * Each fetch is a whole `bash wallpaper-search.sh thumbget` spawn -- the
+     * 386-line script re-parsed, a flock-based rate-gate check and a curl --
+     * so a cache miss costs 180-300ms and even a cache hit still costs the
+     * ~15ms of interpreter startup. Upstream ran exactly one at a time, which
+     * made a fresh page of 23 wallhaven thumbs roughly five seconds of
+     * strictly serial work.
+     *
+     * Four is chosen for the machine rather than for the network: the per-fetch
+     * cost is mostly CPU (process startup), and this box has four threads, so
+     * going wider stops buying wall-clock and only deepens the queue. It is
+     * deliberately modest against the rate gate too -- the gate is shared
+     * across processes by flock, so the 30-req/60s window and the cooldown
+     * latch still apply unchanged; four in flight is nowhere near the burst
+     * that got this IP WAF-banned before.
+     */
+    readonly property int thumbPoolSize: 4
+    readonly property var thumbProcs: [thumbProc1, thumbProc2, thumbProc3, thumbProc4]
+    readonly property bool thumbBusy: {
+        for (var ti = 0; ti < thumbProcs.length; ti++) {
+            if (thumbProcs[ti].running)
+                return true;
+        }
+        return false;
+    }
+    property int whPage: 1
+    /** Wallhaven sort bucket: hot (default), latest, top, random. No favorites:
+     * it is all-time static, so the dropdown deliberately omits it. */
+    property string whSort: "hot"
+    readonly property string whSortLabel: {
+        var m = { hot: "Hot", latest: "Latest", top: "Top", random: "Random" };
+        return m[root.whSort] || "Hot";
+    }
+    /** The chip/dropdown occupying the slot left of the source chips: the sort dropdown while browsing wallhaven, the category dropdown while browsing wallwidgy, else the kind filter. */
+    readonly property Item whSlot: root.whSource ? whSortRow : (root.wwSource ? wwCatRow : filterRow)
+
+    /** Inline folder edit in the header: true while the path field holds focus. */
+    property bool editingDir: false
+
+    /**
+     * Kind filter shared by both views: "all", "still" or "motion". Locally it
+     * splits the snapshot by extension (gif and video files count as motion);
+     * in wallhaven browse mode the chip is hidden, so it only ever narrows the
+     * local list.
+     */
+    property string kindFilter: "all"
+
+    /**
+     * Fit candidates for the fit dropdown. `value` is the awww --resize token,
+     * `label` what the strip shows, `desc` the chip tooltip gloss.
+     */
+    readonly property var fitOptions: [
+        { label: "Cover", value: "crop", desc: "Fill the screen, cropping overflow" },
+        { label: "Contain", value: "fit", desc: "Fit the whole image" },
+        { label: "Stretch", value: "stretch", desc: "Stretch to fill" },
+        { label: "Center", value: "no", desc: "Native size, centered" }
+    ]
+
+    readonly property string fitLabel: {
+        for (var i = 0; i < fitOptions.length; i++)
+            if (String(fitOptions[i].value) === String(Flags.wallpaperFit))
+                return fitOptions[i].label;
+        return "Cover";
+    }
+
+    readonly property string fitDesc: {
+        for (var i = 0; i < fitOptions.length; i++)
+            if (String(fitOptions[i].value) === String(Flags.wallpaperFit))
+                return fitOptions[i].desc;
+        return "";
+    }
+
+    /**
+     * Shared dropdown coordination: at most one menu (filter or fit) is open at
+     * a time, driven by the chip clicks; keyboard input is routed through
+     * `menuMove`/`menuPick`/`menuClose` to whichever is open.
+     */
+    readonly property bool menuOpen: filterRow.open || whSortRow.open || wwCatRow.open || dFit.open
+
+    function toggleMenu(m) {
+        var was = m.open;
+        filterRow.open = false;
+        whSortRow.open = false;
+        wwCatRow.open = false;
+        dFit.open = false;
+        m.open = !was;
+    }
+
+    function menuMove(dir) {
+        if (dFit.open)
+            dFit.moveSel(dir);
+        else if (whSortRow.open)
+            whSortRow.moveSel(dir);
+        else if (wwCatRow.open)
+            wwCatRow.moveSel(dir);
+        else if (filterRow.open)
+            filterRow.moveSel(dir);
+    }
+
+    function menuPick() {
+        if (dFit.open)
+            dFit.pickSel();
+        else if (whSortRow.open)
+            whSortRow.pickSel();
+        else if (wwCatRow.open)
+            wwCatRow.pickSel();
+        else if (filterRow.open)
+            filterRow.pickSel();
+    }
+
+    function menuClose() {
+        filterRow.open = false;
+        whSortRow.open = false;
+        wwCatRow.open = false;
+        dFit.open = false;
+    }
+
+    function isMotion(path) {
+        return /\.(gif|mp4|webm|mkv|mov)$/i.test(path);
+    }
+
+    /**
+     * Miniature of the physical monitor arrangement, shown on the focused tile
+     * when more than one screen is connected. Logical rects are fitted into a
+     * small box, keeping their real positions; clicking one sends the pick to
+     * that output only, while a tap on the tile itself keeps meaning all.
+     */
+    readonly property var monMap: {
+        var scr = Quickshell.screens;
+        if (scr.length < 2)
+            return { w: 0, h: 0, tiles: [] };
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (var i = 0; i < scr.length; i++) {
+            minX = Math.min(minX, scr[i].x);
+            minY = Math.min(minY, scr[i].y);
+            maxX = Math.max(maxX, scr[i].x + scr[i].width);
+            maxY = Math.max(maxY, scr[i].y + scr[i].height);
+        }
+        var k = Math.min(Math.min(26 * scr.length, 120) * s / (maxX - minX), (22 * s) / (maxY - minY));
+        var tiles = [];
+        for (i = 0; i < scr.length; i++)
+            tiles.push({
+                name: scr[i].name,
+                x: (scr[i].x - minX) * k,
+                y: (scr[i].y - minY) * k,
+                w: scr[i].width * k,
+                h: scr[i].height * k
+            });
+        return { w: (maxX - minX) * k, h: (maxY - minY) * k, tiles: tiles };
+    }
+
+    readonly property var localItems: {
+        if (kindFilter === "all")
+            return Walls.entries;
+        var wantMotion = kindFilter === "motion";
+        var out = [];
+        for (var i = 0; i < Walls.entries.length; i++)
+            if (isMotion(Walls.entries[i].path) === wantMotion)
+                out.push(Walls.entries[i]);
+        return out;
+    }
+
+    /**
+     * Type-to-filter view: the local snapshot narrowed to entries whose name
+     * contains the query (case-insensitive). Pure binding over in-memory data —
+     * typing never goes online in local mode.
+     */
+    readonly property var localFilter: {
+        var q = root.query.trim().toLowerCase();
+        var out = [];
+        if (q.length === 0)
+            return out;
+        for (var i = 0; i < root.localItems.length; i++) {
+            if (root.localItems[i].name.toLowerCase().indexOf(q) >= 0)
+                out.push(root.localItems[i]);
+        }
+        return out;
+    }
+
+    /**
+     * Re-centre after a filter switch. Deferred with callLater because this
+     * handler fires before dependent bindings refresh, so a direct call would
+     * still see the previous filter's list and park the strip on an index the
+     * new list does not have.
+     */
+    onKindFilterChanged: Qt.callLater(centerOnCurrent)
+
+    /**
+     * Active model and its select handler. The strip, navigation and empty
+     * states all read these so the local and search views share one code path:
+     * wallhaven browse shows its fetched results, a non-empty query in local
+     * mode the name-filtered snapshot, anything else the local list.
+     */
+    readonly property var items: root.whSource
+        ? root.wallResults
+        : (root.wwSource
+            ? root.wwResults
+            : ((searching && query.length > 0) ? root.localFilter : localItems))
+    readonly property int itemCount: items.length
+
+    /**
+     * Gesture hint visibility. Hidden while the focus is moving so paging
+     * through wallpapers stays clean; the dwell timer reveals it only once the
+     * pick has been held still, so it reads as a quiet caption, not a nag.
+     */
+    property bool hintShown: false
+
+    /** Output name under the pointer in the focused tile's screen picker, "" when none. */
+    property string monHover: ""
+
+    /**
+     * Preview arming: playback and the dimension probe only start once the
+     * focus has rested for a beat, so wheeling through the strip never churns
+     * decoders or process spawns per step.
+     */
+    property bool previewArmed: true
+
+    onFocusIndexChanged: {
+        hintShown = false;
+        hintDwell.restart();
+        previewArmed = false;
+        previewArm.restart();
+        root.setWindow(root.focusWindow());
+    }
+
+    Timer {
+        id: previewArm
+        interval: 300
+        onTriggered: root.previewArmed = true
+    }
+
+    onItemsChanged: if (focusIndex >= itemCount) focusIndex = Math.max(0, itemCount - 1);
+
+    Timer {
+        id: hintDwell
+        interval: 600
+        onTriggered: root.hintShown = true
+    }
+
+    /**
+     * Continuous view position chasing focusIndex. The strip renders from this
+     * single value, so any input rate (40Hz key autorepeat, wheel bursts) stays
+     * coherent: lag is bounded by the chase time constant, not piled up across
+     * per-tile retargeting animations. 0.14s exponential approach with a snap
+     * on the closing fraction reads as a quick, decisive glide — the former
+     * 0.07s constant was near-instant snap, 0.2s dragged.
+     */
+    property real pos: 0
+
+    clip: true
+
+    readonly property var slotW:      [196, 126, 104, 88, 74]
+    readonly property var slotH:      [110, 71, 59, 50, 42]
+    readonly property var slotCX:     [0, 143, 244, 326, 393]
+    readonly property var slotBright: [1, 0.56, 0.42, 0.30, 0.22]
+    readonly property var slotSat:    [1, 0.65, 0.55, 0.45, 0.40]
+
+    function slotLerp(arr, ao) {
+        if (ao >= 4)
+            return arr[4];
+        var i = Math.floor(ao);
+        var f = ao - i;
+        return arr[i] + (arr[i + 1] - arr[i]) * f;
+    }
+
+    function offsetX(off) {
+        var ao = Math.abs(off);
+        var cx = ao <= 4 ? slotLerp(slotCX, ao) : slotCX[4] + (ao - 4) * 60;
+        return (off < 0 ? -cx : cx) * s;
+    }
+
+    function move(delta) {
+        if (itemCount === 0)
+            return;
+        focusIndex = Math.max(0, Math.min(itemCount - 1, focusIndex + delta));
+    }
+
+    FrameAnimation {
+        running: root.active && root.pos !== root.focusIndex
+        onTriggered: {
+            var k = 1 - Math.exp(-frameTime / 0.14);
+            var next = root.pos + (root.focusIndex - root.pos) * k;
+            // The exponential keeps decelerating until the very end (no deadband,
+            // no early hold). It only locks once the residual is below ~1px,
+            // where the final handoff is unperceivable — the glide never stops
+            // early, so there is no terminal jump to see.
+            root.pos = Math.abs(next - root.focusIndex) < 0.005 ? root.focusIndex : next;
+        }
+    }
+
+    /**
+     * Virtualization window for the strip, so the Repeater renders a fixed pool
+     * of live tiles around the focused index instead of one delegate per entry.
+     * A folder with hundreds of wallpapers previously instantiated a delegate
+     * tree (ClippingRectangle + layer texture + MultiEffect wiring) for every
+     * one of them at once, even though only ~11 are ever on screen; the pool
+     * caps that at `tileSlots` regardless of folder size. Delegates own their
+     * view item imperatively (`gridIndex`), and the window slides by recycling
+     * only the tile that falls off the far edge (setWindow reassigns just the
+     * freed delegate to the entering index). Consecutive steps therefore never
+     * re-map the visible tiles, so each thumb keeps its decoded frame while the
+     * strip glides — the old re-centring pool re-bound every delegate on every
+     * keystroke, re-decoding a fresh 512px thumb per tile per step (cache:false)
+     * and showing a black → image blink.
+     */
+    readonly property int tileSlots: 17
+    property int poolStart: 0
+    readonly property int tileCount: Math.min(tileSlots, Math.max(0, itemCount))
+
+    /**
+     * Window the focused tile should sit in, keeping it inside the keep margin
+     * (5 slots) from either edge. Returns the desired window start; when the
+     * focus crosses the margin the window slides, otherwise it stays put and
+     * the whole strip just translates.
+     */
+    function focusWindow() {
+        if (itemCount <= tileSlots)
+            return 0;
+        var keep = 5;
+        var lo = Math.max(0, Math.min(itemCount - tileSlots, root.poolStart));
+        if (root.focusIndex < lo + keep)
+            return Math.max(0, Math.min(itemCount - tileSlots, root.focusIndex - keep));
+        if (root.focusIndex > lo + tileSlots - 1 - keep)
+            return Math.max(0, Math.min(itemCount - tileSlots, root.focusIndex - (tileSlots - 1 - keep)));
+        return lo;
+    }
+
+    /**
+     * Point the delegate pool at the window [start, start + tileSlots). Only
+     * delegates whose item no longer belongs to the window are released; those
+     * that stay keep gridIndex (and their decoded thumb) untouched. A one-slot
+     * slide so changes the content of exactly one — off-screen — tile.
+     */
+    function setWindow(start) {
+        if (tilePool === undefined)
+            return;
+        var ts = root.tileSlots;
+        var total = root.itemCount;
+        var lo = Math.max(0, Math.min(Math.max(0, total - ts), start));
+        var pool = tilePool;
+        var freed = [];
+        var reused = {};
+        var i, d, gi;
+        for (i = 0; i < pool.count; i++) {
+            d = pool.itemAt(i);
+            if (d == null)
+                continue;
+            gi = d.gridIndex;
+            if (gi >= lo && gi < lo + ts)
+                reused[gi] = true;
+            else
+                freed.push(d);
+        }
+        var fi = 0;
+        for (gi = lo; gi < lo + ts && gi < total; gi++) {
+            if (reused[gi])
+                continue;
+            if (fi >= freed.length)
+                break;
+            freed[fi++].gridIndex = gi;
+        }
+        while (fi < freed.length)
+            freed[fi++].gridIndex = -1;
+        root.poolStart = lo;
+    }
+
+    onItemCountChanged: Qt.callLater(function () {
+        if (root.focusIndex >= root.itemCount)
+            root.focusIndex = Math.max(0, root.itemCount - 1);
+        root.setWindow(root.focusWindow());
+    })
+
+    Component.onCompleted: root.setWindow(root.focusWindow())
+
+    function activate() {
+        if (focusIndex < 0 || focusIndex >= itemCount)
+            return;
+        var entry = items[focusIndex];
+        if (entry.image !== undefined) {
+            if (dlProc.running)
+                return;
+            dlProc.target = entry.image;
+            dlProc.command = ["bash", root.searchScript, "download", entry.image];
+            dlProc.running = true;
+        } else {
+            Walls.apply(entry.path);
+        }
+    }
+
+    function centerOnCurrent() {
+        var idx = 0;
+        for (var i = 0; i < localItems.length; i++)
+            if (localItems[i].path === Walls.current) {
+                idx = i;
+                break;
+            }
+        focusIndex = idx;
+        pos = idx;
+    }
+
+    /**
+     * Leave search mode and fall back to the local strip, re-centring on the
+     * wallpaper currently on screen. Used by Escape, an emptied query and a
+     * completed download. In wallhaven browse mode it instead reloads the
+     * default feed, since the strip never left wallhaven.
+     */
+    function exitSearch() {
+        searching = false;
+        query = "";
+        searchField.text = "";
+        if (root.whSource) {
+            root.wallResults = [];
+            root.refreshWallhaven();
+        } else if (root.wwSource) {
+            root.wwResults = [];
+            root.refreshWallwidgy();
+        } else {
+            centerOnCurrent();
+        }
+    }
+
+    /**
+     * (Re)load a wallhaven page. `query` refines a tag search (empty = default
+     * feed), `page` selects the chunk. Results replace the whole strip; a
+     * pickton then re-fetches so a stale chunk never lingers.
+     */
+    function refreshWallhaven(page) {
+        searchProc.command = ["bash", root.searchScript, "whsearch", root.query, page !== undefined ? page : root.whPage, root.whSort];
+        searchProc.running = true;
+    }
+
+    /**
+     * (Re)load a WallWidgy page. The script caches the collection
+     * index, so each call only slices the requested page out of the
+     * chosen collection — the server holds no paging of its own.
+     */
+    function refreshWallwidgy() {
+        searchProc.command = ["bash", root.searchScript, "wwsearch", root.wwCategory, "17", String(root.wwPage)];
+        searchProc.running = true;
+    }
+
+    /**
+     * Chevron paging. The chevrons are shared: in wallwidgy mode they
+     * page the cached collection index instead of the wallhaven feed.
+     */
+    function whPageMove(dir) {
+        if (root.wwSource) {
+            root.wwPageMove(dir);
+            return;
+        }
+        if (!root.whSource || dlProc.running)
+            return;
+        var next = root.whPage + dir;
+        if (next < 1)
+            return;
+        root.whPage = next;
+        root.wallResults = [];
+        root.focusIndex = 0;
+        root.pos = 0;
+        root.refreshWallhaven(next);
+    }
+
+    /**
+     * Chevron paging for wallwidgy. Pages are slices of the cached
+     * collection index, so moving never refetches the index itself;
+     * the bounds come from the total the last fetch reported.
+     */
+    function wwPageMove(dir) {
+        if (!root.wwSource || dlProc.running)
+            return;
+        var next = root.wwPage + dir;
+        if (next < 0)
+            return;
+        if (dir > 0 && root.wwTotal > 0 && (next + 1) * 17 > root.wwTotal)
+            return;
+        root.wwPage = next;
+        root.wwResults = [];
+        root.focusIndex = 0;
+        root.pos = 0;
+        root.refreshWallwidgy();
+    }
+
+    /**
+     * Wallhaven search fired on Enter in the field: fetch the page for the
+     * typed query now (wallhaven search is manual — click the field, type a
+     * tag, press Enter), resetting focus and page to the top. Field focus is
+     * then released so a following Enter applies the focused wallpaper instead
+     * of re-searching.
+     */
+    function searchWallhavenNow() {
+        if (!root.whSource)
+            return;
+        root.whPage = 1;
+        root.wallResults = [];
+        root.focusIndex = 0;
+        root.pos = 0;
+        root.refreshWallhaven(1);
+        searchField.input.focus = false;
+    }
+
+    /**
+     * Wallhaven chip toggle. Turning it on quits any DDG search and loads the
+     * default wallhaven feed; turning it off restores the local strip.
+     */
+    function toggleWallhaven() {
+        root.menuClose();
+        if (root.whSource) {
+            root.whSource = false;
+            root.wallResults = [];
+            if (root.searching)
+                root.exitSearch();
+            else
+                root.centerOnCurrent();
+        } else {
+            // WallWidgy off as well. toggleWallwidgy() already clears
+            // whSource on the way in, but this side left wwSource set,
+            // so a wallhaven browse stacked on a wallwidgy one kept both
+            // flags true: its cat chip stayed on screen in wallhaven mode
+            // and picking a category mixed a wallwidgy page into the
+            // wallhaven strip. One browse at a time.
+            if (root.wwSource) {
+                root.wwSource = false;
+                root.wwResults = [];
+            }
+            if (root.searching) {
+                root.searching = false;
+                root.query = "";
+                searchField.text = "";
+            }
+            root.whSource = true;
+            root.wallResults = [];
+            root.focusIndex = 0;
+            root.pos = 0;
+            root.refreshWallhaven();
+        }
+    }
+
+    /**
+     * WallWidgy chip toggle. Turning it on quits any search and any
+     * wallhaven browse, then loads a fresh curated batch; turning it
+     * off restores the local strip.
+     */
+    function toggleWallwidgy() {
+        root.menuClose();
+        if (root.wwSource) {
+            root.wwSource = false;
+            root.wwResults = [];
+            if (root.searching)
+                root.exitSearch();
+            else
+                root.centerOnCurrent();
+        } else {
+            if (root.whSource) {
+                root.whSource = false;
+                root.wallResults = [];
+            }
+            if (root.searching) {
+                root.searching = false;
+                root.query = "";
+                searchField.text = "";
+            }
+            root.wwSource = true;
+            root.wwPage = 0;
+            root.wwResults = [];
+            root.focusIndex = 0;
+            root.pos = 0;
+            root.refreshWallwidgy();
+        }
+    }
+
+    /**
+     * Begin a name filter seeded with the first typed character and move
+     * keyboard focus to the field so the rest of the query lands there.
+     * shell.qml routes the opening keystroke here and hands focus back when the
+     * filter ends.
+     */
+    function startSearch(ch) {
+        searching = true;
+        focusIndex = 0;
+        pos = 0;
+        searchField.text = ch;
+        if (root.wwSource) {
+            root.wwSource = false;
+            root.wwResults = [];
+        }
+        Qt.callLater(searchField.input.forceActiveFocus);
+    }
+
+    /**
+     * Keystroke routing for the wallhaven field, mirroring local search: a
+     * printable character typed anywhere over the open strip pulls focus into
+     * the field and inserts it at the caret, so the first key seeds an empty
+     * query and any later key continues one. shell.qml hands the opening key
+     * here when the field does not hold focus (whTyping); the rest of the query
+     * then types through the focused field untouched.
+     */
+    function whTypeChar(ch) {
+        const inp = searchField.input;
+        const pos = Math.min(inp.cursorPosition, inp.text.length);
+        if (!inp.activeFocus)
+            inp.forceActiveFocus();
+        inp.text = inp.text.slice(0, pos) + ch + inp.text.slice(pos);
+        inp.cursorPosition = pos + ch.length;
+    }
+
+    /**
+     * Backspace routed into the field the same way: after Enter ran a search,
+     * the field has dropped focus so the next Enter applies a wallpaper; a
+     * Backspace pulls focus back and trims the query instead, ready to search
+     * again.
+     */
+    function whBackspace() {
+        const inp = searchField.input;
+        const pos = Math.min(inp.cursorPosition, inp.text.length);
+        if (!inp.activeFocus)
+            inp.forceActiveFocus();
+        if (pos > 0) {
+            inp.text = inp.text.slice(0, pos - 1) + inp.text.slice(pos);
+            inp.cursorPosition = pos - 1;
+        } else {
+            inp.cursorPosition = 0;
+        }
+    }
+
+    onActiveChanged: if (active) {
+        Walls.warm();
+        searching = false;
+        editingDir = false;
+        query = "";
+        searchField.text = "";
+        if (root.whSource) {
+            focusIndex = 0;
+            pos = 0;
+            refreshWallhaven();
+        } else {
+            centerOnCurrent();
+        }
+        hintShown = false;
+        hintDwell.restart();
+    } else if (!root.active) {
+        filterRow.open = false;
+        whSortRow.open = false;
+        dFit.open = false;
+        searching = false;
+        query = "";
+        searchField.text = "";
+        wallResults = [];
+        whSource = false;
+        wwPage = 0;
+        wwTotal = 0;
+        wwResults = [];
+        wwSource = false;
+        thumbQueue = [];
+        thumbLocal = {};
+        for (var rt = 0; rt < thumbProcs.length; rt++) {
+            thumbProcs[rt].running = false;
+            thumbProcs[rt].thumbUrl = "";
+        }
+        // Release the decode/format caches a browsing session piled up so
+        // they don't linger between close and the unload sweep. All of these
+        // are cheaply rebuilt when the surface reopens (Walls.warm() refreshes
+        // the thumb snapshot, previews re-fetch on demand), so dropping them
+        // on every close only costs a short re-warm if the user comes back.
+        dimsCache = {};
+        previewFile = "";
+    }
+
+    Connections {
+        target: Walls
+        function onEntriesChanged() {
+            if (!root.whSource && !root.wwSource && !root.searching && root.focusIndex >= Walls.count)
+                root.focusIndex = Math.max(0, Walls.count - 1);
+        }
+
+        /**
+         * The launch refresh and any later one re-centre the strip once their
+         * data actually lands, so a wallpaper changed (or thumbs regenerated)
+         * while the switcher was closed shows up instead of leaving the stale
+         * previous pick focused. Skipped while a name filter is up, since the
+         * strip is showing only matches then, and in wallhaven mode so
+         * applying a wallpaper never yanks the browse strip away.
+         */
+        function onRefreshDone() {
+            if (root.active && !root.whSource && !root.wwSource && !(root.searching && root.query.length > 0))
+                root.centerOnCurrent();
+        }
+    }
+
+    readonly property string searchScript: Config.hyprPath("scripts", "wallpaper-search.sh")
+
+    /**
+     * Remote video previews. Qt's MediaPlayer chokes on streaming https, so
+     * the focused result's preview clip (small webm) is pulled into /tmp by
+     * curl and played from disk. The fetch is debounced behind the focus and
+     * keyed by url hash, so paging back to a seen result replays instantly and
+     * a stale download can never attach to the wrong tile.
+     */
+    property string previewFile: ""
+
+    readonly property string focusedPreviewUrl: {
+        if (focusIndex < 0 || focusIndex >= itemCount)
+            return "";
+        var e = items[focusIndex];
+        return (e && e.preview !== undefined) ? e.preview : "";
+    }
+
+    onFocusedPreviewUrlChanged: {
+        previewFile = "";
+        prevFetch.running = false;
+        prevDebounce.restart();
+    }
+
+    Timer {
+        id: prevDebounce
+        interval: 250
+        onTriggered: {
+            if (!root.active || root.focusedPreviewUrl === "")
+                return;
+            prevFetch.url = root.focusedPreviewUrl;
+            prevFetch.command = ["bash", "-c",
+                "d=\"${XDG_CACHE_HOME:-$HOME/.cache}/better/previews\"; mkdir -p \"$d\"; f=\"$d/better-wp-preview-$(printf %s \"$1\" | md5sum | cut -d' ' -f1).webm\"; [ -s \"$f\" ] || curl -fsL --max-time 25 -A 'Mozilla/5.0' -o \"$f\" \"$1\" || { rm -f \"$f\"; exit 1; }; printf %s \"$f\"",
+                "_", root.focusedPreviewUrl];
+            prevFetch.running = true;
+        }
+    }
+
+    Process {
+        id: prevFetch
+        property string url: ""
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (this.text.length && prevFetch.url === root.focusedPreviewUrl)
+                    root.previewFile = this.text;
+            }
+        }
+    }
+
+    /**
+     * Local resolution badge. Dimensions are probed lazily for the focused
+     * tile only (ffprobe reads images and videos alike) and cached per path,
+     * so browsing stays cheap and revisits are instant.
+     */
+    property var dimsCache: ({})
+
+    readonly property string focusedLocalPath: {
+        if (focusIndex < 0 || focusIndex >= itemCount)
+            return "";
+        var e = items[focusIndex];
+        return (e && e.path !== undefined) ? e.path : "";
+    }
+
+    onFocusedLocalPathChanged: dimsDebounce.restart()
+
+    Timer {
+        id: dimsDebounce
+        interval: 320
+        onTriggered: {
+            if (!root.active)
+                return;
+            var p = root.focusedLocalPath;
+            if (p === "" || root.dimsCache[p] !== undefined)
+                return;
+            dimsProc.running = false;
+            dimsProc.path = p;
+            dimsProc.command = ["sh", "-c",
+                "ffprobe -v quiet -select_streams v:0 -show_entries stream=width,height -of csv=s=x:p=0 \"$1\" | head -1",
+                "_", p];
+            dimsProc.running = true;
+        }
+    }
+
+    Process {
+        id: dimsProc
+        property string path: ""
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var t = this.text.trim();
+                if (t.length && dimsProc.path.length) {
+                    /** Bounded probe cache: drop the whole map once it outgrows a
+                     *  session's worth of entries so a huge folder never grows it
+                     *  without limit. */
+                    var c = Object.keys(root.dimsCache).length > 400
+                        ? {} : Object.assign({}, root.dimsCache);
+                    c[dimsProc.path] = t;
+                    root.dimsCache = c;
+                }
+            }
+        }
+    }
+
+    Process {
+        id: searchProc
+        stdout: StdioCollector {
+            onStreamFinished: {
+                var out = [];
+                var parsed = null;
+                try {
+                    parsed = JSON.parse(this.text);
+                } catch (e) {
+                    parsed = null;
+                }
+                if (parsed && !Array.isArray(parsed) && (parsed.wallhaven === "blocked" || parsed.wallwidgy === "blocked")) {
+                    // The remote source is blocking or failing: stop fetching
+                    // and let whRetry own the re-checks, so the strip never
+                    // dogs the ban.
+                    root.whBlocked = true;
+                    root.wallResults = [];
+                    root.wwResults = [];
+                    root.thumbQueue = [];
+                    root.searching = false;
+                    return;
+                }
+                if (Array.isArray(parsed))
+                    out = parsed;
+                else if (parsed && Array.isArray(parsed.wallpapers))
+                    out = parsed.wallpapers;
+                if (root.whSource) {
+                    root.whBlocked = false;
+                    root.wallResults = out;
+                    root.thumbLocal = {};
+                    root.enqueueThumbs();
+                    root.focusIndex = 0;
+                    root.pos = 0;
+                } else if (root.wwSource) {
+                    root.whBlocked = false;
+                    root.wwResults = out;
+                    root.wwTotal = (!Array.isArray(parsed) && parsed.total >= 0) ? parsed.total : out.length;
+                    root.thumbLocal = {};
+                    root.enqueueThumbs();
+                    root.focusIndex = 0;
+                    root.pos = 0;
+                }
+            }
+        }
+    }
+
+    /**
+     * Paced thumb pump. Remote thumbs are never handed to QML Image directly
+     * any more — that used to fire an unbounded burst of CDN requests per
+     * scroll and is what tripped wallhaven's Cloudflare rate rule in the
+     * first place. Instead each thumb is pulled into a local cache one at a
+     * time (the fetcher's own rolling budget paces wallhaven-bound traffic),
+     * and tiles render from the cache file. The same cache keeps a page
+     * browsable even while wallhaven is blocking us.
+     */
+    function enqueueThumbs() {
+        root.thumbQueue = [];
+        var src = root.whSource ? root.wallResults : (root.wwSource ? root.wwResults : []);
+        var seen = {};
+        for (var i = 0; i < src.length; i++) {
+            var t = src[i].thumb;
+            if (t && typeof t === "string" && !(t in seen)) {
+                seen[t] = true;
+                if (!root.thumbLocal[t])
+                    root.thumbQueue.push(t);
+            }
+        }
+        root.pumpThumb();
+    }
+
+    function pumpThumb() {
+        // Fill every free slot in the pool, not just the first one. Skipping a
+        // url already on disk costs nothing, so the queue is drained in one
+        // pass and the next fetch starts the moment any proc frees up.
+        for (var tp = 0; tp < root.thumbProcs.length; tp++) {
+            var proc = root.thumbProcs[tp];
+            if (proc.running)
+                continue;
+            while (root.thumbQueue.length > 0) {
+                var u = root.thumbQueue.shift();
+                if (root.thumbLocal[u])
+                    continue;
+                proc.thumbUrl = u;
+                proc.command = ["bash", root.searchScript, "thumbget", u];
+                proc.running = true;
+                break;
+            }
+        }
+    }
+
+    /**
+     * The one place a finished thumbnail fetch is handled, for every proc in
+     * the pool. `proc` is the Process that finished, so the four blocks below
+     * stay one line each and cannot drift apart.
+     *
+     * A blank result is still treated as a failure worth heeding: it means the
+     * request was refused (network blip, still blocked, gone thumb), and
+     * pacing through the rest of the chunk would only spend the rate gate on
+     * requests that are failing too. The next search re-queues the page.
+     */
+    function thumbFetched(proc, text) {
+        var p = text.trim();
+        if (p.length) {
+            root.thumbLocal[proc.thumbUrl] = p;
+            root.thumbTick++;
+        } else {
+            root.thumbQueue = [];
+        }
+        proc.thumbUrl = "";
+        root.pumpThumb();
+    }
+
+    Process {
+        id: thumbProc1
+        property string thumbUrl: ""
+        stdout: StdioCollector {
+            onStreamFinished: root.thumbFetched(thumbProc1, this.text)
+        }
+    }
+
+    Process {
+        id: thumbProc2
+        property string thumbUrl: ""
+        stdout: StdioCollector {
+            onStreamFinished: root.thumbFetched(thumbProc2, this.text)
+        }
+    }
+
+    Process {
+        id: thumbProc3
+        property string thumbUrl: ""
+        stdout: StdioCollector {
+            onStreamFinished: root.thumbFetched(thumbProc3, this.text)
+        }
+    }
+
+    Process {
+        id: thumbProc4
+        property string thumbUrl: ""
+        stdout: StdioCollector {
+            onStreamFinished: root.thumbFetched(thumbProc4, this.text)
+        }
+    }
+
+    Timer {
+        id: thumbPump
+        interval: 200
+        repeat: true
+        running: root.whSource || root.wwSource
+        onTriggered: root.pumpThumb()
+    }
+
+    Timer {
+        id: whRetry
+        interval: 60000
+        repeat: true
+        running: root.whBlocked && (root.whSource || root.wwSource)
+        onTriggered: if (root.whSource) root.refreshWallhaven(); else root.refreshWallwidgy()
+    }
+
+    Process {
+        id: dlProc
+        property string target: ""
+        property string failed: ""
+        property string savedPath: ""
+        stdout: StdioCollector {
+            onStreamFinished: dlProc.savedPath = this.text.trim()
+        }
+        onExited: function(exitCode) {
+            if (exitCode === 0 && savedPath.length) {
+                failed = "";
+                Walls.refresh();
+                Walls.apply(savedPath);
+                if (root.whSource || root.wwSource) {
+                    // Stay on the current remote results and drop field focus
+                    // so the next Enter picks again instead of re-searching.
+                    searchField.input.focus = false;
+                } else {
+                    root.exitSearch();
+                }
+            } else {
+                failed = target;
+            }
+            savedPath = "";
+        }
+    }
+
+    SearchField {
+        id: searchField
+        anchors.top: parent.top
+        anchors.topMargin: 8 * root.s
+        anchors.left: parent.left
+        anchors.leftMargin: 20 * root.s
+        anchors.right: wwChip.left
+        anchors.rightMargin: 6 * root.s
+        s: root.s
+        placeholder: root.whSource ? "Search wallhaven tags" : "Filter wallpapers"
+        visible: root.searching || root.whSource
+        enabled: root.searching || root.whSource
+        horizontalNav: true
+        z: 30
+        onTextChanged: root.query = text
+        onMoved: (d) => root.move(d)
+        onAccepted: root.whSource ? root.searchWallhavenNow() : root.activate()
+        onDismissed: root.exitSearch()
+        onKeyPressed: (e) => {
+            if (!root.whSource
+                && e.key === Qt.Key_Backspace && root.query.length <= 1
+                && searchField.input.selectedText.length === 0) {
+                root.exitSearch();
+                e.accepted = true;
+            }
+        }
+    }
+
+    /**
+     * Kind filter and fit-mode as two Dropdowns sharing one click-away scrim;
+     * the filter chip is a mini label showing the current bucket, the fit chip
+     * a scaling glyph; opening tints the chip's own icon/label instead of an
+     * overlay, and the current row in the menu is the vermilion legend.
+     * Picking the fit persists to flags and refits the wallpapers in place:
+     * stills are re-imaged through aww with the new --resize (no wave), videos
+     * respawn with matching mpv scaling.
+     */
+    Dropdown {
+        id: filterRow
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: dFit.left
+        anchors.rightMargin: 8 * root.s
+        z: 55
+        s: root.s
+        // Wallhaven serves stills only, so the all/still/live filter is moot there.
+        visible: !root.whSource && !root.wwSource
+        options: [{ label: "all", value: "all" }, { label: "still", value: "still" }, { label: "live", value: "motion" }]
+        value: root.kindFilter
+        title: "Filter"
+        desc: "Show every, still-only or live-only wallpaper"
+        onChipClicked: root.toggleMenu(filterRow)
+        onPicked: (v) => root.kindFilter = v
+    }
+
+    /**
+     * Wallhaven sort dropdown, shown only while browsing: swaps the all/still/
+     * live filter (meaningless there) for wallhaven's own sorting buckets.
+     * Picking one re-fetches the current page from its start.
+     */
+    Dropdown {
+        id: whSortRow
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: dFit.left
+        anchors.rightMargin: 8 * root.s
+        z: 55
+        s: root.s
+        visible: root.whSource
+        options: [
+            { label: "Hot", value: "hot" },
+            { label: "Latest", value: "latest" },
+            { label: "Top", value: "top" },
+            { label: "Random", value: "random" }
+        ]
+        value: root.whSort
+        title: "Sort: " + root.whSortLabel
+        desc: "How wallhaven orders the browse feed"
+        onChipClicked: root.toggleMenu(whSortRow)
+        onPicked: (v) => {
+            root.whSort = v;
+            root.whPage = 1;
+            root.wallResults = [];
+            root.focusIndex = 0;
+            root.pos = 0;
+            root.refreshWallhaven(1);
+        }
+    }
+
+    /**
+     * WallWidgy category dropdown, shown only while browsing wallwidgy:
+     * swaps the all/still/live filter (meaningless there) for the
+     * collections the wallwidgy index holds. Picking one pages the
+     * strip through it from the first page.
+     */
+    Dropdown {
+        id: wwCatRow
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: dFit.left
+        anchors.rightMargin: 8 * root.s
+        z: 55
+        s: root.s
+        // Ten collections in one column hung off the top of the surface
+        // and the bottom of the list fell outside the window, so most
+        // categories could not be seen or picked at all. Two columns keep
+        // the whole list on screen.
+        columns: 2
+        visible: root.wwSource
+        options: [
+            { label: "All", value: "all" },
+            { label: "Art", value: "art" },
+            { label: "Anime", value: "anime" },
+            { label: "Nature", value: "nature" },
+            { label: "Amoled", value: "amoled" },
+            { label: "Abstract", value: "abstract" },
+            { label: "Cars", value: "cars" },
+            { label: "Architecture", value: "architecture" },
+            { label: "Minimal", value: "minimal" },
+            { label: "Tech", value: "tech" }
+        ]
+        value: root.wwCategory
+        title: "Cat: " + root.wwCategory
+        desc: "Which wallwidgy collection the strip pages through"
+        onChipClicked: root.toggleMenu(wwCatRow)
+        onPicked: (v) => {
+            root.wwCategory = v;
+            root.wwPage = 0;
+            root.wwResults = [];
+            root.focusIndex = 0;
+            root.pos = 0;
+            root.refreshWallwidgy();
+        }
+    }
+
+    /**
+     * Wallhaven browse chip, mirroring the Dropdown chip: toggling lights the
+     * wallpaper glyph and loads the default wallhaven feed; typing the query
+     * then refines it. A second click returns to the local strip.
+     */
+    Rectangle {
+        id: whChip
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: root.whSlot.left
+        anchors.rightMargin: 8 * root.s
+        z: 55
+        width: 22 * root.s
+        height: 22 * root.s
+        radius: height / 2
+        color: "transparent"
+
+        GlyphIcon {
+            id: whGlyph
+            anchors.centerIn: parent
+            width: 13 * root.s
+            height: 13 * root.s
+            name: "wallpaper"
+            color: root.whSource ? Theme.vermLit : Theme.iconDim
+            stroke: 1.8
+            Behavior on color { ColorAnimation { duration: Motion.fast } }
+        }
+
+        HoverHandler {
+            id: whChipHover
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleWallhaven()
+        }
+
+        Tooltip {
+            placement: "below"
+            align: "right"
+            title: "Wallhaven"
+            desc: root.whSource
+                ? "Browsing wallhaven — click to return to local"
+                : "Click to browse wallhaven wallpapers"
+            show: whChipHover.hovered
+        }
+    }
+
+    /**
+     * WallWidgy browse chip, mirroring the wallhaven chip: toggling
+     * lights its glyph and loads a fresh curated batch; a second
+     * click returns to the local strip. WallWidgy serves no search,
+     * so the field stays away while it is on.
+     */
+    Rectangle {
+        id: wwChip
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: whChip.left
+        anchors.rightMargin: 6 * root.s
+        z: 55
+        width: 22 * root.s
+        height: 22 * root.s
+        radius: height / 2
+        color: "transparent"
+
+        GlyphIcon {
+            id: wwGlyph
+            anchors.centerIn: parent
+            width: 13 * root.s
+            height: 13 * root.s
+            name: "layers"
+            color: root.wwSource ? Theme.vermLit : Theme.iconDim
+            stroke: 1.8
+            Behavior on color { ColorAnimation { duration: Motion.fast } }
+        }
+
+        HoverHandler {
+            id: wwChipHover
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleWallwidgy()
+        }
+
+        Tooltip {
+            placement: "below"
+            align: "right"
+            title: "WallWidgy"
+            desc: root.wwSource
+                ? "Browsing wallwidgy — click to return to local"
+                : "Click to browse wallwidgy wallpapers"
+            show: wwChipHover.hovered
+        }
+    }
+    Dropdown {
+        id: dFit
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: refreshBtn.left
+        anchors.rightMargin: 8 * root.s
+        z: 55
+        s: root.s
+        glyph: "scaling"
+        options: root.fitOptions
+        value: Flags.wallpaperFit
+        title: "Fit: " + root.fitLabel
+        desc: "How the wallpaper fills the screen — " + root.fitDesc
+        onChipClicked: root.toggleMenu(dFit)
+        onPicked: (v) => {
+            Flags.wallpaperFit = v;
+            Walls.applyFit(v);
+        }
+    }
+
+    /**
+     * Click-away scrim while either dropdown is open. Transparent and modal:
+     * the first click anywhere outside the card dismisses it, then that spot
+     * can be clicked again for its real job.
+     */
+    Rectangle {
+        id: menuScrim
+        anchors.fill: parent
+        z: 50
+        visible: root.menuOpen && root.active
+        enabled: root.menuOpen && root.active
+        color: "transparent"
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: root.menuClose()
+        }
+    }
+
+    /**
+     * Refresh control, top-right. A full re-run of the thumbnail pipeline:
+     * missing previews are generated and stale ones regenerated on demand. The
+     * strip also warms itself on open (Walls.warm) so a fresh shell or a wiped
+     * cache fills in without a click; this button is the force-refresh. The
+     * glyph spins while the pipeline is in flight and the strip re-centres on
+     * the current wallpaper when it lands.
+     */
+    Rectangle {
+        id: refreshBtn
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: parent.right
+        anchors.rightMargin: 14 * root.s
+        z: 40
+        width: 22 * root.s
+        height: 22 * root.s
+        radius: height / 2
+        color: refHover.hovered ? Theme.frameBg : "transparent"
+        border.width: refHover.hovered ? 1 : 0
+        border.color: Theme.hairSoft
+
+        GlyphIcon {
+            id: refIcon
+            anchors.centerIn: parent
+            width: 13 * root.s
+            height: 13 * root.s
+            name: "refresh"
+            color: refHover.hovered ? Theme.vermLit : Theme.iconDim
+            Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+            RotationAnimation on rotation {
+                running: Walls.refreshing
+                from: 0
+                to: 360
+                duration: 900
+                loops: Animation.Infinite
+            }
+
+            Connections {
+                target: Walls
+                function onRefreshingChanged() {
+                    if (!Walls.refreshing)
+                        refIcon.rotation = 0;
+                }
+            }
+        }
+
+        HoverHandler {
+            id: refHover
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: Walls.refresh()
+        }
+
+        Tooltip {
+            placement: "below"
+            align: "right"
+            title: "Refresh thumbnails"
+            desc: "Regenerate missing previews"
+            show: refHover.hovered
+        }
+    }
+
+    /**
+     * Current wallpaper folder as a quiet header caption. A click swaps the
+     * label for an inline path edit seeded from flags.json: Return commits the
+     * override (empty restores autodetect), Escape cancels. The field holds
+     * focus while editing, so its keys never reach the strip's type-to-search.
+     */
+    Item {
+        id: folderRow
+        anchors.top: parent.top
+        anchors.topMargin: 6 * root.s
+        anchors.left: parent.left
+        anchors.leftMargin: 20 * root.s
+        anchors.right: filterRow.left
+        anchors.rightMargin: 12 * root.s
+        height: 30 * root.s
+        visible: !root.searching && !root.whSource
+        z: 30
+
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.right: parent.right
+            visible: !root.editingDir
+            text: Walls.wpDir
+            elide: Text.ElideMiddle
+            color: folderHover.hovered ? Theme.subtle : Theme.faint
+            font.family: Theme.font
+            font.pixelSize: 9.5 * root.s
+            Behavior on color { ColorAnimation { duration: Motion.fast } }
+        }
+
+        TextInput {
+            id: dirField
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.right: parent.right
+            visible: root.editingDir
+            enabled: root.editingDir
+            clip: true
+            color: Theme.cream
+            font.family: Theme.font
+            font.pixelSize: 11 * root.s
+            selectByMouse: true
+            selectionColor: Theme.verm
+            Keys.onPressed: (e) => {
+                if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
+                    Flags.wallpaperDir = dirField.text.trim();
+                    Walls.refresh();
+                    root.editingDir = false;
+                    e.accepted = true;
+                } else if (e.key === Qt.Key_Escape) {
+                    root.editingDir = false;
+                    e.accepted = true;
+                }
+            }
+
+            Text {
+                anchors.fill: parent
+                verticalAlignment: Text.AlignVCenter
+                visible: dirField.text.length === 0
+                text: Walls.wpDir
+                elide: Text.ElideMiddle
+                color: Theme.faint
+                font.family: Theme.font
+                font.pixelSize: 11 * root.s
+            }
+        }
+
+        HoverHandler {
+            id: folderHover
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            enabled: !root.editingDir
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+                root.editingDir = true;
+                dirField.text = Flags.wallpaperDir;
+                Qt.callLater(dirField.forceActiveFocus);
+            }
+        }
+    }
+
+    Repeater {
+        id: tilePool
+        model: root.tileCount
+
+        delegate: Item {
+            id: tile
+
+            required property int index
+
+            /**
+             * View item for this pool slot, owned imperatively by setWindow so
+             * a one-slot window slide changes only the edge tile's content.
+             * -1 marks an unused slot outside the window.
+             */
+            property int gridIndex: -1
+
+            /**
+             * A delegate born late (Repeater model growth on a page/feed swap)
+             * misses the itemCount-notify setWindow, which can fire before the
+             * new delegates exist. Claiming a gridIndex here converges the
+             * whole window once every delegate has finished constructing.
+             */
+            Component.onCompleted: if (tile.gridIndex < 0) root.setWindow(root.focusWindow())
+            readonly property var modelData: gridIndex >= 0 && gridIndex < root.itemCount ? root.items[gridIndex] : undefined
+            readonly property bool dead: modelData === undefined
+
+            readonly property string thumb: !dead && modelData.thumb !== undefined ? modelData.thumb : ""
+            readonly property bool remote: !dead && modelData.image !== undefined
+
+            /**
+             * Local thumbs append the source mtime as a cache-buster. Image's
+             * QPixmapCache is keyed by URL alone, so a regenerated thumb (new
+             * file with the same name, or a source replaced in place) would
+             * otherwise keep showing the stale cached frame. Remote wallhaven
+             * thumbs render from the paced disk cache instead of the CDN; the
+             * `thumbTick` reference forces a rebind when a thumb lands.
+             */
+            readonly property string thumbSource: dead ? "" : (remote
+                ? (root.thumbTick >= 0 && root.thumbLocal[modelData.thumb] !== undefined ? "file://" + root.thumbLocal[modelData.thumb] : "")
+                : ("file://" + thumb + "?v=" + (modelData.mtime !== undefined ? Math.round(modelData.mtime) : 0)))
+
+            /**
+             * Live preview gating: only the focused tile plays, and only once
+             * the strip has settled on it, so paging never spins up decoders.
+             * Gifs play in place (remote ones stream the full file), videos
+             * loop muted through the ffmpeg backend; everything else keeps the
+             * static thumb, which also stays underneath as the loading frame.
+             */
+            readonly property bool isGif: dead ? false : /\.gif(\?|$)/i.test(remote ? (modelData.image || "") : modelData.path)
+            readonly property string videoSource: dead
+                ? ""
+                : (remote ? (focused && root.previewFile !== "" ? "file://" + root.previewFile : "")
+                  : (/\.(mp4|webm|mkv|mov)$/i.test(modelData.path) ? "file://" + modelData.path : ""))
+            readonly property bool showPreview: !dead && focused && root.previewArmed && ao < 0.5
+            readonly property string resLabel: dead
+                ? ""
+                : (remote ? (modelData.w > 0 ? modelData.w + "x" + modelData.h : "")
+                  : (root.dimsCache[modelData.path] !== undefined ? root.dimsCache[modelData.path] : ""))
+            readonly property bool motion: dead
+                ? false
+                : (remote ? (modelData.preview !== undefined || isGif)
+                  : /\.(gif|mp4|webm|mkv|mov)$/i.test(modelData.path))
+
+            readonly property real off: gridIndex - root.pos
+            readonly property real ao: Math.abs(off)
+            readonly property bool focused: !dead && gridIndex === root.focusIndex
+
+            /** The wallpaper wallpaper.sh last applied, per the shared state file. */
+            readonly property bool isCurrent: !dead && modelData.path !== undefined
+                && modelData.path !== "" && modelData.path === Walls.current
+            readonly property real bright: root.slotLerp(root.slotBright, ao)
+            readonly property real sat: root.slotLerp(root.slotSat, ao)
+            readonly property real corner: (8 + 2 * Math.max(0, 1 - ao)) * root.s
+
+            readonly property real hold: trashHeat.hold
+            readonly property bool committing: trashHeat.hold >= trashHeat.tapThreshold
+            readonly property real commitProgress: Math.max(0, (trashHeat.hold - trashHeat.tapThreshold) / (1 - trashHeat.tapThreshold))
+
+            /**
+             * Fade a tile out as its outer edge nears the clipped strip
+             * boundary, so the strip ends soften instead of getting hard-cut by
+             * the pill's clip.
+             */
+            readonly property real edgeFade: {
+                var soft = 70 * root.s;
+                var gap = Math.min(x, root.width - (x + width));
+                return Math.max(0, Math.min(1, gap / soft));
+            }
+
+            width: root.slotLerp(root.slotW, ao) * root.s
+            height: root.slotLerp(root.slotH, ao) * root.s
+            x: root.width / 2 + root.offsetX(off) - width / 2
+            y: (root.height - height) / 2
+            z: 10 - ao
+            visible: !dead && ao <= 5
+            opacity: edgeFade * (ao <= 4 ? 1 : Math.max(0, 5 - ao))
+
+            onFocusedChanged: if (!focused) trashHeat.cancel()
+
+            ClippingRectangle {
+                id: card
+                anchors.fill: parent
+                radius: tile.corner
+                color: Theme.tileBg
+
+                layer.enabled: !tile.dead && tile.ao <= 5
+                layer.effect: MultiEffect {
+                    saturation: tile.sat - 1
+                    shadowEnabled: tile.focused
+                    shadowColor: Qt.rgba(0, 0, 0, Theme.shadowOpacity)
+                    shadowBlur: 0.7
+                    shadowVerticalOffset: 4 * root.s
+                }
+
+
+                Image {
+                    id: thumbImage
+                    anchors.fill: parent
+                    source: tile.ao <= 6 ? tile.thumbSource : ""
+                    sourceSize.width: 512
+                    sourceSize.height: 220
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    smooth: true
+                    // Every thumb is decoded straight from disk (or the remote thumb CDN) and
+                    // never cached in the process-global image cache. Wallhaven
+                    // thumbs are fetched on demand and must not linger; local
+                    // ones re-decode from the on-disk better/wp-thumbs cache
+                    // when a tile scrolls back in. Caching them would pin up to
+                    // a wall's worth of decoded 512px frames in RAM for the whole
+                    // session — even after this surface unloads — which is exactly
+                    // the hog unloading exists to reclaim. Asynchronous decode
+                    // keeps re-scroll snappy.
+                    cache: false
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: Theme.tileBg
+                    visible: thumbImage.status === Image.Error
+                }
+
+                AnimatedImage {
+                    anchors.fill: parent
+                    source: tile.showPreview && tile.isGif ? (tile.remote ? tile.modelData.image : "file://" + tile.modelData.path) : ""
+                    playing: source != ""
+                    visible: status === AnimatedImage.Ready
+                    fillMode: Image.PreserveAspectCrop
+                    asynchronous: true
+                    cache: false
+                }
+
+                /**
+                 * Marks the wallpaper actually on screen. Walls.current is the
+                 * contents of the better-wallpaper state file — the same file
+                 * wallpaper.sh rewrites on every apply, and the same one the
+                 * lockscreen reads — so this dot and the lock screen can never
+                 * disagree about which wallpaper is current. Same 4px dot the
+                 * dock uses for a running app.
+                 *
+                 * Top-right, not the dock's bottom-centre: the focused tile
+                 * already puts its resolution pill at bottom-centre with the
+                 * same 6px margin, and that Text is declared later, so a dot
+                 * there is painted over and never seen. Top-left belongs to the
+                 * motion badge.
+                 */
+                Rectangle {
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.margins: 6 * root.s
+                    width: 4 * root.s
+                    height: width
+                    radius: width / 2
+                    color: Theme.verm
+                    visible: tile.isCurrent
+                    opacity: tile.ao <= 4 ? 1 : Math.max(0, 4 - tile.ao)
+                }
+
+                Loader {
+                    anchors.fill: parent
+                    active: tile.showPreview && tile.videoSource !== ""
+
+                    sourceComponent: Item {
+                        VideoOutput {
+                            id: videoPreview
+                            anchors.fill: parent
+                            fillMode: VideoOutput.PreserveAspectCrop
+                            visible: vidPlayer.playbackState === MediaPlayer.PlayingState
+                        }
+
+                        MediaPlayer {
+                            id: vidPlayer
+                            videoOutput: videoPreview
+                            loops: MediaPlayer.Infinite
+                            source: tile.videoSource
+                            onMediaStatusChanged: if (mediaStatus === MediaPlayer.LoadedMedia) play()
+                        }
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: Qt.rgba(0, 0, 0, 1)
+                    opacity: 1 - tile.bright
+                }
+
+                Rectangle {
+                    id: consume
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    height: card.height * tile.commitProgress
+                    visible: tile.committing
+                    gradient: Gradient {
+                        GradientStop { position: 0.0; color: Qt.alpha(Theme.vermBurn, 0.66) }
+                        GradientStop { position: 0.74; color: Qt.alpha(Theme.vermLit, 0.30) }
+                        GradientStop { position: 1.0; color: Qt.alpha(Theme.flameGlow, 0.0) }
+                    }
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        height: 2 * root.s
+                        opacity: Math.min(1, tile.commitProgress * 3)
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0.0; color: Qt.alpha(Theme.flameGlow, 0.0) }
+                            GradientStop { position: 0.5; color: Theme.flameGlow }
+                            GradientStop { position: 1.0; color: Qt.alpha(Theme.flameGlow, 0.0) }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    anchors.top: parent.top
+                    anchors.left: parent.left
+                    anchors.margins: 5 * root.s
+                    visible: tile.motion
+                    width: motionText.implicitWidth + 9 * root.s
+                    height: motionText.implicitHeight + 4 * root.s
+                    radius: height / 2
+                    color: Qt.rgba(0, 0, 0, 0.55)
+
+                    Text {
+                        id: motionText
+                        anchors.centerIn: parent
+                        text: "▶"
+                        color: Theme.cream
+                        font.family: Theme.font
+                        font.pixelSize: 7.5 * root.s
+                    }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: tile.focused && tile.remote && dlProc.running && dlProc.target === tile.modelData.image
+                    text: "saving…"
+                    color: Theme.cream
+                    font.family: Theme.font
+                    font.pixelSize: 11 * root.s
+                }
+
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottomMargin: 6 * root.s
+                    visible: tile.focused && tile.resLabel.length > 0 && !(tile.remote && dlProc.running && dlProc.target === tile.modelData.image)
+                    width: resText.implicitWidth + 12 * root.s
+                    height: resText.implicitHeight + 5 * root.s
+                    radius: height / 2
+                    color: Qt.rgba(0, 0, 0, 0.55)
+                    Text {
+                        id: resText
+                        anchors.centerIn: parent
+                        text: tile.resLabel.replace("x", "×")
+                        color: Theme.bright
+                        font.family: Theme.font
+                        font.pixelSize: 9.5 * root.s
+                        font.features: { "tnum": 1 }
+                    }
+                }
+            }
+
+            Rectangle {
+                anchors.fill: parent
+                radius: tile.corner
+                color: "transparent"
+                border.width: 1
+                border.color: {
+                    if (tile.remote && dlProc.failed.length && dlProc.failed === tile.modelData.image)
+                        return Theme.vermLit;
+                    return tile.committing ? Theme.vermLit : Theme.border;
+                }
+                Behavior on border.color { ColorAnimation { duration: Motion.fast } }
+            }
+
+            HeatHold {
+                id: trashHeat
+                tapThreshold: 0.25
+                enabled: !tile.remote && !tile.dead
+                onConfirmed: if (!tile.remote && !tile.dead) Walls.trash(tile.modelData.path)
+                onTapped: root.activate()
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onPressed: {
+                    if (!tile.focused)
+                        return;
+                    if (tile.remote)
+                        root.activate();
+                    else
+                        trashHeat.press();
+                }
+                onReleased: if (tile.focused && !tile.remote) trashHeat.release()
+                onExited: trashHeat.cancel()
+                onClicked: if (!tile.focused) root.focusIndex = tile.gridIndex
+            }
+
+            /**
+             * Per-screen picker riding the focused tile's upper right corner.
+             * Hovering a screen rect names it in the backing pill and lights
+             * it, so the miniature reads as "send this pick to that monitor"
+             * without a legend. Sits above the tile's press area, so a click
+             * here never reaches the trash HeatHold underneath.
+             */
+            Rectangle {
+                id: monPick
+
+                property string hoverOut: ""
+
+                onHoverOutChanged: if (tile.focused) root.monHover = hoverOut
+
+                visible: tile.focused && !tile.remote && root.monMap.tiles.length > 0
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 5 * root.s
+                width: hoverLabel.width + screenRects.width + 12 * root.s
+                height: screenRects.height + 8 * root.s
+                radius: 6 * root.s
+                color: Qt.rgba(0, 0, 0, 0.62)
+
+                Behavior on width { NumberAnimation { duration: Motion.fast } }
+
+                Text {
+                    id: hoverLabel
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.right: screenRects.left
+                    anchors.rightMargin: monPick.hoverOut.length > 0 ? 6 * root.s : 0
+                    width: monPick.hoverOut.length > 0 ? implicitWidth : 0
+                    clip: true
+                    text: monPick.hoverOut
+                    color: Theme.cream
+                    font.family: Theme.font
+                    font.pixelSize: 9 * root.s
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 0.3 * root.s
+                }
+
+                Item {
+                    id: screenRects
+                    anchors.right: parent.right
+                    anchors.rightMargin: 5 * root.s
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: root.monMap.w
+                    height: root.monMap.h
+
+                    Repeater {
+                        model: root.monMap.tiles
+
+                        delegate: Rectangle {
+                            id: mrect
+                            required property var modelData
+
+                            x: mrect.modelData.x + 0.75 * root.s
+                            y: mrect.modelData.y + 0.75 * root.s
+                            width: Math.max(2, mrect.modelData.w - 1.5 * root.s)
+                            height: Math.max(2, mrect.modelData.h - 1.5 * root.s)
+                            radius: 3 * root.s
+                            color: monHover.hovered ? Qt.alpha(Theme.vermLit, 0.45) : Qt.rgba(1, 1, 1, 0.10)
+                            border.width: 1
+                            border.color: monHover.hovered ? Theme.vermLit : Qt.rgba(1, 1, 1, 0.35)
+
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                            Behavior on border.color { ColorAnimation { duration: Motion.fast } }
+
+                            HoverHandler {
+                                id: monHover
+                                onHoveredChanged: monPick.hoverOut = hovered ? mrect.modelData.name : (monPick.hoverOut === mrect.modelData.name ? "" : monPick.hoverOut)
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: Walls.apply(tile.modelData.path, mrect.modelData.name)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Text {
+        anchors.centerIn: parent
+        visible: root.itemCount === 0 && !searchProc.running && !root.whBlocked
+        text: {
+            if (root.whSource)
+                return root.query.length ? "no wallhaven results" : "no wallhaven wallpapers";
+            if (root.searching && root.query.length)
+                return "no wallpapers match";
+            if (root.kindFilter === "motion")
+                return "no live wallpapers yet";
+            if (root.kindFilter === "still")
+                return "no still wallpapers";
+            return "No wallpapers in " + Walls.wpDir;
+        }
+        color: Theme.faint
+        font.family: Theme.font
+        font.pixelSize: 10.5 * root.s
+    }
+
+    /**
+     * Wallhaven chunk paging: a prev/next chevron at each strip edge. Each press
+     * drops the current results and loads the neighbouring page (first seen or
+     * missed), so nothing accumulates and the strip never grows unboundedly.
+     * Hidden unless the strip is in wallhaven browse mode.
+     */
+    Rectangle {
+        id: whPrev
+        anchors.left: parent.left
+        anchors.leftMargin: 8 * root.s
+        anchors.verticalCenter: parent.verticalCenter
+        visible: (root.whSource && root.whPage > 1) || (root.wwSource && root.wwPage > 0)
+        z: 40
+        width: 22 * root.s
+        height: 22 * root.s
+        radius: height / 2
+        color: whPrevHover.hovered ? Theme.frameBg : "transparent"
+
+        GlyphIcon {
+            anchors.centerIn: parent
+            width: 12 * root.s
+            height: 12 * root.s
+            name: "chevron-left"
+            color: whPrevHover.hovered ? Theme.vermLit : Theme.iconDim
+            stroke: 2
+        }
+
+        HoverHandler { id: whPrevHover }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.whPageMove(-1)
+        }
+    }
+
+    Rectangle {
+        id: whNext
+        anchors.right: parent.right
+        anchors.rightMargin: 8 * root.s
+        anchors.verticalCenter: parent.verticalCenter
+        visible: root.whSource || (root.wwSource && (root.wwTotal <= 0 || (root.wwPage + 1) * 17 < root.wwTotal))
+        z: 40
+        width: 22 * root.s
+        height: 22 * root.s
+        radius: height / 2
+        color: whNextHover.hovered ? Theme.frameBg : "transparent"
+
+        GlyphIcon {
+            anchors.centerIn: parent
+            width: 12 * root.s
+            height: 12 * root.s
+            name: "chevron-right"
+            color: whNextHover.hovered ? Theme.vermLit : Theme.iconDim
+            stroke: 2
+        }
+
+        HoverHandler { id: whNextHover }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.whPageMove(1)
+        }
+    }
+
+    Text {
+        anchors.centerIn: parent
+        visible: searchProc.running && !root.whBlocked
+        text: "searching…"
+        color: Theme.faint
+        font.family: Theme.font
+        font.pixelSize: 10.5 * root.s
+    }
+
+    Text {
+        anchors.centerIn: parent
+        visible: (root.whSource || root.wwSource) && root.whBlocked
+        text: root.whSource ? "wallhaven blocked · retrying in a minute" : "wallwidgy blocked · retrying in a minute"
+        color: Theme.vermLit
+        font.family: Theme.font
+        font.pixelSize: 10.5 * root.s
+        opacity: 0.9
+    }
+
+    component HintKey: Row {
+        id: hk
+
+        property string key: ""
+        property string caption: ""
+
+        spacing: 5 * root.s
+
+        Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            width: keyText.implicitWidth + 11 * root.s
+            height: keyText.implicitHeight + 6 * root.s
+            radius: 5 * root.s
+            color: Theme.frameBg
+            border.width: 1
+            border.color: Theme.hairSoft
+
+            Text {
+                id: keyText
+                anchors.centerIn: parent
+                text: hk.key
+                color: Theme.cream
+                font.family: Theme.font
+                font.pixelSize: 8.5 * root.s
+                font.weight: Font.DemiBold
+                font.letterSpacing: 0.5 * root.s
+            }
+        }
+
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: hk.caption
+            color: Theme.faint
+            font.family: Theme.font
+            font.pixelSize: 9.5 * root.s
+            font.weight: Font.Medium
+            font.letterSpacing: 0.3 * root.s
+        }
+    }
+
+    /**
+     * Gesture legend: keycap chips for tap / corner / hold instead of one grey
+     * text line. Hovering a screen rect swaps the whole legend for a single
+     * "set on <output> only" caption, so the corner action explains itself the
+     * moment it is about to happen.
+     */
+    Item {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 9 * root.s
+        width: hintLegend.width
+        height: hintLegend.height
+        visible: root.itemCount > 0 && !root.searching && !root.whSource
+        opacity: (root.hintShown || root.monHover.length > 0) ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: Motion.standard } }
+
+        Row {
+            id: hintLegend
+            spacing: 14 * root.s
+            visible: root.monHover.length === 0
+
+            HintKey { key: "tap"; caption: root.monMap.tiles.length > 0 ? "set all" : "set" }
+            HintKey { visible: root.monMap.tiles.length > 0; key: "corner"; caption: "one screen" }
+            HintKey { key: "hold"; caption: "delete" }
+        }
+
+        Text {
+            anchors.centerIn: parent
+            visible: root.monHover.length > 0
+            text: "set on " + root.monHover + " only"
+            color: Theme.cream
+            font.family: Theme.font
+            font.pixelSize: 10 * root.s
+            font.weight: Font.DemiBold
+            font.letterSpacing: 0.4 * root.s
+        }
+    }
+
+    MouseArea {
+        id: wheelArea
+        anchors.fill: parent
+        z: 20
+        acceptedButtons: Qt.NoButton
+        property real acc: 0
+        onWheel: (event) => {
+            acc += event.angleDelta.y / 120;
+            const notches = Math.trunc(acc);
+            if (notches !== 0) {
+                root.move(-notches);
+                acc -= notches;
+            }
+            event.accepted = true;
+        }
+    }
+}

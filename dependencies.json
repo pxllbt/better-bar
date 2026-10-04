@@ -1,0 +1,189 @@
+{
+  "_schema": "Declared dependency manifest. This file is the single source of truth: scripts/check-deps.sh reads it, remote-install.sh reads it, and DEPENDENCIES.md documents it. Add a dependency HERE rather than to a script's own list, so the installer, the post-update report and the docs cannot drift apart. The schema of one entry:",
+  "_entry": "{ \"id\": stable identifier, \"check\": how to detect presence, \"pkg\": package name(s) that provide it, \"why\": what breaks without it, \"nudge\": (optional, default false) true only if the installer should mention it when absent }",
+  "_checks": "{ \"bin\": one executable on PATH } | { \"bins\": ALL of these executables } | { \"anyBin\": at least one of these executables } | { \"path\": a filesystem path that must exist (for things with no executable, e.g. a QML module) }",
+  "_core": "Required for the shell to work. A missing core dependency is reported loudly.",
+  "_optional": "Adds a feature that degrades gracefully when absent. Never blocks anything.",
+
+  "core": [
+    {
+      "id": "quickshell",
+      "check": { "bin": "quickshell" },
+      "pkg": ["quickshell"],
+      "why": "the shell runtime itself — nothing starts without it"
+    },
+    {
+      "id": "hyprland",
+      "check": { "bin": "hyprctl" },
+      "pkg": ["hyprland"],
+      "why": "IPC for workspaces, monitors, dispatch and reload"
+    },
+    {
+      "id": "notify",
+      "check": { "bin": "notify-send" },
+      "pkg": ["libnotify"],
+      "why": "desktop notifications for the pill and for these dependency reports"
+    },
+    {
+      "id": "jq",
+      "check": { "bin": "jq" },
+      "pkg": ["jq"],
+      "why": "JSON parsing in the helper scripts, and for reading this manifest"
+    },
+    {
+      "id": "xdg-open",
+      "check": { "bin": "xdg-open" },
+      "pkg": ["xdg-utils"],
+      "why": "opening files and links, including the dependency report page"
+    },
+    {
+      "id": "upower",
+      "check": { "bin": "upower" },
+      "pkg": ["upower"],
+      "why": "battery status and charge reporting"
+    },
+    {
+      "id": "bluetooth",
+      "check": { "bin": "bluetoothctl" },
+      "pkg": ["bluez-utils"],
+      "pkgAlt": {
+        "apt-get": ["bluez"],
+        "dnf": ["bluez"],
+        "zypper": ["bluez"],
+        "apk": ["bluez"]
+      },
+      "why": "the bluetooth surface"
+    },
+    {
+      "id": "networkmanager",
+      "check": { "bin": "nmcli" },
+      "pkg": ["networkmanager"],
+      "why": "the wifi surface"
+    },
+    {
+      "id": "brightnessctl",
+      "check": { "bin": "brightnessctl" },
+      "pkg": ["brightnessctl"],
+      "why": "internal laptop backlight control"
+    },
+    {
+      "id": "hyprsunset",
+      "check": { "bin": "hyprsunset" },
+      "pkg": ["hyprsunset"],
+      "why": "the night light"
+    },
+    {
+      "id": "awww",
+      "check": { "bins": ["awww", "awww-daemon"] },
+      "pkg": ["awww"],
+      "why": "the wallpaper backend (client and daemon)"
+    },
+    {
+      "id": "wallpaper-tools",
+      "check": { "bins": ["curl", "magick", "python3", "ffmpeg"] },
+      "pkg": ["curl", "imagemagick", "python", "ffmpeg"],
+      "why": "wallpaper download, thumbnails, palette generation and video-wallpaper stills"
+    },
+    {
+      "id": "cava",
+      "check": { "bin": "cava" },
+      "pkg": ["cava"],
+      "why": "the music visualiser"
+    },
+    {
+      "id": "clipboard",
+      "check": { "bins": ["cliphist", "wl-paste"] },
+      "pkg": ["cliphist", "wl-clipboard"],
+      "why": "the clipboard history surface"
+    },
+    {
+      "id": "screen-record-picker",
+      "check": { "bin": "slurp" },
+      "pkg": ["slurp"],
+      "why": "the window/region picker for screen recording"
+    }
+  ],
+
+  "optional": [
+    {
+      "id": "gpu-screen-recorder",
+      "check": { "bin": "gpu-screen-recorder" },
+      "pkg": ["gpu-screen-recorder"],
+      "why": "the screen-recording backend — recording is disabled without it",
+      "nudge": true
+    },
+    {
+      "id": "mpvpaper",
+      "check": { "bin": "mpvpaper" },
+      "pkg": ["mpvpaper"],
+      "why": "animated / video wallpapers",
+      "nudge": true
+    },
+    {
+      "id": "matugen",
+      "check": { "bin": "matugen" },
+      "pkg": ["matugen"],
+      "why": "Material base16 palettes (always-dark terminal theme, dynamic wallpaper palette)",
+      "nudge": true
+    },
+    {
+      "id": "ddcutil",
+      "check": { "bin": "ddcutil" },
+      "pkg": ["ddcutil"],
+      "why": "monitor brightness via DDC (external display faders)",
+      "nudge": true
+    },
+    {
+      "id": "folder-picker",
+      "check": { "anyBin": ["kdialog", "zenity"] },
+      "pkg": ["kdialog", "zenity"],
+      "why": "the native folder picker for the record output directory",
+      "nudge": true
+    },
+    {
+      "id": "power-profiles-daemon",
+      "check": { "service": "power-profiles-daemon" },
+      "pkg": ["power-profiles-daemon"],
+      "why": "the power-profile picker on the battery hover — the row shows \"Not installed\" without it, and it isn't needed on desktops",
+      "nudge": true
+    },
+    {
+      "id": "hyprlock",
+      "check": { "bin": "hyprlock" },
+      "pkg": ["hyprlock"],
+      "why": "the default lock backend — without it the lock falls back to the built-in Quickshell one, and the LOCK settings surface hides the option",
+      "nudge": true
+    },
+    {
+      "id": "grim",
+      "check": { "bin": "grim" },
+      "pkg": ["grim"],
+      "why": "the screen capture behind the lock's capture backdrop — without it that backdrop falls back to the wallpaper",
+      "nudge": true
+    },
+    {
+      "id": "kitty",
+      "check": { "bin": "kitty" },
+      "pkg": ["kitty"],
+      "why": "live terminal palette reload via `kitty @ set-colors` (needs `allow_remote_control yes`, and `include ~/.cache/better/kitty-colors` for persistence)"
+    },
+    {
+      "id": "ghostty",
+      "check": { "bin": "ghostty" },
+      "pkg": ["ghostty"],
+      "why": "live terminal palette reload over D-Bus"
+    },
+    {
+      "id": "fastfetch",
+      "check": { "bin": "fastfetch" },
+      "pkg": ["fastfetch"],
+      "why": "the recoloured system readout (needs `~/.config/fastfetch/config.jsonc.in`)"
+    },
+    {
+      "id": "hypridle",
+      "check": { "bin": "hypridle" },
+      "pkg": ["hypridle"],
+      "why": "idle / DPMS lock integration alongside the built-in keep-awake"
+    }
+  ]
+}
