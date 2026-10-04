@@ -78,7 +78,7 @@ Clones to `~/.local/share/quickshell/better-bar`, checks dependencies, hides the
   hl.bind(var_mainMod .. " + L", hl.dsp.exec_cmd("/home/username/.local/share/quickshell/better-bar/scripts/lock.sh"))
   ```
 
-  It uses `hyprlock` if you have it, otherwise its own Quickshell lockscreen — set the backend under **Lock** in settings. Point it at your own `hyprlock.conf` if you'd rather configure the lock your own way.
+  It runs `hyprlock`, configured by your own `hyprlock.conf` — Better Bar ships none and generates none, so the lock looks exactly like it does everywhere else on your desktop.
 
 ## Plugins
 

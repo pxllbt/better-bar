@@ -344,7 +344,6 @@ Singleton {
         { cap: "recorder", re: "screen ?recorder|screen ?recording|screenrecord|gpu.screen.recorder" },
         { cap: "launcher", re: "app ?launcher|launcher|application menu|command menu|application drawer" },
         { cap: "clipboard", re: "clipboard manager|clipboard history|cliphist|clipboard" },
-        { cap: "lock", re: "lock ?screen|lockscreen|screen lock" },
         { cap: "power", re: "power menu|power options|power profile|power panel|power" },
         { cap: "mixer", re: "volume mixer|audio mixer|per.app mixer|mixer|volume control|volume slider" },
         { cap: "weather", re: "weather|forecast|meteo" },
@@ -394,7 +393,7 @@ Singleton {
      * own surface comes back.
      */
     readonly property var ownCapabilities: ({
-        recorder: 1, launcher: 1, clipboard: 1, lock: 1, power: 1,
+        recorder: 1, launcher: 1, clipboard: 1, power: 1,
         mixer: 1, weather: 1, clock: 1, calendar: 1, wifi: 1,
         bluetooth: 1, media: 1, wallpaper: 1, osd: 1, appearance: 1,
         plugins: 1, update: 1, dock: 1,
@@ -409,7 +408,7 @@ Singleton {
      */
     readonly property var surfaceCapability: ({
         recorder: "recorder", launcher: "launcher", clipboard: "clipboard",
-        lock: "lock", power: "power", mixer: "mixer", weather: "weather",
+        power: "power", mixer: "mixer", weather: "weather",
         calendar: "calendar", wifi: "wifi", bt: "bluetooth",
         media: "media", wallpaper: "wallpaper", osd: "osd",
         appearance: "appearance", plugins: "plugins", update: "update",

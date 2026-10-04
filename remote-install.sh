@@ -77,9 +77,9 @@ Add these to your Hyprland config:
     hl.bind(var_mainMod .. " + slash",     hl.dsp.exec_cmd("%s ipc call better launcher \\\"\\\""))
     hl.bind(var_mainMod .. " + L",         hl.dsp.exec_cmd("%s/scripts/lock.sh"))
 
-  Lock is a script, not an IPC surface. It uses hyprlock if you have it,
-  otherwise its own Quickshell lockscreen — set the backend under Lock in
-  settings once it is running.
+  Lock is a script, not an IPC surface. It runs hyprlock,
+  configured by your own hyprlock.conf — Better Bar ships none
+  and generates none.
 
   Launch manually:
     quickshell --config %s

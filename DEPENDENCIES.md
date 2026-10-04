@@ -37,8 +37,7 @@ ones you actually want.
 | `ddcutil` | monitor brightness via DDC (external display faders) |
 | `kdialog` / `zenity` | the native folder picker for the record output directory |
 | `power-profiles-daemon` | the power-profile picker on the battery hover — the row shows "Not installed" without it, and it isn't needed on desktops |
-| `hyprlock` | the lock backend the shell prefers — without it the lock falls back to the Quickshell lockscreen, which has its own background, blur, avatar and indicator settings |
-| `grim` | the screen capture behind the lock's capture backdrop — without it that backdrop falls back to the wallpaper |
+| `hyprlock` | the lock backend — the Lock action and the SUPER,L keybind run it, configured by your own `hyprlock.conf` |
 | `kitty` | live terminal palette reload via `kitty @ set-colors` (needs `allow_remote_control yes`, and `include ~/.cache/better/kitty-colors` for persistence) |
 | `ghostty` | live terminal palette reload over D-Bus |
 | `fastfetch` | the recoloured system readout (needs `~/.config/fastfetch/config.jsonc.in`) |

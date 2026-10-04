@@ -13,7 +13,7 @@ that follow it:
 - **Better Bar** by pixllbeat — the modifications: the plugin
   capability registry and provider handover, the stock-plugin
   suppression, the host-shell compatibility layer, the screen
-  recorder and lockscreen, and the release itself. MIT,
+  recorder, and the release itself. MIT,
   Copyright (c) 2026 pixllbeat.
 
 Both upstream projects are MIT licensed; the full license text, with
