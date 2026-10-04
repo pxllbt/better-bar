@@ -277,19 +277,24 @@ wwsearch() {
         fi
     fi
 
-    # Filter to desktop wallpapers of the collection, newest first,
-    # then slice the page out. Thumbs and images share a URL: the
-    # paced thumb cache stores the full image, which the tile then
-    # renders from disk. Real dimensions ride along for the caption.
-    jq -c --arg cat "$cat" --arg u "https://raw.githubusercontent.com/not-ayan/storage/main/main/" \
+    # Filter to desktop wallpapers of the collection, newest
+    # first, then slice the page out. The thumb is the
+    # collection's pre-scaled webp cache variant (a few tens
+    # of KB) rather than the multi-megabyte master the image
+    # field names — the strip renders tiles, not wallpapers,
+    # and the master is fetched only when a pick is applied.
+    jq -c --arg cat "$cat" --arg u "https://raw.githubusercontent.com/not-ayan/storage/main/" \
         --argjson skip "$(( page * count ))" --argjson take "$count" '
         ([.[] | select(.orientation == "Desktop" and .file_main_name != null and .file_main_name != "")]
          | if $cat == "all" then .
            else map(select((.category // "") | ascii_downcase == ("#" + ($cat | ascii_downcase)))) end
          | sort_by(.timestamp) | reverse) as $all
-        | {
+         | {
             wallpapers: ($all[$skip : ($skip + $take)]
-              | map({ image: ($u + .file_main_name), thumb: ($u + .file_main_name),
+              | map({ image: ($u + "main/" + .file_main_name),
+                      thumb: (if (.file_cache_name // "") != ""
+                              then ($u + "cache/" + .file_cache_name)
+                              else ($u + "main/" + .file_main_name) end),
                       w: (.width // 0), h: (.height // 0) })),
             total: ($all | length)
           }
@@ -309,38 +314,65 @@ thumbget() {
     base="${XDG_CACHE_HOME:-$HOME/.cache}/better/wh-thumbs"
     mkdir -p "$base"
     digest=$(printf '%s\n' "$url" | sha1sum | cut -c1-24)
-    cache="$base/$digest"
+    # The cache holds the resized JPEG, so the suffix is part
+    # of the name. Qt decodes by content, and the LRU prune
+    # below counts the directory either way.
+    cache="$base/$digest.jpg"
     [ -s "$cache" ] && { printf '%s\n' "$cache"; exit 0; }
-    wh_gate
+    # The rate gate exists for wallhaven's API budget. The
+    # WallWidgy thumbnails come from GitHub's raw CDN, which
+    # has no such budget, so they fetch without it -- the
+    # fetch pool on the QML side already bounds how many run
+    # at once.
+    case "$url" in
+        *wallhaven.cc*) wh_gate ;;
+    esac
     tmp="$base/.$digest.tmp"
     trap 'rm -f "$tmp"' EXIT
-    curl -fsSL --max-time 25 -A "$UA" -e "https://wallhaven.cc/" -o "$tmp" "$url" \
+    curl -fsSL --max-time 25 -A "$UA" -o "$tmp" "$url" \
         || exit 1
     [ -s "$tmp" ] || exit 1
-    mv "$tmp" "$cache"
-    # WallWidgy serves full-size images where wallhaven serves thumbs,
-    # and the largest of them decode past Qt's 256MB image allocation
-    # limit, which blanks the tile. Shrink anything wider or taller
-    # than a tile ever needs to a 720px thumb before caching it: the
-    # cache name is extensionless and Qt decodes by content, so the
-    # swap is invisible to the strip, and the LRU prune below keeps
-    # far more thumbs inside the same budget.
+    # Shrink anything a tile never needs to a 720px JPEG
+    # before caching it. Wallhaven serves ready-made thumbs
+    # and WallWidgy's cache variant is a pre-scaled webp,
+    # so most fetches are already inside the box and are
+    # cached untouched -- no decode, no encode, no CPU. The
+    # ones that are not go through vips when it is
+    # installed: it resizes in a single pass at a fraction
+    # of ImageMagick's CPU and memory, and writes JPEG, a
+    # tenth the size of the PNG it replaces. ImageMagick
+    # stays as the fallback.
     local dim w h
-    export MAGICK_CONFIGURE_PATH="$(dirname "$0")/magick-policy"
-    dim=$(magick identify -format '%w %h' "$cache" 2>/dev/null | head -1) || dim=""
-    case "$dim" in
-        *[!0-9\ ]*) dim="" ;;
-    esac
-    if [ -n "$dim" ]; then
-        w=${dim%% *}
-        h=${dim##* }
-        if [ "$w" -gt 720 ] || [ "$h" -gt 720 ]; then
-            if magick "$cache" -resize '720x720>' "$cache.down" 2>/dev/null && [ -s "$cache.down" ]; then
-                mv "$cache.down" "$cache"
-            else
-                rm -f "$cache.down"
-            fi
+    if command -v vipsheader >/dev/null 2>&1; then
+        # [0-9]+ (not *) so a bare "x" in the path -- the
+        # home directory is /home/pixllbeat -- cannot match
+        # ahead of the real dimensions.
+        dim=$(vipsheader "$tmp" 2>/dev/null | head -1 \
+              | grep -oE '[0-9]+x[0-9]+' | head -1 | tr 'x' ' ')
+    fi
+    if [ -z "$dim" ]; then
+        export MAGICK_CONFIGURE_PATH="$(dirname "$0")/magick-policy"
+        dim=$(magick identify -format '%w %h' "$tmp" 2>/dev/null | head -1) || dim=""
+        case "$dim" in
+            *[!0-9\ ]*) dim="" ;;
+        esac
+    fi
+    w=${dim%% *}
+    h=${dim##* }
+    if [ -n "$dim" ] && { [ "$w" -gt 720 ] || [ "$h" -gt 720 ]; }; then
+        if command -v vipsthumbnail >/dev/null 2>&1; then
+            vipsthumbnail "$tmp" -s 720x720 -o "$cache[Q=85]" \
+                >/dev/null 2>&1 && [ -s "$cache" ] || rm -f "$cache"
+        else
+            export MAGICK_CONFIGURE_PATH="$(dirname "$0")/magick-policy"
+            magick "$tmp" -resize '720x720>' -quality 85 "$cache" \
+                2>/dev/null && [ -s "$cache" ] || rm -f "$cache"
         fi
+        # A resize that failed leaves nothing behind: fall
+        # back to the fetched file as-is, decoded by content.
+        [ -s "$cache" ] || mv "$tmp" "$cache"
+    else
+        mv "$tmp" "$cache"
     fi
     local max_mb total old
     max_mb="${WH_THUMB_MAX_MB:-20}"
