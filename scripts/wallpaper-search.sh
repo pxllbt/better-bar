@@ -242,7 +242,7 @@ wwsearch() {
     case "$count" in
         ''|*[!0-9]*) count=17 ;;
     esac
-    [ "$count" -gt 100 ] && count=100
+    [ "$count" -gt 2000 ] && count=2000
     [ "$count" -lt 1 ] && count=1
     case "$page" in
         ''|*[!0-9]*) page=0 ;;

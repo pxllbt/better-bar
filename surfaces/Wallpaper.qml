@@ -68,12 +68,8 @@ PillSurface {
     /** True while the wallhaven search field holds keyboard focus; shell.qml routes bare keys to the field only while it's false. */
     readonly property bool whTyping: searchField.input.activeFocus
     property var wallResults: []
-    /** The current WallWidgy page: desktop wallpapers sliced out of the collection index the script caches, newest first. */
+    /** The whole WallWidgy collection: desktop wallpapers sliced out of the index the script caches, newest first. The strip holds the collection whole and the focus wraps, so it scrolls without end and nothing pages. */
     property var wwResults: []
-    /** Which WallWidgy page the strip shows; the chevrons move it through the filtered collection. */
-    property int wwPage: 0
-    /** How many desktop wallpapers the current WallWidgy collection holds, so paging stops at the last page. */
-    property int wwTotal: 0
     /** True while a remote source answers with a block or error page; the strip stops fetching and retries on its own timer. */
     property bool whBlocked: false
     /** Disk-cache mapping for remote thumbs: wallhaven URL -> local path, warmed by `thumbPump`. */
@@ -110,6 +106,8 @@ PillSurface {
         return false;
     }
     property int whPage: 1
+    /** True while the next wallhaven page is being fetched to extend the strip (infinite scroll), as opposed to replacing it. */
+    property bool whAppending: false
     /** Wallhaven sort bucket: hot (default), latest, top, random. No favorites:
      * it is all-time static, so the dropdown deliberately omits it. */
     property string whSort: "hot"
@@ -307,6 +305,9 @@ PillSurface {
         previewArmed = false;
         previewArm.restart();
         root.setWindow(root.focusWindow());
+        // Warm the thumbs the strip is gliding into, so a
+        // scroll never outruns its own thumbnails.
+        root.enqueueThumbs(focusIndex - 6, focusIndex + root.tileSlots + 2);
     }
 
     Timer {
@@ -355,10 +356,32 @@ PillSurface {
         return (off < 0 ? -cx : cx) * s;
     }
 
+    /**
+     * Move focus by `delta` tiles, wrapping at either end: the
+     * strip has no first or last tile, so wheeling or arrowing
+     * through it never stops. A wrap is a jump, not a glide —
+     * the view snaps, or the chase animation would sweep every
+     * tile in between. In wallhaven mode, nearing the end of
+     * what is loaded pulls the next page in, so the feed grows
+     * as it is scrolled.
+     */
     function move(delta) {
         if (itemCount === 0)
             return;
-        focusIndex = Math.max(0, Math.min(itemCount - 1, focusIndex + delta));
+        var old = focusIndex;
+        var n = (focusIndex + delta) % itemCount;
+        if (n < 0)
+            n += itemCount;
+        if (n === old)
+            return;
+        focusIndex = n;
+        if (Math.abs(n - old) > itemCount / 2)
+            pos = n;
+        if (root.whSource && !root.whAppending && !root.whBlocked
+            && !searchProc.running
+            && focusIndex >= root.wallResults.length - 4) {
+            root.loadWallhavenNext();
+        }
     }
 
     FrameAnimation {
@@ -516,54 +539,29 @@ PillSurface {
     }
 
     /**
-     * (Re)load a WallWidgy page. The script caches the collection
-     * index, so each call only slices the requested page out of the
-     * chosen collection — the server holds no paging of its own.
+     * Load the whole WallWidgy collection. The script caches the
+     * collection index, so one call slices every entry out of it —
+     * the server holds no paging of its own — and the strip then
+     * holds the collection whole, wrapped, with no paging at all.
      */
     function refreshWallwidgy() {
-        searchProc.command = ["bash", root.searchScript, "wwsearch", root.wwCategory, "17", String(root.wwPage)];
+        searchProc.command = ["bash", root.searchScript, "wwsearch", root.wwCategory, "2000", "0"];
         searchProc.running = true;
     }
 
     /**
-     * Chevron paging. The chevrons are shared: in wallwidgy mode they
-     * page the cached collection index instead of the wallhaven feed.
+     * Pull the next wallhaven page in to extend the strip: the
+     * feed has no last page, so scrolling into the tail of what
+     * is loaded fetches more rather than stopping. The page
+     * appends (see the search handler) so everything already
+     * loaded — and its warmed thumb cache — stays put.
      */
-    function whPageMove(dir) {
-        if (root.wwSource) {
-            root.wwPageMove(dir);
+    function loadWallhavenNext() {
+        if (!root.whSource || root.whBlocked || searchProc.running)
             return;
-        }
-        if (!root.whSource || dlProc.running)
-            return;
-        var next = root.whPage + dir;
-        if (next < 1)
-            return;
-        root.whPage = next;
-        root.wallResults = [];
-        root.focusIndex = 0;
-        root.pos = 0;
-        root.refreshWallhaven(next);
-    }
-
-    /**
-     * Chevron paging for wallwidgy. Pages are slices of the cached
-     * collection index, so moving never refetches the index itself;
-     * the bounds come from the total the last fetch reported.
-     */
-    function wwPageMove(dir) {
-        if (!root.wwSource || dlProc.running)
-            return;
-        var next = root.wwPage + dir;
-        if (next < 0)
-            return;
-        if (dir > 0 && root.wwTotal > 0 && (next + 1) * 17 > root.wwTotal)
-            return;
-        root.wwPage = next;
-        root.wwResults = [];
-        root.focusIndex = 0;
-        root.pos = 0;
-        root.refreshWallwidgy();
+        root.whAppending = true;
+        root.whPage += 1;
+        root.refreshWallhaven(root.whPage);
     }
 
     /**
@@ -577,6 +575,7 @@ PillSurface {
         if (!root.whSource)
             return;
         root.whPage = 1;
+        root.whAppending = false;
         root.wallResults = [];
         root.focusIndex = 0;
         root.pos = 0;
@@ -614,6 +613,7 @@ PillSurface {
                 searchField.text = "";
             }
             root.whSource = true;
+            root.whAppending = false;
             root.wallResults = [];
             root.focusIndex = 0;
             root.pos = 0;
@@ -646,7 +646,6 @@ PillSurface {
                 searchField.text = "";
             }
             root.wwSource = true;
-            root.wwPage = 0;
             root.wwResults = [];
             root.focusIndex = 0;
             root.pos = 0;
@@ -732,8 +731,6 @@ PillSurface {
         searchField.text = "";
         wallResults = [];
         whSource = false;
-        wwPage = 0;
-        wwTotal = 0;
         wwResults = [];
         wwSource = false;
         thumbQueue = [];
@@ -902,17 +899,31 @@ PillSurface {
                     out = parsed.wallpapers;
                 if (root.whSource) {
                     root.whBlocked = false;
-                    root.wallResults = out;
-                    root.thumbLocal = {};
-                    root.enqueueThumbs();
-                    root.focusIndex = 0;
-                    root.pos = 0;
+                    if (root.whAppending) {
+                        // A page fetched to extend the strip: keep
+                        // what is loaded and its warmed thumb cache,
+                        // grow the list, and warm only the tail
+                        // that is about to scroll into view.
+                        var base = root.wallResults.length;
+                        root.wallResults = base ? root.wallResults.concat(out) : out;
+                        root.whAppending = false;
+                        root.enqueueThumbs(base, base + out.length);
+                    } else {
+                        root.wallResults = out;
+                        root.thumbLocal = {};
+                        root.thumbQueue = [];
+                        root.enqueueThumbs(0, root.wallResults.length);
+                        root.focusIndex = 0;
+                        root.pos = 0;
+                    }
                 } else if (root.wwSource) {
                     root.whBlocked = false;
                     root.wwResults = out;
-                    root.wwTotal = (!Array.isArray(parsed) && parsed.total >= 0) ? parsed.total : out.length;
                     root.thumbLocal = {};
-                    root.enqueueThumbs();
+                    root.thumbQueue = [];
+                    // The collection is whole now; only the tiles
+                    // about to show need thumbs, not all of them.
+                    root.enqueueThumbs(0, Math.min(out.length, root.tileSlots + 4));
                     root.focusIndex = 0;
                     root.pos = 0;
                 }
@@ -929,15 +940,29 @@ PillSurface {
      * and tiles render from the cache file. The same cache keeps a page
      * browsable even while wallhaven is blocking us.
      */
-    function enqueueThumbs() {
-        root.thumbQueue = [];
+    /**
+     * Queue the thumbs for entries [from, to) of the current
+     * source. Called with a window, not the whole list: a
+     * collection of hundreds would otherwise spend the fetch
+     * budget on thumbnails no tile will show, and the tiles
+     * about to appear would wait behind them. Already-cached
+     * and already-queued urls are skipped, so the per-focus
+     * re-enqueues are free.
+     */
+    function enqueueThumbs(from, to) {
         var src = root.whSource ? root.wallResults : (root.wwSource ? root.wwResults : []);
+        if (from === undefined)
+            from = 0;
+        if (to === undefined || to > src.length)
+            to = src.length;
+        if (from < 0)
+            from = 0;
         var seen = {};
-        for (var i = 0; i < src.length; i++) {
-            var t = src[i].thumb;
+        for (var i = from; i < to; i++) {
+            var t = src[i] && src[i].thumb;
             if (t && typeof t === "string" && !(t in seen)) {
                 seen[t] = true;
-                if (!root.thumbLocal[t])
+                if (!root.thumbLocal[t] && root.thumbQueue.indexOf(t) === -1)
                     root.thumbQueue.push(t);
             }
         }
@@ -1143,6 +1168,7 @@ PillSurface {
         onPicked: (v) => {
             root.whSort = v;
             root.whPage = 1;
+            root.whAppending = false;
             root.wallResults = [];
             root.focusIndex = 0;
             root.pos = 0;
@@ -1188,7 +1214,6 @@ PillSurface {
         onChipClicked: root.toggleMenu(wwCatRow)
         onPicked: (v) => {
             root.wwCategory = v;
-            root.wwPage = 0;
             root.wwResults = [];
             root.focusIndex = 0;
             root.pos = 0;
@@ -1910,70 +1935,13 @@ PillSurface {
     }
 
     /**
-     * Wallhaven chunk paging: a prev/next chevron at each strip edge. Each press
-     * drops the current results and loads the neighbouring page (first seen or
-     * missed), so nothing accumulates and the strip never grows unboundedly.
-     * Hidden unless the strip is in wallhaven browse mode.
+     * Wallhaven chunk paging is gone: the strip scrolls
+     * infinitely instead. Wheel, arrow keys or a drag past
+     * the end of what is loaded pulls the next page in
+     * (loadWallhavenNext), and the focus wraps at either
+     * end, so there is nothing to page to and no chevron
+     * to click.
      */
-    Rectangle {
-        id: whPrev
-        anchors.left: parent.left
-        anchors.leftMargin: 8 * root.s
-        anchors.verticalCenter: parent.verticalCenter
-        visible: (root.whSource && root.whPage > 1) || (root.wwSource && root.wwPage > 0)
-        z: 40
-        width: 22 * root.s
-        height: 22 * root.s
-        radius: height / 2
-        color: whPrevHover.hovered ? Theme.frameBg : "transparent"
-
-        GlyphIcon {
-            anchors.centerIn: parent
-            width: 12 * root.s
-            height: 12 * root.s
-            name: "chevron-left"
-            color: whPrevHover.hovered ? Theme.vermLit : Theme.iconDim
-            stroke: 2
-        }
-
-        HoverHandler { id: whPrevHover }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.whPageMove(-1)
-        }
-    }
-
-    Rectangle {
-        id: whNext
-        anchors.right: parent.right
-        anchors.rightMargin: 8 * root.s
-        anchors.verticalCenter: parent.verticalCenter
-        visible: root.whSource || (root.wwSource && (root.wwTotal <= 0 || (root.wwPage + 1) * 17 < root.wwTotal))
-        z: 40
-        width: 22 * root.s
-        height: 22 * root.s
-        radius: height / 2
-        color: whNextHover.hovered ? Theme.frameBg : "transparent"
-
-        GlyphIcon {
-            anchors.centerIn: parent
-            width: 12 * root.s
-            height: 12 * root.s
-            name: "chevron-right"
-            color: whNextHover.hovered ? Theme.vermLit : Theme.iconDim
-            stroke: 2
-        }
-
-        HoverHandler { id: whNextHover }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.whPageMove(1)
-        }
-    }
 
     Text {
         anchors.centerIn: parent
