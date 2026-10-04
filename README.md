@@ -4,6 +4,19 @@
 
 Better Bar is a widget layer for Hyprland built around a morphing pill at the top of every monitor that expands in place into a control centre, plus a floating dock at the bottom edge for pinned and running apps. It runs as its own Quickshell process and replaces the stock Omarchy bar — it makes no changes to your existing Hyprland config.
 
+## Preview
+
+<p align="center">
+  <img src="preview/2026-10-05_00-10.png" width="49%" alt="Better Bar preview 1" />
+  <img src="preview/2026-10-05_00-11_1.png" width="49%" alt="Better Bar preview 2" />
+</p>
+
+<p align="center">
+  <img src="preview/2026-10-05_00-11.png" width="32%" alt="Better Bar preview 3" />
+  <img src="preview/2026-10-05_00-12.png" width="32%" alt="Better Bar preview 4" />
+  <img src="preview/2026-10-05_00-12_1.png" width="32%" alt="Better Bar preview 5" />
+</p>
+
 ## Features
 
 - **Dynamic island** — one morphing pill per monitor; every module grows its own surface out of it, in place.
