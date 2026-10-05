@@ -349,13 +349,29 @@ Singleton {
         { cap: "weather", re: "weather|forecast|meteo" },
         { cap: "clock", re: "clock|world clock|date/time|time and date" },
         { cap: "calendar", re: "calendar|agenda" },
+        // Wi-Fi QR must run before the wifi rule: the generic
+        // `wi.?fi` alternative would otherwise swallow it first,
+        // and a QR sharer is not a wifi manager.
+        { cap: "wifiqr", re: "wi.?fi qr|qr code" },
         { cap: "wifi", re: "wi.?fi|wireless network|network manager" },
         { cap: "bluetooth", re: "bluetooth" },
-        { cap: "battery", re: "battery status|battery level|charge level|battery widget" },
+        { cap: "battery", re: "battery status|battery level|charge level|battery widget|low battery|battery (warning|service|indicator|meter)" },
         { cap: "media", re: "media player|music player|mpris|media control" },
-        { cap: "wallpaper", re: "wallpaper|wallhaven" },
-        { cap: "osd", re: "\\bosd\\b|on.screen display" },
-        { cap: "appearance", re: "appearance|theme manager|themes|customisation|customization" },
+        // Wallpaper needs a purpose word, not a mention: "syncs to
+        // the wallpaper", "used for wallpapers" and "wallpaper
+        // widgets" are lock screens, pickers and settings panels,
+        // not wallpaper providers.
+        { cap: "wallpaper", re: "wallpaper\\s+(manager|setter|changer|switcher|daemon|slideshow|viewer|engine)|wallhaven|set\\s+(the\\s+)?wallpaper" },
+        { cap: "osd", re: "\\bosd\\b|on.screen display|status overlays?" },
+        // Display needs a purpose word, and it runs after the OSD
+        // rule on purpose: an overlay that mentions brightness is
+        // still an OSD, while a brightness slider with nothing else
+        // around it is the display job the bar's own surface takes.
+        { cap: "display", re: "brightness (slider|control|fader|keys?|stepper)|display (controls|settings|configuration|panel)|laptop display" },
+        // Appearance needs a purpose word too: "used for
+        // wallpapers, themes, and any other directory" is an
+        // image picker, not a theme manager.
+        { cap: "appearance", re: "appearance|theme manager|theme (switcher|engine|pack|changer)|customisation|customization" },
         { cap: "plugins", re: "plugin manager|plugin market|plugins" },
         { cap: "update", re: "update checker|system update|software update|updater" },
         { cap: "dock", re: "\\bdock\\b|taskbar" },
@@ -371,7 +387,7 @@ Singleton {
         { cap: "idle", re: "idle|dpms" },
         { cap: "polkit", re: "polkit" },
         { cap: "background", re: "wallpaper daemon|background service" },
-        { cap: "imagepicker", re: "image picker|screenshot picker" },
+        { cap: "imagepicker", re: "image ?picker|image[- ]?grid|screenshot picker|image selector" },
         { cap: "devgallery", re: "dev gallery|developer gallery" },
         { cap: "sysmon", re: "system monitor|sysmon|process monitor" },
     ]
@@ -393,9 +409,10 @@ Singleton {
      * own surface comes back.
      */
     readonly property var ownCapabilities: ({
-        recorder: 1, launcher: 1, clipboard: 1, power: 1,
-        mixer: 1, weather: 1, clock: 1, calendar: 1, wifi: 1,
+        recorder: 1, launcher: 1, clipboard: 1, notifications: 1,
+        power: 1, mixer: 1, weather: 1, clock: 1, calendar: 1, wifi: 1,
         bluetooth: 1, media: 1, wallpaper: 1, osd: 1, appearance: 1,
+        display: 1, nightlight: 1, sysmon: 1,
         plugins: 1, update: 1, dock: 1,
     })
 
@@ -408,9 +425,10 @@ Singleton {
      */
     readonly property var surfaceCapability: ({
         recorder: "recorder", launcher: "launcher", clipboard: "clipboard",
-        power: "power", mixer: "mixer", weather: "weather",
+        link: "notifications", power: "power", mixer: "mixer", weather: "weather",
         calendar: "calendar", wifi: "wifi", bt: "bluetooth",
         media: "media", wallpaper: "wallpaper", osd: "osd",
+        display: "display", sysmon: "sysmon",
         appearance: "appearance", plugins: "plugins", update: "update",
         dock: "dock",
     })
