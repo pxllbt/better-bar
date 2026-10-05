@@ -21,6 +21,10 @@ printf '%s\n' "$WPDIR" > "$RESOLVED"
 # No-op mode for the QML side: re-resolve the folder and exit before touching any daemon state.
 [ "${1:-}" = "resolve" ] && exit 0
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper"
+# Wallpapers the user has picked, one per line. Read by wallpaper_owner so a
+# pick that landed inside a theme's own backgrounds folder still counts as the
+# user's -- see the note there.
+PICK_MARKER="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-picks"
 MAP="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-map"
 BAG="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-bag"
 STILL="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-still.png"
@@ -417,6 +421,17 @@ wallpaper_owner() {
     resolved=$(readlink -f -- "$path" 2>/dev/null) || resolved=""
     [ -n "$resolved" ] && [ -f "$resolved" ] || { printf 'none\n'; return 0; }
 
+    # A recorded pick is the user's whatever folder it landed in. Checked
+    # before the path test, because the common case is a pick that landed in
+    # the theme's own backgrounds folder: sync_theme.py points the bar's picker
+    # there so the chooser shows the theme's set, which means most picks are
+    # theme-owned by path and a path test alone would let the next theme switch
+    # take them over -- the wallpaper disappearing again, one theme later.
+    if [ -f "$PICK_MARKER" ] && grep -qxF "$resolved" "$PICK_MARKER" 2>/dev/null; then
+        printf 'user\n'
+        return 0
+    fi
+
     theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null) || theme_name=""
 
     case "$resolved" in
@@ -424,6 +439,39 @@ wallpaper_owner() {
         "$HOME/.config/omarchy/backgrounds/$theme_name/"*)         printf 'theme\n' ;;
         *)                                                          printf 'user\n' ;;
     esac
+}
+
+# Record a wallpaper as the user's own pick.
+#
+# Called from the strip's apply path, which is the only place a wallpaper is
+# chosen on purpose. The marker is what lets ownership survive the pick landing
+# inside a theme's backgrounds folder -- see wallpaper_owner.
+#
+# Appended rather than replaced, and only while the file is one this session can
+# vouch for: a stale entry naming a deleted wallpaper would keep protecting a
+# path that no longer exists, so entries are pruned on every write instead of
+# accumulating. The marker is a convenience, not the record of what is on
+# screen -- that stays $STATE.
+mark_pick() {
+    local pic="${1:-}" resolved keep existing
+
+    resolved=$(readlink -f -- "$pic" 2>/dev/null) || return 0
+    [ -n "$resolved" ] && [ -f "$resolved" ] || return 0
+
+    mkdir -p "$(dirname "$PICK_MARKER")" || return 0
+
+    keep=$(mktemp "$PICK_MARKER.XXXXXX") || return 0
+    : > "$keep"
+    if [ -f "$PICK_MARKER" ]; then
+        while IFS= read -r existing; do
+            [ -n "$existing" ] || continue
+            [ "$existing" = "$resolved" ] && continue
+            [ -f "$existing" ] || continue
+            printf '%s\n' "$existing" >> "$keep"
+        done < "$PICK_MARKER"
+    fi
+    printf '%s\n' "$resolved" >> "$keep"
+    mv -f "$keep" "$PICK_MARKER" 2>/dev/null || rm -f "$keep"
 }
 
 # May $1 replace the wallpaper currently on screen? Exit 0 for yes.
@@ -455,6 +503,14 @@ should_apply() {
 # to decide whether to follow, and that must not start or wait on awww.
 if [ "$cmd" = "owner" ]; then
     wallpaper_owner "${2:-}"
+    exit 0
+fi
+
+# Record a pick. Reached before the daemon, because marking must work even when
+# awww is missing or wedged: the whole point is that the wallpaper survives
+# later, and a wallpaper that failed to paint is still the one the user chose.
+if [ "$cmd" = "mark-pick" ]; then
+    mark_pick "${2:-}"
     exit 0
 fi
 
@@ -521,6 +577,11 @@ elif [ "$cmd" = "set" ]; then
         esac
     done
     [ "$target" = "all" ] && target=""
+
+    # A pick is recorded before the wallpaper is painted, not after: the paint
+    # can fail (a missing codec, a full disk) and the wallpaper is still the
+    # one the user chose, so the marker must not depend on the paint landing.
+    [ -n "$force" ] && mark_pick "$pic"
 
     # A wallpaper the user owns outranks a theme wallpaper arriving on its
     # own, so refuse and put the symlink back. Both halves matter: without the

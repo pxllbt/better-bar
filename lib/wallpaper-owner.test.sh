@@ -13,7 +13,7 @@
 
 set -uo pipefail
 
-WALLSH="${1:?usage: wallpaper-owner.test.sh <path to wallpaper.sh>}"
+WALLSH="${1:?usage: owner.test.sh /path/to/wallpaper.sh}"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -128,6 +128,41 @@ setup
 state_on_disk ""
 ok "guard: an empty state file does not pin anything" \
     "$(may_apply "$THEME_BG")" "yes"
+
+# --- a pick inside the theme's own folder is still the user's -------------
+# sync_theme.py points the bar's picker at current/theme/backgrounds, so a
+# pick lands inside the theme folder. Its path therefore looks theme-owned, and
+# a path test alone would let the very next theme switch take it over -- which
+# is the wallpaper disappearing again, just slower.
+setup
+pick_in_theme="$THEME_BG"
+printf '%s\n' "$pick_in_theme" > "$XDG_STATE_HOME/better-wallpaper"
+bash "$WALLSH" mark-pick "$pick_in_theme" >/dev/null 2>&1
+ok "guard: a pick inside the theme's folder is protected" \
+    "$(may_apply "$USER_BG")" "no"
+
+setup
+other_theme_bg="$HOME/.local/state/omarchy/current/theme/backgrounds/horizon.png"
+cp "$THEME_BG" "$other_theme_bg" 2>/dev/null || vips black "$other_theme_bg" 64 64 2>/dev/null
+bash "$WALLSH" mark-pick "$THEME_BG" >/dev/null 2>&1
+printf '%s\n' "$THEME_BG" > "$XDG_STATE_HOME/better-wallpaper"
+ok "guard: a different wallpaper in the theme's folder is still refused" \
+    "$(may_apply "$other_theme_bg")" "no"
+
+setup
+bash "$WALLSH" mark-pick "$THEME_BG" >/dev/null 2>&1
+printf '%s\n' "$THEME_BG" > "$XDG_STATE_HOME/better-wallpaper"
+rm -f "$THEME_BG"
+ok "guard: a pick that has been deleted stops protecting anything" \
+    "$(may_apply "$USER_BG")" "yes"
+
+setup
+# A wallpaper the user set by path (`omarchy theme bg set`) is a deliberate
+# choice even with no pick marker, so it must be protected as well. The marker
+# is only needed to cover picks that land in the theme's own folder.
+printf '%s\n' "$THEME_BG" > "$XDG_STATE_HOME/better-wallpaper"
+ok "owner: a marked pick inside the theme folder reads as the user's" \
+    "$(bash "$WALLSH" mark-pick "$THEME_BG" >/dev/null 2>&1; bash "$WALLSH" owner "$THEME_BG" | tail -1)" "user"
 
 # --- the picked wallpaper must survive the swap ---------------------------
 # The refusal is only useful if the wallpaper stays painted and the wallpaper
