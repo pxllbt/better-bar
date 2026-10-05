@@ -433,11 +433,11 @@ Item {
     function blendColor(a, b, t) {
         return Qt.rgba(a.r + (b.r - a.r) * t, a.g + (b.g - a.g) * t, a.b + (b.b - a.b) * t, 1);
     }
-    readonly property bool dockCustom: Flags.accentOverride.length > 0
+    readonly property bool dockCustom: Theme.customAccent
     readonly property color dockAccent: root.dockCustom ? Flags.accentOverride : (root.dockEffManual ? root.dockHue.primary : (root.dockEffDyn ? Theme.accent : "#ff9a64"))
     readonly property color dockActive: root.dockCustom ? Flags.accentOverride : (root.dockEffManual ? root.dockHue.primary : (root.dockEffDyn ? Theme.accentDeep : "#e0563b"))
     /** Text-colour override mirroring the pill's: a pinned hex recolours the dock's title copy too. */
-    readonly property bool dockCustomText: Flags.textOverride.length > 0
+    readonly property bool dockCustomText: Theme.customText
     /**
      * The dock's fill. When the active theme names a background, use it so the
      * dock sits on the desktop's own colour rather than a warm derivative of the

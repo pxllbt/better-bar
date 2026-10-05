@@ -26,7 +26,7 @@ SettingsSurface {
     implicitHeight: content.implicitHeight
 
     /** Text override on: a custom hex is pinned and wins over every palette mode. */
-    readonly property bool fontCustom: Flags.textOverride.length > 0
+    readonly property bool fontCustom: Theme.customText
 
     /** The live text colour — the pinned hex when custom, else the scheme's. */
     readonly property color fontColorValue: root.fontCustom ? Flags.textOverride : Theme.cream

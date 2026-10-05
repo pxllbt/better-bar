@@ -25,7 +25,7 @@ SettingsSurface {
     implicitHeight: content.implicitHeight
 
     /** Accent override on: a custom hex is pinned and wins over every palette mode. */
-    readonly property bool accentCustom: Flags.accentOverride.length > 0
+    readonly property bool accentCustom: Theme.customAccent
 
     /** The live accent colour — the pinned hex when custom, else the scheme's. */
     readonly property color accentColorValue: root.accentCustom ? Flags.accentOverride : Theme.accent

@@ -96,7 +96,32 @@ Singleton {
     readonly property string omarchyBrightFg: omarchyColor("bright_foreground", "")
 
     readonly property string customHex: Flags.accentOverride
+
+    /**
+     * Is the override a real user choice?
+     *
+     * Not simply "a hex is present". sync_theme.py writes the theme's own accent
+     * into accentOverride on every theme set, so a plain length test made every
+     * theme look like a pinned custom colour: the accent was served from the
+     * override rather than from the live theme, so it stayed on the colour the
+     * hook last wrote -- stale until that hook ran, and pinned there after --
+     * while the live accent, which updates the instant the theme swaps, was
+     * never read. The Accent surface showed "custom" for a user who had chosen
+     * nothing, and turning it off did not stick because the next theme set
+     * wrote the hex straight back.
+     *
+     * So an override counts only when it differs from the theme's own accent.
+     * Equal means "following the theme", which is what the hook's value has
+     * always meant, and following the theme is the correct reading of it: the
+     * live accent is what the user sees, and it is right immediately. Any other
+     * value is the user pinning a colour of their own, and the pin holds.
+     *
+     * Compared case-insensitively, because the two are the same colour and a hex
+     * typed in lower case is not a choice.
+     */
     readonly property bool customAccent: customHex.length > 0
+        && omarchyAccent.length > 0
+        && customHex.toLowerCase() !== omarchyAccent.toLowerCase()
     /** Effective accent base — the override, else the wallpaper/hue accent, else the warm default. */
     readonly property color accent: customAccent ? customHex : (omarchyAccent ? omarchyAccent : (manual ? manualPal.primary : (dynamic ? Dyn.primary : "#ff9a64")))
     /** Deep pair, standing in where the scheme has a matugen container colour. */
@@ -113,7 +138,22 @@ Singleton {
      * cream automatically.
      */
     readonly property string customTextHex: Flags.textOverride
+
+    /**
+     * Is the text override a real user choice? Same rule as the accent, and for
+     * the same reason: sync_theme.py writes the theme's own foreground into
+     * textOverride on every theme set, so a plain length test treated "following
+     * the theme" as a pin. Left unfixed it is quieter than the accent was --
+     * cream and bright already prefer the live theme values -- but iconDim keys
+     * off customText, so the dim icon tint kept coming from a stale override
+     * while the text beside it came from the live theme.
+     */
     readonly property bool customText: customTextHex.length > 0
+        && ((omarchyForeground.length > 0
+                && customTextHex.toLowerCase() !== omarchyForeground.toLowerCase())
+            || (omarchyForeground.length === 0
+                && (omarchyBrightFg.length === 0
+                    || customTextHex.toLowerCase() !== omarchyBrightFg.toLowerCase())))
 
     /**
      * Literal "#rrggbb" serialization for the flame canvas ramp, which reads raw
