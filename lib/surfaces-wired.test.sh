@@ -42,16 +42,14 @@ ok() {
 navigated=$(sed -n '/^[[:space:]]*rows:[[:space:]]*\[/,/^[[:space:]]*\]/p' "$APPEARANCE" \
     | grep -oE 'surface:[[:space:]]*"[a-z]+"' | grep -oE '"[a-z]+"' | tr -d '"')
 
-# Two of the nav rows are deliberately not pill surfaces, so they are not held
-# to the loader contract:
-#   dock          -- the dock is its own window; shell.qml hosts it there and
-#                   routes the request away rather than opening a pill surface.
-#   locksettings  -- the lockscreen is not in the repository, so the surface and
-#                   its loader are system-only. Asserted separately below.
+# One of the nav rows is deliberately not a pill surface, so it is not held to
+# the loader contract:
+#   dock  -- the dock is its own window; shell.qml hosts it there and routes the
+#            request away rather than opening a pill surface.
 pillsurfaces=""
 for name in $navigated; do
     case "$name" in
-        dock|locksettings) ;;
+        dock) ;;
         *) pillsurfaces="$pillsurfaces $name" ;;
     esac
 done
@@ -59,7 +57,7 @@ count=$(printf '%s\n' "$navigated" | grep -c .)
 ok "Appearance declares nav rows that name surfaces" \
     "$([ "$count" -gt 0 ] && echo yes || echo no)" "yes"
 
-# Loader id for a surface name: "locksettings" -> "ldLocksettings".
+# Loader id for a surface name: "fontpicker" -> "ldFontpicker".
 loader_for() { printf 'ld%s' "$(printf '%s' "$1" | sed 's/^./\U&/')"; }
 
 missing=""
@@ -105,7 +103,7 @@ ok "PluginButton is actually instantiated somewhere" \
 ok "plugin entries forward the band height so a panel lands under the pill" \
     "$(grep -c 'barHeightOverride:[[:space:]]*pill.height' "$PILL")" "1"
 
-# dock and locksettings: routed, not rendered by the pill.
+# dock: routed, not rendered by the pill.
 ok "the dock row is routed to the dock rather than opened as a pill surface" \
     "$(grep -cE 'surface === "dock"' "$ROOT/shell.qml")" "1"
 
