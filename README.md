@@ -1,99 +1,194 @@
+<div align="center">
+
 # Better Bar
 
-> A dynamic-island status bar for Hyprland, built on Quickshell.
+**A dynamic-island status bar for Hyprland. One pill per monitor that grows into whatever you need, built on Quickshell.**
 
-Better Bar is a widget layer for Hyprland built around a morphing pill at the top of every monitor that expands in place into a control centre, plus a floating dock at the bottom edge for pinned and running apps. It runs as its own Quickshell process and replaces the stock Omarchy bar — it makes no changes to your existing Hyprland config.
+![Better Bar](preview.png)
 
-## Preview
+[![Omarchy](https://img.shields.io/badge/Omarchy-Quattro-4.x-1e66f5?style=flat-square)](https://omarchy.org)
+[![Quickshell](https://img.shields.io/badge/Quickshell-0.3%2B-1e66f5?style=flat-square)](https://quickshell.outfoxxed.me)
+[![License](https://img.shields.io/badge/License-MIT-1e66f5?style=flat-square)](LICENSE)
+
+</div>
+
+## What it is
+
+A bar that is mostly not there. A small pill sits at the top centre of every
+monitor; hovering or tapping it grows the surface you asked for — media, calendar,
+clipboard, mixer, wallpaper, wifi — straight out of the pill, in place. Nothing
+moves, nothing pops up as a separate panel, and a surface that is not open costs
+nothing on screen.
 
 <p align="center">
-  <img src="preview/2026-10-05_00-10.png" width="49%" alt="Better Bar preview 1" />
-  <img src="preview/2026-10-05_00-11_1.png" width="49%" alt="Better Bar preview 2" />
+  <img src="preview/2026-10-05_00-10.png" width="49%" alt="The pill at rest on a desktop" />
+  <img src="preview/2026-10-05_00-11_1.png" width="49%" alt="A surface grown out of the pill" />
 </p>
 
 <p align="center">
-  <img src="preview/2026-10-05_00-11.png" width="32%" alt="Better Bar preview 3" />
-  <img src="preview/2026-10-05_00-12.png" width="32%" alt="Better Bar preview 4" />
-  <img src="preview/2026-10-05_00-12_1.png" width="32%" alt="Better Bar preview 5" />
+  <img src="preview/2026-10-05_00-11.png" width="32%" alt="Launcher" />
+  <img src="preview/2026-10-05_00-12.png" width="32%" alt="Mixer" />
+  <img src="preview/2026-10-05_00-12_1.png" width="32%" alt="Wallpaper strip" />
 </p>
+
+It also carries a floating dock along the bottom edge for pinned and running
+apps, with hover magnification and multi-window previews that do not warp your
+cursor.
 
 ## Features
 
-- **Dynamic island** — one morphing pill per monitor; every module grows its own surface out of it, in place.
-- **Dock** — pinned and running apps with hover magnification and multi-window previews (no cursor warp), auto-hide, and its own theme (Light / Dark / Dynamic / Manual) and glass.
-- **Surfaces** — launcher, weather, calendar, media, mixer, wallpaper strip + wallhaven search, clipboard, wifi, bluetooth, battery, power menu, system monitor, notifications, OSD, toasts, settings.
-- **Wallpapers** — shuffled `awww` bag, live `mpvpaper` videos, per-wallpaper fit, and a palette that retints the UI.
-- **Extras** — night light, game mode, keep-awake, in-app updater.
+- **Dynamic island** — one morphing pill per monitor; every surface grows out of the rest pill rather than opening beside it.
+- **Dock** — pinned and running apps, hover magnification, multi-window previews, auto-hide, and its own Light / Dark / Dynamic / Manual theme and glass.
+- **Surfaces** — launcher, weather, calendar, media, mixer, wallpaper strip and search, clipboard, wifi, bluetooth, battery, power menu, system monitor, notifications, OSD, toasts, settings.
+- **Wallpapers** — a shuffled [`awww`](https://github.com/LGFae/awww) bag, live `mpvpaper` video wallpapers, per-wallpaper fit, and a palette pulled from each wallpaper that retints the UI.
+- **Extras** — night light, game mode, keep-awake, and an in-app updater.
 
 ## Requirements
 
-- Linux + Wayland, **Hyprland** (recent 0.4x/0.5x)
+- Linux on Wayland, with **Hyprland**
 - **Quickshell** 0.3.0+ (Hyprland, Wayland and Io modules)
-- **Omarchy** — Better Bar replaces its bar and speaks its plugin IPC
-- CLI tools — the installer checks them; see [DEPENDENCIES](DEPENDENCIES.md)
+- **Omarchy Quattro** or newer — Better Bar replaces its bar and speaks its plugin IPC
+- CLI tools — the installer checks these and tells you what is missing; the full list with package names is in [DEPENDENCIES](DEPENDENCIES.md)
 
 ## Install
+
+```bash
+omarchy plugin add https://github.com/pxllbt/better-bar.git --enable
+```
+
+That clones the plugin, validates the manifest, installs it, and switches the bar
+over. There is nothing else to do: the bar is a plugin, so Omarchy's own shell
+loads it and there is no second process to autostart.
+
+Restart the shell if the bar does not switch immediately:
+
+```bash
+omarchy restart shell
+```
+
+Update with `omarchy plugin update pix.bar`, or from the **Update** surface inside
+the bar's own settings.
+
+<details>
+<summary>Standalone install (no Omarchy plugin)</summary>
+
+If you would rather run it as its own Quickshell process — useful outside
+Omarchy, or if you want it on a desktop where Omarchy's bar is not in play:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pxllbt/better-bar/master/remote-install.sh | bash
 ```
 
-Clones to `~/.local/share/quickshell/better-bar`, checks dependencies, hides the stock Omarchy bar (`omarchy toggle bar off` — undo with `omarchy toggle bar on`), and prints the keybinds and auto-launch line to add. Update it the same way — or from the **Update** surface inside the settings — whenever you want the latest.
+This clones to `~/.local/share/quickshell/better-bar`, checks dependencies, hides
+the stock bar (`omarchy toggle bar off`; undo with `omarchy toggle bar on`), and
+prints the autostart line and keybinds to add. That mode needs two lines in your
+Hyprland config:
 
-## Use
+```conf
+exec-once = ~/.local/share/quickshell/better-bar/launch.sh
+exec-once = awww-daemon
+```
 
-- **Launch / auto-launch** through **`launch.sh`** — it adds jemalloc decay settings so memory stays near the live working set instead of the session peak (~250 MB RSS):
+`launch.sh` sets jemalloc decay options so resident memory tracks the live
+working set instead of the session peak (~250 MB RSS). `awww-daemon` starts
+alongside it so the wallpaper is painted without waiting on the daemon.
 
-  ```conf
-  exec-once = ~/.local/share/quickshell/better-bar/launch.sh
-  ```
+**The two modes are not interchangeable.** Keybinds target a Quickshell instance
+by path, and in plugin mode there is no instance at the plugin path — the bar is
+inside `omarchy-shell`. Bind to the plugin path and the key does nothing, with
+no error. See [Keybinds](#keybinds) for the form that matches your install.
 
-  (Lua: `hl.exec_cmd("~/.local/share/quickshell/better-bar/launch.sh")`)
+</details>
 
-- **Wallpaper daemon** — `exec-once = awww-daemon` beside the launch line, so the wallpaper is painted without waiting on the daemon to come up.
+## Keybinds
 
-- **Keybinds** — every surface answers over quickshell IPC (target `better`; empty monitor arg = focused):
+Every surface answers over Quickshell IPC on target `better`. An empty monitor
+argument means the focused monitor. Which command reaches the bar depends on the
+install:
 
-  ```conf
-  bind = SUPER, SHIFT+W, exec, qs -p ~/.local/share/quickshell/better-bar ipc call better wallpaper ""
-  bind = SUPER, SHIFT+V, exec, qs -p ~/.local/share/quickshell/better-bar ipc call better clipboard ""
-  bind = SUPER, slash,   exec, qs -p ~/.local/share/quickshell/better-bar ipc call better launcher ""
-  ```
+| Install | Command |
+| --- | --- |
+| Plugin | `omarchy-shell better <surface> ""` |
+| Standalone | `qs -p ~/.local/share/quickshell/better-bar ipc call better <surface> ""` |
 
-  ```lua
-  hl.bind(var_mainMod .. " + SHIFT + W", hl.dsp.exec_cmd("qs -p ~/.local/share/quickshell/better-bar ipc call better wallpaper \"\""))
-  hl.bind(var_mainMod .. " + SHIFT + V", hl.dsp.exec_cmd("qs -p ~/.local/share/quickshell/better-bar ipc call better clipboard \"\""))
-  hl.bind(var_mainMod .. " + slash",     hl.dsp.exec_cmd("qs -p ~/.local/share/quickshell/better-bar ipc call better launcher \"\""))
-  ```
+Surfaces: `launcher`, `wallpaper`, `clipboard`, `mixer`, `calendar`, `media`,
+`power`, `battery`, `sysmon`, `link`. Also `gameMode`, `peek`, `hide`, and
+`page <surface>` for anything by name.
 
-  Other handlers: mixer, calendar, media, power, battery, sysmon, gameMode, peek, hide, page …
+```conf
+# plugin install
+bind = SUPER, SHIFT+W, exec, omarchy-shell better wallpaper ""
+bind = SUPER, SHIFT+V, exec, omarchy-shell better clipboard ""
+bind = SUPER, slash,   exec, omarchy-shell better launcher ""
+```
 
-- **Lock** is a script rather than an IPC surface, so it gets its own bind:
+```conf
+# standalone install
+bind = SUPER, SHIFT+W, exec, qs -p ~/.local/share/quickshell/better-bar ipc call better wallpaper ""
+bind = SUPER, SHIFT+V, exec, qs -p ~/.local/share/quickshell/better-bar ipc call better clipboard ""
+bind = SUPER, slash,   exec, qs -p ~/.local/share/quickshell/better-bar ipc call better launcher ""
+```
 
-  ```conf
-  bind = SUPER, L, exec, ~/.local/share/quickshell/better-bar/scripts/lock.sh
-  ```
+Locking is a script rather than a surface, so it takes a path instead of an IPC
+call. Use the plugin path in plugin mode:
 
-  ```lua
-  hl.bind(var_mainMod .. " + L", hl.dsp.exec_cmd("/home/username/.local/share/quickshell/better-bar/scripts/lock.sh"))
-  ```
+```conf
+bind = SUPER, L, exec, ~/.config/omarchy/plugins/pix.bar/scripts/lock.sh
+```
 
-  It runs `hyprlock`, configured by your own `hyprlock.conf` — Better Bar ships none and generates none, so the lock looks exactly like it does everywhere else on your desktop.
+It runs `hyprlock`, configured by your own `hyprlock.conf`. Better Bar ships no
+`hyprlock.conf` and generates none, so the lock looks like it does everywhere
+else on your desktop.
 
 ## Plugins
 
-No other plugins are required: the bar ships its own surfaces for everything the stock Omarchy plugins do. Omarchy plugins still work — any stock `bar-widget` shows up in the pill's strip as-is.
+No other plugins are needed: the bar ships its own surface for everything the
+stock Omarchy plugins do. Your installed plugins still work — any stock
+`bar-widget` appears in the pill's strip as-is.
 
-Where a plugin does a job the bar already does, one of them has to be the default. The order is: **a plugin you picked for the job, then the bar's own surface, then the stock plugin** (the stock one is suppressed for the jobs the bar covers, so nothing shows twice). Pick the plugin from the plugins list in settings and it becomes the default; uninstall it — or switch back — and the bar's own surface returns.
+Where a plugin does a job the bar also does, only one can be the default. The
+order is **a plugin you picked for the job, then the bar's own surface, then the
+stock plugin** — the stock one is suppressed for the jobs the bar covers, so
+nothing appears twice. Pick the plugin from the plugins list in settings to make
+it the default; remove it, or switch back, and the bar's own surface returns.
 
 ## Uninstall
+
+```bash
+omarchy plugin remove pix.bar
+```
+
+That drops the checkout and points the bar back at the stock one.
+
+To also clear saved settings and caches:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pxllbt/better-bar/master/uninstall.sh | bash
 ```
 
-Removes program files, all state and caches (`~/.local/state/better*`, `~/.cache/better`), restores the stock Omarchy bar, and stops any running instance. Then drop the auto-launch line, keybinds and packages you added.
+This handles both install modes. Run it with `--dry-run` first to see the exact
+list — it is a destructive script and prints what it will remove before it does.
+It keeps your saved theme, accent, wallpaper and dock choices by default when it
+cannot ask you interactively, and tells you how to drop them if you want them
+gone.
+
+Then remove the `exec-once` line and any keybinds you added by hand. Better Bar
+never edits your Hyprland config, so it cannot clean those up for you.
 
 ## Credits
 
-Built on top of [**Ricelin**](https://github.com/Gakuseei/Ricelin) by [**Gakuseei**](https://github.com/Gakuseei) — the pill concept, the morphing-surface architecture and most of the original codebase. All credit for the base code goes to the original author. See [NOTICE.md](NOTICE.md) for the full lineage and licenses.
+Built on top of [**Ricelin**](https://github.com/Gakuseei/Ricelin) by
+[**Gakuseei**](https://github.com/Gakuseei) — the pill concept, the
+morphing-surface architecture, and the original codebase this grew out of — and on
+[**Better**](https://github.com/amanhex) by **amanhex**, the codebase as it stood
+when this project took it up.
+
+Credit for the base code belongs to those authors. This repository is the
+modifications on top: the plugin capability registry, provider handover, stock
+plugin suppression, host-shell compatibility, and the release itself.
+[NOTICE.md](NOTICE.md) has the full lineage and licenses; both upstream projects
+are MIT.
+
+## License
+
+[MIT](LICENSE)
