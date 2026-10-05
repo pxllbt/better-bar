@@ -25,6 +25,38 @@ SettingsSurface {
     property int pending: 0
     /** True when checked and origin/master has new commits to pull. */
     readonly property bool updateAvailable: checked && !busy && pending > 0
+    /**
+     * The install has commits the update path would throw away.
+     *
+     * The update runs `git reset --hard origin/master` against the install,
+     * which is the only way to survive a force-push or a diverged history. It
+     * also discards every local commit in the checkout without asking. That is
+     * correct for a managed deployment and wrong for a checkout someone is
+     * working in — which is the common case here, because this bar is a git
+     * clone people edit. So this is checked before the fetch, and a non-zero
+     * commits-behind-HEAD answer routes the update through a second
+     * confirmation instead of straight into the reset.
+     */
+    property bool localCommits: false
+    /**
+     * The install has uncommitted changes or untracked files, which
+     * `reset --hard` would delete outright.
+     *
+     * `status --porcelain` counts untracked files, so a scratch file someone
+     * left in the checkout is enough to raise this. That is intentional: the
+     * question is "is this directory carrying work", and an untracked QML file
+     * someone is mid-way through wiring is exactly that.
+     *
+     * This is the check that would have saved the lock work. Ten files in that
+     * checkout carried git's skip-worktree bit, so `git status` reported it
+     * almost clean and the work was invisible to every surface in the bar —
+     * including this one. An invisible-worktree guard is not a guard, so the
+     * count comes from a subprocess that reads the index itself rather than
+     * from anything cached here.
+     */
+    property bool localDirty: false
+    /** True when the install carries work an update would destroy. */
+    readonly property bool updateRisky: localCommits || localDirty
     /** Inline result of the manual dependency check; empty until one has run. */
     property string depStatus: ""
     property bool depBusy: false
@@ -102,6 +134,14 @@ SettingsSurface {
 
     rows: [
         { item: updateRow, kind: "activate", activate: function () { root.doUpdate(); } },
+        {
+            item: confirmRow,
+            kind: "activate",
+            // Only reachable while updateRisky, and it runs the same path the
+            // first tap would have: the user is choosing to discard, not
+            // choosing a different update.
+            activate: function () { root.runUpdate(); }
+        },
         { item: depsRow, kind: "activate", activate: function () { root.checkDeps(); } }
     ]
 
@@ -122,9 +162,22 @@ SettingsSurface {
         fetchProc.running = true;
     }
 
+    /**
+     * Two-stage update. The first tap probes the checkout for work the reset
+     * would destroy; the second runs the fetch, but only once the probe has
+     * actually reported. The probe has to finish before `busy` is set, or the
+     * button would read as done before the answer arrived.
+     */
     function doUpdate() {
         if (root.busy)
             return;
+        root.busy = true;
+        root.status = "Checking for local changes...";
+        dirtProbeProc.running = true;
+    }
+
+    /** Probe said the checkout is clean, or the user said go anyway. */
+    function runUpdate() {
         root.busy = true;
         root.status = "Fetching latest master...";
         pullProc.running = true;
@@ -293,6 +346,39 @@ Item { width: 1; height: 10 * root.s }
                     NumberAnimation { to: 0.35; duration: 900; easing.type: Easing.InOutSine }
                     NumberAnimation { to: 1; duration: 900; easing.type: Easing.InOutSine }
                 }
+            }
+        }
+
+        /**
+         * The discard confirmation, shown only once the probe has found work
+         * the reset would destroy.
+         *
+         * It is a separate row rather than a second tap on the update row
+         * because "Update" is the row people have already learned to press, and
+         * the whole failure here is that the row's own action was not the
+         * thing being confirmed. Naming the consequence in the label — the
+         * uncommitted changes, then the local commits — is the point; a generic
+         * "are you sure?" would hide which of the two is at stake.
+         *
+         * Hidden while busy so it cannot be pressed into a second fetch
+         * mid-update, and so a successful update clears the prompt rather than
+         * leaving it up over a freshly-reset tree.
+         */
+        SettingsRow {
+            id: confirmRow
+            visible: root.updateRisky && !root.busy
+            surface: root
+            name: root.localDirty ? "Discard changes and update?" : "Discard local commits and update?"
+            sub: root.localDirty
+                ? "This install has uncommitted changes. Updating resets it and deletes them."
+                : "This install has commits not on origin/master. Updating resets it and deletes them."
+
+            GlyphIcon {
+                width: 16 * root.s
+                height: 16 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === confirmRow ? Theme.cream : Theme.vermLit
+                stroke: 1.9
             }
         }
 
@@ -556,6 +642,73 @@ Item { width: 1; height: 10 * root.s }
     }
 
     /**
+     * Dirty-worktree probe. Runs before the fetch so the confirmation has an
+     * answer to show rather than asking about a risk it has not checked.
+     *
+     * Two separate questions, because they need separate commands and they
+     * fail differently:
+     *
+     *   status --porcelain  -> uncommitted changes and untracked files, which
+     *                          `reset --hard` deletes outright.
+     *   rev-list --count    -> commits in the checkout that origin/master does
+     *                          not have, which the same reset also discards.
+     *
+     * The commit count needs a remote-tracking ref that is current at the
+     * moment of asking, and `origin/master` only moves when something fetches
+     * it. So the probe fetches that ref itself before counting. Without this
+     * the count would be against a stale ref, where 0 means "no local commits
+     * as of whenever we last looked" rather than "no local commits".
+     *
+     * Both counts are read off stdout as bare numbers. A failure leaves the
+     * property false, which is the permissive direction: an unreadable probe
+     * must not block every update. The risk being guarded here is losing work
+     * to a command that ran fine, not a command that failed loudly.
+     */
+    Process {
+        id: dirtProbeProc
+        stdout: StdioCollector {
+            onStreamFinished: dirtProbeProc.dirty = this.text.trim().length > 0;
+        }
+        property bool dirty: false
+        command: ["git", "-C", Config.configDir, "status", "--porcelain"]
+        onExited: function (exitCode) {
+            root.localDirty = exitCode === 0 ? dirtProbeProc.dirty : false;
+            headRefProbeProc.running = true;
+        }
+    }
+
+    Process {
+        id: headRefProbeProc
+        command: ["git", "-C", Config.configDir, "fetch", "--quiet", "origin", "+master:refs/remotes/origin/update-probe"]
+        onExited: function () {
+            // Count regardless of the fetch's exit code: a network failure means
+            // the ref is unchanged, which still gives a usable answer about
+            // local commits, and refusing to probe on a flaky network would
+            // block the update for no reason.
+            commitCountProc.running = true;
+        }
+    }
+
+    Process {
+        id: commitCountProc
+        command: ["git", "-C", Config.configDir, "rev-list", "--count", "refs/remotes/origin/update-probe..HEAD"]
+        onExited: function (exitCode, standardOutput) {
+            // Same shape as countProc below, counted in the other direction:
+            // how many commits HEAD has that the fetched ref does not. An
+            // unreadable answer stays false, the permissive direction, because
+            // an unreadable probe must not block every update.
+            var n = exitCode === 0 ? parseInt(String(standardOutput).trim(), 10) : 0;
+            root.localCommits = !isNaN(n) && n > 0;
+            root.busy = false;
+            root.status = "";
+            if (root.updateRisky)
+                root.checkUpdates();
+            else
+                root.runUpdate();
+        }
+    }
+
+/**
      * Update path: the deployment must mirror origin/master exactly. A plain
      * `git pull` fatals with "Need to specify how to reconcile divergent
      * branches" whenever the checkout's history has diverged from the remote

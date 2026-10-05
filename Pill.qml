@@ -2785,7 +2785,16 @@ Item {
                         // Every other cell in this row rides the same baseline;
                         // a delegate that does not sits a pixel low the moment a
                         // plugin is enabled.
-                        anchors.verticalCenter: parent.verticalCenter
+                        //
+                        // Anchored to statusRow by id, not to `parent`. A Repeater
+                        // delegate's `parent` is null while the anchor binding is
+                        // first evaluated -- the Repeater has not been handed its
+                        // parent item yet -- so `parent.verticalCenter` threw
+                        // "Cannot read property 'verticalCenter' of null" twice on
+                        // every shell start, once per delegate created before the
+                        // binding settled. statusRow is the enclosing Row either
+                        // way and is resolvable at binding time.
+                        anchors.verticalCenter: statusRow.verticalCenter
 
                         pluginId: modelData.id
                         s: pill.s
