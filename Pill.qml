@@ -2422,7 +2422,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         visible: Battery.present
                         width: battPct.implicitWidth
-                        height: 17 * pill.s
+                        height: pill.iconCell
 
                         AltText {
                             id: battPct
@@ -2781,6 +2781,11 @@ Item {
 
                     delegate: PluginButton {
                         required property var modelData
+
+                        // Every other cell in this row rides the same baseline;
+                        // a delegate that does not sits a pixel low the moment a
+                        // plugin is enabled.
+                        anchors.verticalCenter: parent.verticalCenter
 
                         pluginId: modelData.id
                         s: pill.s
