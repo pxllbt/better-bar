@@ -58,9 +58,16 @@ QtObject {
      * the process that owns the plugins, so a stock panel
      * behaves exactly as it does under the stock bar.
      */
-    QtObject {
-        id: shellApi
-
+    /**
+     * The shell facade, as a property rather than a bare child object.
+     *
+     * `QtObject` has no default property, so a nested `QtObject { }` written as
+     * a child is rejected outright ("Cannot assign to non-existent default
+     * property") and the whole stub fails to load -- which is why this only
+     * surfaced now: nothing instantiated the stub before, since PluginButton was
+     * never placed in the strip.
+     */
+    readonly property var shellApi: QtObject {
         function summon(target, payload) {
             if (!target)
                 return;

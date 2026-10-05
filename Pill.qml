@@ -147,8 +147,10 @@ Item {
     readonly property bool fontColorOpen: surface === "fontcolor"
     readonly property bool interfaceOpen: surface === "interface"
     readonly property bool fontpickerOpen: surface === "fontpicker"
+    readonly property bool pluginsOpen: surface === "plugins"
+    readonly property bool lockSettingsOpen: surface === "locksettings"
     readonly property bool updateOpen: surface === "update"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || updateOpen
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || lockSettingsOpen || updateOpen
     readonly property bool hasMedia: Players.list.length > 0
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
@@ -314,6 +316,18 @@ Item {
     readonly property real restH: 38 * s
 
     /**
+     * The icon cell every strip glyph is drawn in.
+     *
+     * One number because the cells were three sizes: most were 17, the wifi
+     * and bluetooth cells were 15, and the do-not-disturb one 16. A GlyphIcon
+     * fills its cell, so a 15 cell drew a visibly smaller glyph next to a 17
+     * one -- and WifiGlyph, whose own implicit size is 17*s, was being shrunk
+     * to 15 by the cell it sat in. Any per-icon size now belongs in the glyph
+     * table, not in the cell.
+     */
+    readonly property real iconCell: 17 * s
+
+    /**
      * Strip-face geometry: a compact top-centre notch pill. Its width is
      * computed explicitly (not from the row's implicit width) so the media
      * title can be elided to exactly what the budget allows; on a 1920px
@@ -343,6 +357,7 @@ Item {
     readonly property real stripRoomForTitle: stripCap - 2 * stripPad - stripArtW - stripFixedW
         - 4 * stripGap - stripMediaGaps * stripGap
         - (Cava.active ? stripVizW : 0)
+
     readonly property real stripTitleW: stripMedia ? Math.min(stripMaxTitle, stripRoomForTitle, Math.max(stripMinTitle, stripTitleMetrics.advanceWidth)) : 0
     readonly property real stripFixedW: stripDay.implicitWidth + stripTime.implicitWidth
         + stripWs.implicitWidth + stripLay.implicitWidth + stripBat.implicitWidth
@@ -440,7 +455,9 @@ Item {
         fontcolor:  { size: () => Qt.size(settingsW, surfaceItem("fontcolor").implicitHeight + 29 * s), ame: () => surfaceItem("fontcolor") },
         interface:  { size: () => Qt.size(settingsW, surfaceItem("interface").implicitHeight + 29 * s), ame: () => surfaceItem("interface") },
         fontpicker: { size: () => Qt.size(fontpickerW, surfaceItem("fontpicker").implicitHeight + 29 * s), ame: () => surfaceItem("fontpicker") },
-        update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") }
+        plugins:    { size: () => Qt.size(settingsW, surfaceItem("plugins").implicitHeight + 29 * s), ame: () => surfaceItem("plugins") },
+        update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") },
+        locksettings: { size: () => Qt.size(settingsW, surfaceItem("locksettings").implicitHeight + 29 * s), ame: () => surfaceItem("locksettings") }
     })
 
     /**
@@ -473,7 +490,9 @@ Item {
         fontcolor:  () => ldFontcolor,
         interface:  () => ldInterface,
         fontpicker: () => ldFontpicker,
-        update:     () => ldUpdate
+        plugins:    () => ldPlugins,
+        update:     () => ldUpdate,
+        locksettings: () => ldLock
     })
 
     /**
@@ -650,6 +669,8 @@ Item {
             return ldInterface.item;
         if (pill.fontpickerOpen)
             return ldFontpicker.item;
+        if (pill.pluginsOpen)
+            return ldPlugins.item;
         return null;
     }
 
@@ -1952,8 +1973,8 @@ Item {
                     anchors.centerIn: parent
                     opacity: (Flags.clockIcon && !restClock.barsOn) ? 1 : 0
                     visible: opacity > 0
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
                     name: "clock"
                     color: Theme.cream
                     stroke: 1.7
@@ -2184,8 +2205,8 @@ Item {
 
                         GlyphIcon {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 16 * pill.s
-                            height: 16 * pill.s
+                            width: pill.iconCell
+                            height: pill.iconCell
                             name: Weather.glyphFor(Weather.codeNow, Weather.isDay)
                             color: Theme.iconDim
                             stroke: 1.8
@@ -2235,7 +2256,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: minimized.count > 0
                     width: 1
-                    height: 14 * pill.s
+                    height: pill.iconCell
                     color: Theme.hair
                     opacity: 0.7
                 }
@@ -2251,8 +2272,8 @@ Item {
                     id: dndIcon
                     anchors.verticalCenter: parent.verticalCenter
                     visible: Flags.dnd
-                    width: 16 * pill.s
-                    height: 16 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
 
                     Shape {
                         id: dndShape
@@ -2312,8 +2333,8 @@ Item {
                         id: wifiIcon
                         anchors.verticalCenter: parent.verticalCenter
                         visible: pill.wifiDev !== null && !Plugins.surfaceDisabled("wifi")
-                        width: 15 * pill.s
-                        height: 15 * pill.s
+                        width: pill.iconCell
+                        height: pill.iconCell
 
                         WifiGlyph {
                             anchors.centerIn: parent
@@ -2356,8 +2377,8 @@ Item {
                         id: btIcon
                         anchors.verticalCenter: parent.verticalCenter
                         visible: pill.btAdapter !== null && !Plugins.surfaceDisabled("bt")
-                        width: 15 * pill.s
-                        height: 15 * pill.s
+                        width: pill.iconCell
+                        height: pill.iconCell
 
                         GlyphIcon {
                             anchors.fill: parent
@@ -2438,8 +2459,8 @@ Item {
                 Item {
                     id: inboxIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2484,8 +2505,8 @@ Item {
                 Item {
                     id: mixerIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("mixer")
 
                     GlyphIcon {
@@ -2519,8 +2540,8 @@ Item {
                 Item {
                     id: sysmonIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2553,8 +2574,8 @@ Item {
                 Item {
                     id: wallpaperIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("wallpaper")
 
                     GlyphIcon {
@@ -2588,8 +2609,8 @@ Item {
                 Item {
                     id: clipboardIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("clipboard")
 
                     GlyphIcon {
@@ -2623,8 +2644,8 @@ Item {
                 Item {
                     id: launcherIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("launcher")
 
                     GlyphIcon {
@@ -2658,17 +2679,22 @@ Item {
                 Item {
                     id: appearanceIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("appearance")
 
                     GlyphIcon {
                         anchors.fill: parent
                         name: "cog"
+                        // Scale only, no stroke offset: the gear's teeth are
+                        // drawn to the same 24-unit box as every other glyph and
+                        // land heavier than its neighbours at this size, so it is
+                        // scaled rather than stroked thinner. One compensation
+                        // instead of two is what keeps it from drifting again.
                         scale: 0.86
                         transformOrigin: Item.Center
                         color: appearanceArea.containsMouse ? Theme.cream : Theme.iconDim
-                        stroke: 1.6
+                        stroke: 1.7
                     }
 
                     MouseArea {
@@ -2696,8 +2722,8 @@ Item {
                 Item {
                     id: powerIcon
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
+                    width: pill.iconCell
+                    height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("power")
 
                     GlyphIcon {
@@ -2727,6 +2753,41 @@ Item {
                         show: powerArea.containsMouse
                     }
                     // better: tooltip power
+                }
+
+                /**
+                 * Enabled plugins get their own strip entries here.
+                 *
+                 * `pillWidgetsGeneric` is the whole contract: enabled, a
+                 * bar-widget, not the host's own menu or agents window, not
+                 * cloned away, and not one whose capability the bar supersedes
+                 * with its own surface. Anything a plugin would be able to claim
+                 * a cell for is filtered out by that list rather than by
+                 * conditions repeated here, so a second place cannot disagree
+                 * about what belongs in the strip.
+                 *
+                 * `PluginButton` mounts each plugin's real bar surface on the
+                 * first click rather than summoning it, because the host paints
+                 * a bar-widget's popout against the bar it is handed and that
+                 * bar is the hidden one -- a summon returns ok and shows nothing.
+                 *
+                 * The band height is forwarded so a plugin's keyboard panel
+                 * lands under the pill instead of measuring the full-screen
+                 * overlay window as the bar. The stub reports position "top",
+                 * which is where the pill docks.
+                 */
+                Repeater {
+                    model: Plugins.pillWidgetsGeneric
+
+                    delegate: PluginButton {
+                        required property var modelData
+
+                        pluginId: modelData.id
+                        s: pill.s
+                        hoverLive: hover.live
+                        barHeightOverride: pill.height
+                        barWidthOverride: pill.width
+                    }
                 }
             }
         }
@@ -3026,12 +3087,38 @@ sourceComponent: Media {
     }
 
     Loader {
+        id: ldPlugins
+        active: false
+        anchors.fill: parent
+        sourceComponent: PluginsSurface {
+            s: pill.s * pill.settingsScale
+            open: pill.pluginsOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
+
+    Loader {
         id: ldUpdate
         active: false
         anchors.fill: parent
         sourceComponent: UpdateSurface {
             s: pill.s * pill.settingsScale
             open: pill.updateOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
+
+    Loader {
+        id: ldLock
+        active: false
+        anchors.fill: parent
+        sourceComponent: LockSettings {
+            s: pill.s * pill.settingsScale
+            open: pill.lockSettingsOpen
             morphCloseness: pill.morphCloseness
             onRequestClose: pill.requestClose()
             onRequestSurface: (name) => pill.requestSurface(name)
