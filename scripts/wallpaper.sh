@@ -379,6 +379,92 @@ restore_all() {
 cmd="${1:-}"
 target=""
 
+# ---------------------------------------------------------------------------
+# wallpaper ownership
+# ---------------------------------------------------------------------------
+#
+# Who a wallpaper belongs to, which is what decides whether an incoming
+# wallpaper is allowed to replace the one on screen.
+#
+# The reason this exists: omarchy-theme-set repoints
+# current/background at one of the new theme's own backgrounds on every theme
+# switch, and both the wallpaper poll in ThemeSync and the theme-set hook feed
+# that path straight into `set`. So a wallpaper the user had picked was
+# replaced by the theme's every time a theme changed, with nothing on either
+# side able to tell a theme switch from a deliberate choice. The bar kept
+# painting, so it looked like the wallpaper had quietly reverted.
+#
+# Ownership separates the two cases. A path inside a theme's own backgrounds
+# folder is the theme's to choose, so it may take over freely -- that is how
+# switching themes is supposed to change the wallpaper. Anything else is a file
+# the user put there, so a theme wallpaper does not get to discard it.
+#
+# Both theme locations count as the theme's. current/theme/backgrounds is the
+# stock set; ~/.config/omarchy/backgrounds/<theme> is where omarchy-theme-set
+# also looks (omarchy-theme-set:79), so a wallpaper a user drops there to
+# customise a theme is still that theme's to switch between. Reading only one
+# of the two would let a theme wallpaper overwrite the other one's pick.
+#
+# Prints "theme", "user", or "none" for a path that resolves to nothing --
+# a wallpaper that has been deleted, or was never a file. Callers treat "none"
+# as "nothing worth protecting", which is what lets a theme wallpaper through
+# once the file it would replace is gone.
+wallpaper_owner() {
+    local path="$1" resolved theme_name
+
+    # -f follows symlinks, so current/background resolves to the real file
+    # rather than reporting on the link itself.
+    resolved=$(readlink -f -- "$path" 2>/dev/null) || resolved=""
+    [ -n "$resolved" ] && [ -f "$resolved" ] || { printf 'none\n'; return 0; }
+
+    theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null) || theme_name=""
+
+    case "$resolved" in
+        "$HOME/.local/state/omarchy/current/theme/backgrounds/"*) printf 'theme\n' ;;
+        "$HOME/.config/omarchy/backgrounds/$theme_name/"*)         printf 'theme\n' ;;
+        *)                                                          printf 'user\n' ;;
+    esac
+}
+
+# May $1 replace the wallpaper currently on screen? Exit 0 for yes.
+#
+# The rule in one line: a theme wallpaper may not replace a wallpaper the user
+# owns. Everything else -- another theme wallpaper, the user's own file, an
+# empty state, a file that has since been deleted -- may apply.
+#
+# --force skips the check, and the wallpaper surface passes it for a pick made
+# in the strip. A user who taps a theme's own wallpaper in the strip is making
+# that choice deliberately, and it must not be second-guessed here; only the
+# wallpaper arriving on its own, from a theme switch, is ever refused.
+should_apply() {
+    local candidate="$1" force="${2:-}" current
+
+    [ "$force" = "--force" ] && return 0
+
+    [ "$(wallpaper_owner "$candidate")" = "theme" ] || return 0
+
+    current=$(cat "$STATE" 2>/dev/null) || current=""
+    [ -n "$current" ] || return 0
+    [ "$(wallpaper_owner "$current")" = "user" ] || return 0
+
+    return 1
+}
+
+# Report ownership, for the surface and for tests. Answering this without
+# touching the daemon is the point: the surface asks on every wallpaper change
+# to decide whether to follow, and that must not start or wait on awww.
+if [ "$cmd" = "owner" ]; then
+    wallpaper_owner "${2:-}"
+    exit 0
+fi
+
+# The guard on its own, for the same reason. Exits 0 when the wallpaper may
+# apply, so a caller can use it as a plain condition.
+if [ "$cmd" = "should-apply" ]; then
+    should_apply "${2:-}" "${3:-}"
+    exit $?
+fi
+
 # regen: refresh the shared wallpaper palette (colors.json, in the better cache
 # dir) from the current wallpaper, without touching the daemon or any wallpaper
 # state. Fired when a dynamic mode is picked, so switching to dynamic re-derives
@@ -419,8 +505,38 @@ if [ "$cmd" = "init" ]; then
 elif [ "$cmd" = "set" ]; then
     pic="${2:-}"
     [ -f "$pic" ] || exit 1
-    target="${3:-}"
+    # The output may be omitted ("set <pic>") or given as "all", and --force
+    # may sit on either side of it, so both are pulled out of the argument
+    # list rather than read positionally. Reading $3 as the target would miss
+    # a trailing --force, and the guard would then refuse a wallpaper the user
+    # had just picked in the strip.
+    shift                       # drop "set"
+    force=""
+    target=""
+    for arg in "$@"; do
+        case "$arg" in
+            "$pic") ;;                       # the wallpaper, already read
+            --force) force="--force" ;;
+            *) [ -z "$target" ] && target="$arg" ;;
+        esac
+    done
     [ "$target" = "all" ] && target=""
+
+    # A wallpaper the user owns outranks a theme wallpaper arriving on its
+    # own, so refuse and put the symlink back. Both halves matter: without the
+    # repoint, current/background keeps advertising the theme's wallpaper, so
+    # the next poll re-offers it and the wallpaper looks like it keeps
+    # snapping back. omarchy-theme-set wrote that link, and it is the state
+    # every other wallpaper reader trusts, so it is left agreeing with what is
+    # actually on screen.
+    if ! should_apply "$pic" "$force"; then
+        kept=$(cat "$STATE" 2>/dev/null) || kept=""
+        if [ -n "$kept" ] && [ -f "$kept" ]; then
+            ln -nsf "$kept" "$HOME/.local/state/omarchy/current/background" 2>/dev/null || true
+            printf 'better: kept your wallpaper, ignoring the theme default\n' >&2
+        fi
+        exit 0
+    fi
 elif [ "$cmd" = "fit" ]; then
     mode="${2:-crop}"
     case "$mode" in no|crop|fit|stretch) ;; *) mode=crop ;; esac

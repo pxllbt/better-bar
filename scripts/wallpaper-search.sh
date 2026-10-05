@@ -229,6 +229,168 @@ whsearch() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# Alpha Coders
+# ---------------------------------------------------------------------------
+#
+# A third source, and the only one with no API at all: api.alphacoders.com is
+# gone (404), so a category page is scraped HTML. The site splits phone
+# wallpapers into separate `<category>-phone-wallpapers` sections, so the
+# desktop sections are already free of them and no orientation filter is
+# needed here.
+#
+# Both pieces of a wallpaper live in different attributes of the same tile --
+# the id in the link to wall.alphacoders.com/big.php?i=<id>, the thumbnail in
+# the picture's source -- so both are pulled per tile rather than one being
+# matched up to the other afterwards. Each id appears three times in the markup
+# (a source per breakpoint plus the img), so tiles are emitted once per unique
+# id; a naive extract returns the same wallpaper two or three times and the
+# strip fills with duplicates.
+#
+# The full-size file cannot be derived from the thumbnail URL. Alpha Coders
+# serves .jpg and .png from the same shape of path and nothing in the listing
+# says which, so a pick goes back to the wallpaper's own page for it. That
+# costs one request per pick, which is the right trade: picks are deliberate
+# and rare, and a strip full of tiles that cannot be downloaded is worthless.
+
+# One wallpaper's entry: the thumbnail the tile renders, and the page the pick
+# resolves through.
+AC_PAGE_URL='https://alphacoders.com'
+AC_VIEW_URL='https://wall.alphacoders.com/big.php?i='
+
+# True when $1 is one of the categories this source is browsed by. The site
+# has far more sections than the strip offers; these are the ones that line up
+# with what the other two sources already expose, so switching sources keeps
+# the meaning of the category row.
+ac_category_ok() {
+    case "${1:-}" in
+        abstract|anime|amoled|architecture|art|cars|minimal|nature|tech) ;;
+        *) return 1 ;;
+    esac
+}
+
+# Parse a category page into the strip's entry shape. Reads the page on stdin.
+#
+# awk rather than grep -o here because the two fields are ordered differently
+# per tile -- the link precedes the picture in every tile seen so far, but a
+# regex that assumed it would silently drop the tail of a page the moment the
+# markup shifted. Matching the id anywhere in the tile and the thumb anywhere
+# in the same tile does not care about their order.
+ac_parse_page() {
+    awk '
+        # New tile: a link to the wallpaper page carries its id.
+        /big\.php\?i=[0-9]+/ {
+            # The digits are matched directly rather than sliced out of a
+            # wider match, so no offset arithmetic can drift and leave the
+            # "=" or a stray character glued to the id.
+            if (match($0, /big\.php\?i=[0-9]+/)) {
+                line = $0
+                sub(/.*big\.php\?i=/, "", line)
+                sub(/[^0-9].*$/, "", line)
+                id = line
+                thumb = ""
+                have = 1
+            }
+        }
+        # The thumbnail for the tile being read. Kept as the last one seen so a
+        # page that repeats the image per breakpoint still yields one thumb.
+        have && /thumbbig-[0-9]+\.webp/ {
+            if (match($0, /https:\/\/images[0-9]*\.alphacoders\.com\/[0-9]+\/thumbbig-[0-9]+\.webp/))
+                thumb = substr($0, RSTART, RLENGTH)
+        }
+        # End of tile: the </a> closes the link the id came from, which is the
+        # only reliable boundary between one wallpaper and the next.
+        have && /<\/a>/ {
+            if (thumb != "" && !(id in seen)) {
+                seen[id] = 1
+                printf "{\"thumb\":\"%s\",\"image\":\"%s%s\"}\n", thumb, "'"$AC_VIEW_URL"'", id
+            }
+            id = ""
+            thumb = ""
+            have = 0
+        }
+    '
+}
+
+# Browse one category page. Output is JSON lines, which the caller turns into
+# an array; a page that cannot be fetched answers an empty array so the strip
+# shows its empty state rather than spinning.
+acsearch() {
+    local cat="${1:-}" page="${2:-1}" base cache raw code mapped
+    ac_category_ok "$cat" || cat="minimal"
+    case "$page" in
+        ''|*[!0-9]*) page=1 ;;
+    esac
+    [ "$page" -lt 1 ] && page=1
+
+    base=$(wh_state)
+    cache="$base/ac-cache/$(printf '%s' "$cat-$page" | sha1sum | cut -c1-24).json"
+
+    # Cached for the same window as the wallhaven chunks: the strip re-fires a
+    # page on every entry and category change, and the collection moves slowly
+    # enough that a fresh fetch is almost never what is wanted.
+    if [ -f "$cache" ] && [ $(( $(date +%s) - $(stat -c %Y "$cache") )) -lt 1200 ]; then
+        cat "$cache"
+        return 0
+    fi
+
+    # -L because four of the category names the strip uses are not the site's own:
+    # it redirects art -> artistic, cars -> cars-(pixar), minimal ->
+    # minimalist and tech -> technology. Without following, those four answer
+    # 301 with an empty body, which parsed as "this category has no
+    # wallpapers" and left four of the nine chips permanently blank.
+    raw=$(curl -sL --max-time 20 -w $'\n%{http_code}' -A "$UA" \
+        "$AC_PAGE_URL/$cat-wallpapers?page=$page")
+    # The site serves an empty 200 for an out-of-range page rather than a 404,
+    # so a page number past the end is a legitimate empty answer and not a
+    # failure to report.
+    code="${raw##*$'\n'}"
+    raw="${raw%$'\n'*}"
+    [ -n "$code" ] || code=000
+    # 000 is offline or a timeout rather than the site refusing: no cooldown
+    # latch here, because there is no rate budget to protect. An empty answer
+    # lets the strip sit idle until connectivity returns.
+    [ "$code" = "200" ] || { printf '[]\n'; return 0; }
+
+    # fromjson on each line: -R reads the awk output as raw strings, so without it
+# the array would hold the JSON as text and every consumer would get a string
+# where it expects an entry.
+    mapped=$(printf '%s\n' "$raw" | ac_parse_page \
+        | jq -R -s -c 'split("\n") | map(select(length > 0)) | map(fromjson)')
+
+    if [ -z "$mapped" ] || [ "$mapped" = "[]" ]; then
+        printf '[]\n'
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$cache")"
+    printf '%s\n' "$mapped" > "$cache"
+    printf '%s\n' "$mapped"
+}
+
+# Recover the full-size image URL for a picked wallpaper.
+#
+# The detail page's og:image is the original file, named thumb-1920-<id>.<ext>
+# because it is also what the page shows inline. The name is rewritten to
+# <id>.<ext>, keeping the extension the site chose -- which is the whole point,
+# since guessing it wrong 404s on the png wallpapers.
+acresolve() {
+    local url="${1:-}" id raw full
+    id="${url##*=}"
+    case "$id" in
+        ''|*[!0-9]*) printf '\n'; return 0 ;;
+    esac
+
+    raw=$(curl -s --max-time 20 -A "$UA" "$url")
+    [ -n "$raw" ] || { printf '\n'; return 0; }
+
+    full=$(printf '%s\n' "$raw" | grep -oE \
+        'https://images[0-9]*\.alphacoders\.com/[0-9]+/thumb-1920-[0-9]+\.(jpg|png)' \
+        | head -1 | sed -E 's#/thumb-1920-([0-9]+)\.(jpg|png)$#/\1.\2#')
+
+    printf '%s\n' "$full"
+}
+
 # WallWidgy browse. The API's search endpoint only ever hands back a
 # handful of random picks, but its index endpoint lists the whole
 # collection with metadata (category, orientation, resolution,
@@ -457,6 +619,25 @@ download() {
             printf '%s\n' "$out"
             exit 0
             ;;
+        https://wall.alphacoders.com/big.php\?i=*)
+            # The listing cannot say whether a wallpaper is a jpg or a png --
+            # both come off the same shape of path -- so the pick resolves the
+            # real file from the wallpaper's own page. That is one extra request
+            # per pick, which is the right way round: picks are deliberate and
+            # rare, whereas guessing wrong 404s every png wallpaper.
+            id="${url##*=}"
+            case "$id" in
+                ''|*[!0-9]*) exit 1 ;;
+            esac
+            full=$(acresolve "$url")
+            [ -n "$full" ] || exit 1
+            fn="alphacoders-$id.${full##*.}"
+            out="$wpdir/$fn"
+            curl -fsL --max-time 600 -A "$UA" -e "https://alphacoders.com/" -o "$out" "$full" || exit 1
+            [ -s "$out" ] || exit 1
+            printf '%s\n' "$out"
+            exit 0
+            ;;
         https://w.wallhaven.cc/*)
             # Picked wallhaven wallpaper lands in the collection root itself so
             # it joins the shuffle bag; the filename keeps the wallhaven id. A
@@ -512,6 +693,12 @@ case "${1:-}" in
     # size and the zero-based page. Without forwarding $4 every request
     # silently answered page 0, so the chevrons never moved.
     wwsearch) wwsearch "${2:-}" "${3:-17}" "${4:-0}" ;;
+    # Alpha Coders: a category page, and the full-size URL for a picked
+    # wallpaper (its detail page is the only place the real file appears, since
+    # the listing gives no usable way to tell a jpg from a png).
+    acsearch) acsearch "${2:-}" "${3:-1}" ;;
+    acsearch) acsearch "${2:-}" "${3:-1}" ;;
+    acresolve) acresolve "${2:-}" ;;
     thumbget) thumbget "${2:-}" ;;
     download) download "${2:-}" ;;
     *)        printf '[]\n'; exit 0 ;;

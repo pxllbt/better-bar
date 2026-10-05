@@ -128,7 +128,7 @@ Singleton {
             return;
         root._lastOmarchyBackground = target;
         if (target.length > 0)
-            root.apply(target);
+            root.follow(target);
     }
 
 
@@ -224,7 +224,16 @@ Singleton {
      */
     property string queuedApply: ""
     property string queuedOutput: ""
+    /** An outside wallpaper change waiting for `followProc`, newest wins. */
+    property string queuedFollow: ""
 
+    /**
+     * Apply a wallpaper the user chose, so `--force`: a pick in the strip is a
+     * deliberate choice, and the script's guard exists only to catch a theme
+     * wallpaper arriving on its own. Without the flag, picking one of the
+     * current theme's own backgrounds here would be refused by the very rule
+     * meant to protect an unrelated wallpaper.
+     */
     function apply(path, output) {
         var out = output === undefined ? "" : output;
         if (applyProc.running) {
@@ -233,9 +242,28 @@ Singleton {
             return;
         }
         applyProc.command = out.length > 0
-            ? ["bash", root.setScript, "set", path, out]
-            : ["bash", root.setScript, "set", path];
+            ? ["bash", root.setScript, "set", path, out, "--force"]
+            : ["bash", root.setScript, "set", path, "--force"];
         applyProc.running = true;
+    }
+
+    /**
+     * Apply a wallpaper that arrived from outside the strip, without --force.
+     *
+     * This is the path a theme switch arrives on: omarchy-theme-set repoints
+     * current/background at the incoming theme's own wallpaper and this adopts
+     * whatever it resolves to. That adoption is what silently replaced a
+     * wallpaper the user had picked, so it is the one path that has to ask
+     * the script first. `apply` above cannot: it is also the path a pick takes,
+     * and there the answer is always yes.
+     */
+    function follow(path) {
+        if (followProc.running) {
+            queuedFollow = path;
+            return;
+        }
+        followProc.command = ["bash", root.setScript, "set", path];
+        followProc.running = true;
     }
 
     function trash(path) {
@@ -436,10 +464,39 @@ Singleton {
                 var nextOut = root.queuedOutput;
                 root.queuedApply = "";
                 root.queuedOutput = "";
+                // --force here too: a queued request is a pick that landed
+                // while an earlier one was still painting.
                 applyProc.command = nextOut.length > 0
-                    ? ["bash", root.setScript, "set", next, nextOut]
-                    : ["bash", root.setScript, "set", next];
+                    ? ["bash", root.setScript, "set", next, nextOut, "--force"]
+                    : ["bash", root.setScript, "set", next, "--force"];
                 applyProc.running = true;
+                return;
+            }
+            // A pick is on record and painted; a wallpaper that arrived
+            // from outside has been applied (or refused, in which case
+            // the script already put the symlink back). Either way the
+            // recorded state is worth re-reading now.
+            stateProc.running = true;
+        }
+    }
+
+    /**
+     * The outside-change applier. Separate from `applyProc` because the two
+     * carry opposite intent about the script's guard, and sharing one process
+     * meant whichever ran last decided for both. A theme switch landing mid
+     * pick would be forced through, and a pick landing mid theme switch would
+     * be refused -- both of which read as a wallpaper that changes when you did
+     * not ask it to.
+     */
+    Process {
+        id: followProc
+        command: ["bash", root.setScript, "set", ""]
+        onExited: {
+            if (root.queuedFollow.length) {
+                var next = root.queuedFollow;
+                root.queuedFollow = "";
+                followProc.command = ["bash", root.setScript, "set", next];
+                followProc.running = true;
                 return;
             }
             stateProc.running = true;

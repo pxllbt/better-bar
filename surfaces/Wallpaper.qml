@@ -65,6 +65,18 @@ PillSurface {
     property bool wwSource: false
     /** The WallWidgy collection the batch draws from; the category dropdown swaps it and re-fetches. */
     property string wwCategory: "all"
+    /** Alpha Coders browse mode: when on, the strip pages through the chosen alphacoders category. */
+    property bool acSource: false
+    /** The alphacoders category being browsed; the dropdown swaps it and re-fetches from page one. */
+    property string acCategory: "abstract"
+    /** Results loaded so far across the pages fetched this session. */
+    property var acResults: []
+    /** The next alphacoders page to fetch; pages hold 15 wallpapers each. */
+    property int acPage: 1
+    /** True while a page was fetched to extend the strip rather than replace it. */
+    property bool acAppending: false
+    /** Set once a page comes back empty, which is the end of the category. */
+    property bool acEnd: false
     /** True while the wallhaven search field holds keyboard focus; shell.qml routes bare keys to the field only while it's false. */
     readonly property bool whTyping: searchField.input.activeFocus
     property var wallResults: []
@@ -116,7 +128,7 @@ PillSurface {
         return m[root.whSort] || "Hot";
     }
     /** The chip/dropdown occupying the slot left of the source chips: the sort dropdown while browsing wallhaven, the category dropdown while browsing wallwidgy, else the kind filter. */
-    readonly property Item whSlot: root.whSource ? whSortRow : (root.wwSource ? wwCatRow : filterRow)
+    readonly property Item whSlot: root.whSource ? whSortRow : (root.wwSource ? wwCatRow : (root.acSource ? acCatRow : filterRow))
 
     /** Inline folder edit in the header: true while the path field holds focus. */
     property bool editingDir: false
@@ -159,13 +171,14 @@ PillSurface {
      * a time, driven by the chip clicks; keyboard input is routed through
      * `menuMove`/`menuPick`/`menuClose` to whichever is open.
      */
-    readonly property bool menuOpen: filterRow.open || whSortRow.open || wwCatRow.open || dFit.open
+    readonly property bool menuOpen: filterRow.open || whSortRow.open || wwCatRow.open || acCatRow.open || dFit.open
 
     function toggleMenu(m) {
         var was = m.open;
         filterRow.open = false;
         whSortRow.open = false;
         wwCatRow.open = false;
+        acCatRow.open = false;
         dFit.open = false;
         m.open = !was;
     }
@@ -177,6 +190,8 @@ PillSurface {
             whSortRow.moveSel(dir);
         else if (wwCatRow.open)
             wwCatRow.moveSel(dir);
+        else if (acCatRow.open)
+            acCatRow.moveSel(dir);
         else if (filterRow.open)
             filterRow.moveSel(dir);
     }
@@ -188,6 +203,8 @@ PillSurface {
             whSortRow.pickSel();
         else if (wwCatRow.open)
             wwCatRow.pickSel();
+        else if (acCatRow.open)
+            acCatRow.pickSel();
         else if (filterRow.open)
             filterRow.pickSel();
     }
@@ -196,6 +213,7 @@ PillSurface {
         filterRow.open = false;
         whSortRow.open = false;
         wwCatRow.open = false;
+        acCatRow.open = false;
         dFit.open = false;
     }
 
@@ -279,7 +297,9 @@ PillSurface {
         ? root.wallResults
         : (root.wwSource
             ? root.wwResults
-            : ((searching && query.length > 0) ? root.localFilter : localItems))
+            : (root.acSource
+                ? root.acResults
+                : ((searching && query.length > 0) ? root.localFilter : localItems)))
     readonly property int itemCount: items.length
 
     /**
@@ -381,6 +401,16 @@ PillSurface {
             && !searchProc.running
             && focusIndex >= root.wallResults.length - 4) {
             root.loadWallhavenNext();
+        }
+        // Same shape for alphacoders: fetch the next page once the focus is
+        // within four tiles of what is loaded, so the tail is usually already
+        // there by the time it is scrolled to. loadAlphacodersNext is a no-op
+        // while a fetch runs or past the end of the category, so this cannot
+        // pile requests up on a fast scroll.
+        if (root.acSource && !root.acAppending && !root.acEnd
+            && !searchProc.running
+            && focusIndex >= root.acResults.length - 4) {
+            root.loadAlphacodersNext();
         }
     }
 
@@ -550,6 +580,34 @@ PillSurface {
     }
 
     /**
+     * Load one alphacoders page, replacing what is loaded.
+     *
+     * Pages hold 15 wallpapers and the category has no stated end, so this is
+     * the first page of a scroll rather than the whole thing: `loadAlphacodersNext`
+     * pulls the next one in as the focus approaches the end, the same shape as
+     * the wallhaven feed.
+     */
+    function refreshAlphacoders() {
+        root.acEnd = false;
+        searchProc.command = ["bash", root.searchScript, "acsearch", root.acCategory, "1"];
+        searchProc.running = true;
+    }
+
+    /**
+     * Pull the next alphacoders page in to extend the strip. No-ops once a page
+     * has come back empty (the end of the category), while a fetch is already
+     * running, or when leaving the source.
+     */
+    function loadAlphacodersNext() {
+        if (!root.acSource || root.acEnd || searchProc.running)
+            return;
+        root.acPage += 1;
+        root.acAppending = true;
+        searchProc.command = ["bash", root.searchScript, "acsearch", root.acCategory, String(root.acPage)];
+        searchProc.running = true;
+    }
+
+    /**
      * Pull the next wallhaven page in to extend the strip: the
      * feed has no last page, so scrolling into the tail of what
      * is loaded fetches more rather than stopping. The page
@@ -607,6 +665,10 @@ PillSurface {
                 root.wwSource = false;
                 root.wwResults = [];
             }
+            if (root.acSource) {
+                root.acSource = false;
+                root.acResults = [];
+            }
             if (root.searching) {
                 root.searching = false;
                 root.query = "";
@@ -640,6 +702,10 @@ PillSurface {
                 root.whSource = false;
                 root.wallResults = [];
             }
+            if (root.acSource) {
+                root.acSource = false;
+                root.acResults = [];
+            }
             if (root.searching) {
                 root.searching = false;
                 root.query = "";
@@ -651,6 +717,50 @@ PillSurface {
             root.pos = 0;
             root.refreshWallwidgy();
         }
+    }
+
+    /**
+     * Alpha Coders chip toggle. Turning it on quits any search and any other
+     * browse, then loads the first page of the current category; turning it off
+     * restores the local strip.
+     *
+     * Alphacoders serves no search -- its search results are rendered by
+     * javascript and carry no images in the HTML -- so browsing is by category
+     * only and the search field stays away while this is on, the same as
+     * WallWidgy.
+     */
+    function toggleAlphacoders() {
+        root.menuClose();
+        if (root.acSource) {
+            root.acSource = false;
+            root.acResults = [];
+            if (root.searching)
+                root.exitSearch();
+            else
+                root.centerOnCurrent();
+            return;
+        }
+        if (root.whSource) {
+            root.whSource = false;
+            root.wallResults = [];
+        }
+        if (root.wwSource) {
+            root.wwSource = false;
+            root.wwResults = [];
+        }
+        if (root.searching) {
+            root.searching = false;
+            root.query = "";
+            searchField.text = "";
+        }
+        root.acSource = true;
+        root.acResults = [];
+        root.acPage = 1;
+        root.acAppending = false;
+        root.acEnd = false;
+        root.focusIndex = 0;
+        root.pos = 0;
+        root.refreshAlphacoders();
     }
 
     /**
@@ -667,6 +777,13 @@ PillSurface {
         if (root.wwSource) {
             root.wwSource = false;
             root.wwResults = [];
+        }
+        // Typing filters the local strip, so a remote browse has to end first:
+        // otherwise the field would narrow a list of downloaded wallpapers by
+        // name while the strip still showed a category's results.
+        if (root.acSource) {
+            root.acSource = false;
+            root.acResults = [];
         }
         Qt.callLater(searchField.input.forceActiveFocus);
     }
@@ -733,6 +850,11 @@ PillSurface {
         whSource = false;
         wwResults = [];
         wwSource = false;
+        acResults = [];
+        acSource = false;
+        acPage = 1;
+        acAppending = false;
+        acEnd = false;
         thumbQueue = [];
         thumbLocal = {};
         for (var rt = 0; rt < thumbProcs.length; rt++) {
@@ -751,7 +873,7 @@ PillSurface {
     Connections {
         target: Walls
         function onEntriesChanged() {
-            if (!root.whSource && !root.wwSource && !root.searching && root.focusIndex >= Walls.count)
+            if (!root.whSource && !root.wwSource && !root.acSource && !root.searching && root.focusIndex >= Walls.count)
                 root.focusIndex = Math.max(0, Walls.count - 1);
         }
 
@@ -764,12 +886,24 @@ PillSurface {
          * applying a wallpaper never yanks the browse strip away.
          */
         function onRefreshDone() {
-            if (root.active && !root.whSource && !root.wwSource && !(root.searching && root.query.length > 0))
+            if (root.active && !root.whSource && !root.wwSource && !root.acSource && !(root.searching && root.query.length > 0))
                 root.centerOnCurrent();
         }
     }
 
     readonly property string searchScript: Config.hyprPath("scripts", "wallpaper-search.sh")
+
+    /**
+     * Which remote browse is on, or "" for the local strip.
+     *
+     * Read by the shell and by the empty/blocked states instead of each of
+     * them repeating the same three-way test. Alphacoders is folded in here
+     * rather than treated as a special case, because it is the third of the
+     * same shape and the code that has to know about it is the code that
+     * already had to know about the other two.
+     */
+    readonly property string remoteSource: root.whSource ? "wallhaven"
+        : (root.wwSource ? "wallwidgy" : (root.acSource ? "alphacoders" : ""))
 
     /**
      * Remote video previews. Qt's MediaPlayer chokes on streaming https, so
@@ -889,6 +1023,7 @@ PillSurface {
                     root.whBlocked = true;
                     root.wallResults = [];
                     root.wwResults = [];
+                    root.acResults = [];
                     root.thumbQueue = [];
                     root.searching = false;
                     return;
@@ -913,6 +1048,30 @@ PillSurface {
                         root.thumbLocal = {};
                         root.thumbQueue = [];
                         root.enqueueThumbs(0, root.wallResults.length);
+                        root.focusIndex = 0;
+                        root.pos = 0;
+                    }
+                } else if (root.acSource) {
+                    // Alpha Coders has no block signal to honour: it serves an
+                    // empty page rather than refusing, so an empty answer is
+                    // simply the end of the category and paging stops.
+                    if (root.acAppending) {
+                        if (out.length === 0) {
+                            root.acEnd = true;
+                        } else {
+                            var acBase = root.acResults.length;
+                            root.acResults = root.acResults.concat(out);
+                            root.enqueueThumbs(acBase, root.acResults.length);
+                        }
+                        root.acAppending = false;
+                    } else if (out.length === 0) {
+                        root.acEnd = true;
+                        root.acResults = [];
+                    } else {
+                        root.acResults = out;
+                        root.thumbLocal = {};
+                        root.thumbQueue = [];
+                        root.enqueueThumbs(0, root.acResults.length);
                         root.focusIndex = 0;
                         root.pos = 0;
                     }
@@ -950,7 +1109,7 @@ PillSurface {
      * re-enqueues are free.
      */
     function enqueueThumbs(from, to) {
-        var src = root.whSource ? root.wallResults : (root.wwSource ? root.wwResults : []);
+        var src = root.whSource ? root.wallResults : (root.wwSource ? root.wwResults : (root.acSource ? root.acResults : []));
         if (from === undefined)
             from = 0;
         if (to === undefined || to > src.length)
@@ -1047,7 +1206,7 @@ PillSurface {
         id: thumbPump
         interval: 200
         repeat: true
-        running: root.whSource || root.wwSource
+        running: root.whSource || root.wwSource || root.acSource
         onTriggered: root.pumpThumb()
     }
 
@@ -1055,6 +1214,9 @@ PillSurface {
         id: whRetry
         interval: 60000
         repeat: true
+        // Alphacoders is not in here: it has no block marker and no rate
+        // budget to protect, so an empty page is the end of a category rather
+        // than a reason to back off.
         running: root.whBlocked && (root.whSource || root.wwSource)
         onTriggered: if (root.whSource) root.refreshWallhaven(); else root.refreshWallwidgy()
     }
@@ -1072,7 +1234,7 @@ PillSurface {
                 failed = "";
                 Walls.refresh();
                 Walls.apply(savedPath);
-                if (root.whSource || root.wwSource) {
+                if (root.whSource || root.wwSource || root.acSource) {
                     // Stay on the current remote results and drop field focus
                     // so the next Enter picks again instead of re-searching.
                     searchField.input.focus = false;
@@ -1132,7 +1294,9 @@ PillSurface {
         z: 55
         s: root.s
         // Wallhaven serves stills only, so the all/still/live filter is moot there.
-        visible: !root.whSource && !root.wwSource
+        // Alpha Coders serves stills too, and browsing by category replaces the
+        // filter the same way.
+        visible: !root.whSource && !root.wwSource && !root.acSource
         options: [{ label: "all", value: "all" }, { label: "still", value: "still" }, { label: "live", value: "motion" }]
         value: root.kindFilter
         title: "Filter"
@@ -1271,6 +1435,110 @@ PillSurface {
     }
 
     /**
+     * Alpha Coders category dropdown, shown only while browsing alphacoders.
+     *
+     * The same nine categories WallWidgy offers, and deliberately so: the two
+     * sources cover overlapping ground, and a category that means one thing in
+     * the strip and another on the site would be worse than a smaller row.
+     * Four of the names are not the site's own and are redirected there
+     * (art -> artistic, cars -> cars-(pixar), minimal -> minimalist,
+     * tech -> technology), which the script follows.
+     *
+     * No "All" here, unlike WallWidgy: alphacoders has no single browse-everything
+     * section, so an all-wallpapers entry would have to mean something the site
+     * does not offer.
+     */
+    Dropdown {
+        id: acCatRow
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: dFit.left
+        anchors.rightMargin: 8 * root.s
+        z: 55
+        s: root.s
+        columns: 2
+        visible: root.acSource
+        options: [
+            { label: "Abstract", value: "abstract" },
+            { label: "Anime", value: "anime" },
+            { label: "Nature", value: "nature" },
+            { label: "Amoled", value: "amoled" },
+            { label: "Art", value: "art" },
+            { label: "Architecture", value: "architecture" },
+            { label: "Cars", value: "cars" },
+            { label: "Minimal", value: "minimal" },
+            { label: "Tech", value: "tech" }
+        ]
+        value: root.acCategory
+        title: "Cat: " + root.acCategory
+        desc: "Which alphacoders category the strip pages through"
+        onChipClicked: root.toggleMenu(acCatRow)
+        onPicked: (v) => {
+            // Back to page one: page 40 of the old category has nothing to do
+            // with the new one, and appending it would leave a strip that is
+            // mostly the category just left.
+            root.acCategory = v;
+            root.acResults = [];
+            root.acPage = 1;
+            root.acAppending = false;
+            root.acEnd = false;
+            root.focusIndex = 0;
+            root.pos = 0;
+            root.refreshAlphacoders();
+        }
+    }
+
+    /**
+     * Alpha Coders browse chip. The third chip in the row, and the only one
+     * whose glyph is a screen rather than a picture or a stack: Wallhaven and
+     * WallWidgy are wallpaper libraries, alphacoders is a site, and the monitor
+     * glyph reads as browsing somewhere rather than as a third library.
+     */
+    Rectangle {
+        id: acChip
+        anchors.top: parent.top
+        anchors.topMargin: 9 * root.s
+        anchors.right: whChip.left
+        anchors.rightMargin: 6 * root.s
+        z: 55
+        width: 22 * root.s
+        height: 22 * root.s
+        radius: height / 2
+        color: "transparent"
+
+        GlyphIcon {
+            id: acGlyph
+            anchors.centerIn: parent
+            width: 13 * root.s
+            height: 13 * root.s
+            name: "monitor"
+            color: root.acSource ? Theme.vermLit : Theme.iconDim
+            stroke: 1.8
+            Behavior on color { ColorAnimation { duration: Motion.fast } }
+        }
+
+        HoverHandler {
+            id: acChipHover
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.toggleAlphacoders()
+        }
+
+        Tooltip {
+            placement: "below"
+            align: "right"
+            title: "Alpha Coders"
+            desc: root.acSource
+                ? "Browsing alphacoders — click to return to local"
+                : "Click to browse alphacoders wallpapers"
+            show: acChipHover.hovered
+        }
+    }
+
+    /**
      * WallWidgy browse chip, mirroring the wallhaven chip: toggling
      * lights its glyph and loads a fresh curated batch; a second
      * click returns to the local strip. WallWidgy serves no search,
@@ -1280,7 +1548,7 @@ PillSurface {
         id: wwChip
         anchors.top: parent.top
         anchors.topMargin: 9 * root.s
-        anchors.right: whChip.left
+        anchors.right: acChip.left
         anchors.rightMargin: 6 * root.s
         z: 55
         width: 22 * root.s
