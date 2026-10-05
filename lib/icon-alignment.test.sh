@@ -112,8 +112,16 @@ ok "PluginButton's cell is 17 scaled units" \
     "$(grep -oE 'implicitWidth: ([0-9.]+) \* s' "$BUTTON" | grep -oE '[0-9.]+')" "17"
 ok "PluginButton's glyph stroke matches the row" \
     "$(grep -oE 'stroke: [0-9.]+' "$BUTTON" | awk '{print $2}' | sort -u | tr '\n' ' ' | xargs)" "1.7"
+# Anchored to statusRow by id rather than to `parent`. Both centre the cell on
+# the row, but a Repeater delegate's `parent` is null while the anchor binding
+# first evaluates, so the `parent` form logged "Cannot read property
+# 'verticalCenter' of null" on every shell start. The id form is the fix, so
+# the assertion pins the id form -- asserting only that *some* anchor exists
+# would let the throwing version back in.
 ok "the plugin delegate is vertically centred in the row" \
-    "$(grep -A20 'model: Plugins.pillWidgetsGeneric' "$PILL" | grep -c 'anchors.verticalCenter: parent.verticalCenter')" "1"
+    "$(grep -A20 'model: Plugins.pillWidgetsGeneric' "$PILL" | grep -c 'anchors.verticalCenter: statusRow.verticalCenter')" "1"
+ok "no delegate anchors to a parent that is null at bind time" \
+    "$(grep -A20 'model: Plugins.pillWidgetsGeneric' "$PILL" | grep -c 'anchors.verticalCenter: parent\.')" "0"
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then

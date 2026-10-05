@@ -69,6 +69,41 @@ omarchy restart shell
 Update with `omarchy plugin update pix.bar`, or from the **Update** surface inside
 the bar's own settings.
 
+Updating is a `git reset --hard` against the install, so it discards local
+commits and uncommitted changes rather than merging with them. The **Update**
+surface checks for both first and asks before throwing them away; the CLI
+command does not, so keep work you care about on a branch.
+
+<details>
+<summary>If the bar stops loading after a system update</summary>
+
+Omarchy runs on a rolling Quickshell, and a package update can leave the
+running shell unable to load. The bar is not usually the cause.
+
+```bash
+omarchy restart shell
+```
+
+If the shell is crash-looping, each restart can leave a ~25 MB core file behind.
+Those add up on a tmpfs and will eventually break keybindings and the bar with
+them. Check and clear them:
+
+```bash
+journalctl --user -t omarchy-shell -e
+coredumpctl list
+```
+
+Rollback after a bad `quickshell` update:
+
+```bash
+sudo pacman -U /var/cache/pacman/pkg/quickshell-*.pkg.tar.zst
+```
+
+If you are waiting to update, waiting a few days after a large Quickshell
+change is the usual advice — the breakage is usually fixed within days.
+
+</details>
+
 <details>
 <summary>Standalone install (no Omarchy plugin)</summary>
 
@@ -111,6 +146,39 @@ install:
 | Plugin | `omarchy-shell better <surface> ""` |
 | Standalone | `qs -p ~/.local/share/quickshell/better-bar ipc call better <surface> ""` |
 
+<details>
+<summary>Running the tests</summary>
+
+Six suites run the scripts against sandboxes; the seventh loads the bar in a real
+shell. From the repo root:
+
+```bash
+bash lib/surfaces-wired.test.sh .        # every navigated surface resolves
+bash lib/icon-alignment.test.sh .        # one icon cell size and stroke weight
+bash lib/update-guard.test.sh .          # updating cannot silently discard work
+bash lib/uninstall-safe.test.sh .        # uninstalling cannot eat your settings
+bash lib/alphacoders.test.sh scripts/wallpaper-search.sh
+bash lib/wallpaper-owner.test.sh scripts/wallpaper.sh
+bash lib/omshell-load.test.sh .          # loads in a real shell, checks IPC
+```
+
+Note the two different arguments: three suites take the checkout root, two take
+one specific script. Passing a checkout to `alphacoders` or `wallpaper-owner`
+reports failures that have nothing to do with the code.
+
+`omshell-load.test.sh` needs a running Wayland session and an `omarchy-shell`
+checkout (`SHELL_SRC`, default `/tmp/opencode/fo2/shell`). It redirects
+`HOME` **and** all four XDG roots into a sandbox. That is not ceremony: a
+version that set only `HOME` deleted a real `~/.local/state/better`, because
+the live environment's `XDG_STATE_HOME` and `XDG_CACHE_HOME` still pointed at
+the real machine. It does pass `WAYLAND_DISPLAY` and `XDG_RUNTIME_DIR` through,
+since the bar cannot be tested without reaching the compositor.
+
+`alphacoders.test.sh` and `wallpaper-owner.test.sh` stub `curl` on `PATH`, so a
+real `curl` earlier in `PATH` will make them report failures against nothing.
+
+</details>
+
 Surfaces: `launcher`, `wallpaper`, `clipboard`, `mixer`, `calendar`, `media`,
 `power`, `battery`, `sysmon`, `link`. Also `gameMode`, `peek`, `hide`, and
 `page <surface>` for anything by name.
@@ -136,9 +204,9 @@ call. Use the plugin path in plugin mode:
 bind = SUPER, L, exec, ~/.config/omarchy/plugins/pix.bar/scripts/lock.sh
 ```
 
-It runs `hyprlock`, configured by your own `hyprlock.conf`. Better Bar ships no
-`hyprlock.conf` and generates none, so the lock looks like it does everywhere
-else on your desktop.
+It uses `hyprlock` if you have it, otherwise its own Quickshell lockscreen — pick
+the backend under **Lock** in settings. Choosing `hyprlock` hands off to your own
+`hyprlock.conf`; Better Bar ships none and generates none.
 
 ## Plugins
 

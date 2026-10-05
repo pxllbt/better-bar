@@ -27,3 +27,4 @@ singleton ThemeColors ThemeColors.qml
 singleton OmarchyMenu OmarchyMenu.qml
 singleton ThemeSync ThemeSync.qml
 singleton CursorTrack CursorTrack.qml
+singleton AltTab AltTab.qml

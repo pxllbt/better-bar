@@ -14,6 +14,22 @@ else
   git clone --depth 1 --branch master "$REPO" "$INSTALL_ROOT"
 fi
 
+# The clone is checked before anything else, because everything below assumes
+# the checkout exists. A `git clone` can exit 0 and still leave nothing usable
+# behind it — an empty repository, a redirect to a moved project, a disk that
+# filled mid-clone — and this installer used to carry on from there, print
+# "Better Bar installed!" and hand out keybinds pointing at files that were not
+# there. The dependency check below noticed, reported "could not read
+# dependencies.json", and the install still called itself a success.
+#
+# One marker file, checked immediately: manifest.json is what makes this a bar
+# rather than any other checkout, and the installer needs it later regardless.
+if [ ! -f "$INSTALL_ROOT/manifest.json" ]; then
+  printf '\033[1;31m%s\033[0m\n' "No usable checkout at $INSTALL_ROOT — manifest.json is missing."
+  printf 'Nothing was installed. Remove that directory and try again.\n'
+  exit 1
+fi
+
 warn() { printf '  \033[1;33m%s\033[0m\n' "$*"; }
 
 printf '\nChecking dependencies...\n'
@@ -77,9 +93,9 @@ Add these to your Hyprland config:
     hl.bind(var_mainMod .. " + slash",     hl.dsp.exec_cmd("%s ipc call better launcher \\\"\\\""))
     hl.bind(var_mainMod .. " + L",         hl.dsp.exec_cmd("%s/scripts/lock.sh"))
 
-  Lock is a script, not an IPC surface. It runs hyprlock,
-  configured by your own hyprlock.conf — Better Bar ships none
-  and generates none.
+  Lock is a script, not an IPC surface. It uses hyprlock if you have it,
+  otherwise its own Quickshell lockscreen — set the backend under Lock in
+  settings once it is running.
 
   Launch manually:
     quickshell --config %s
