@@ -149,13 +149,14 @@ install:
 <details>
 <summary>Running the tests</summary>
 
-Five suites are static checks over the source; the sixth loads the bar in a real
+Six suites run the scripts against sandboxes; the seventh loads the bar in a real
 shell. From the repo root:
 
 ```bash
 bash lib/surfaces-wired.test.sh .        # every navigated surface resolves
 bash lib/icon-alignment.test.sh .        # one icon cell size and stroke weight
 bash lib/update-guard.test.sh .          # updating cannot silently discard work
+bash lib/uninstall-safe.test.sh .        # uninstalling cannot eat your settings
 bash lib/alphacoders.test.sh scripts/wallpaper-search.sh
 bash lib/wallpaper-owner.test.sh scripts/wallpaper.sh
 bash lib/omshell-load.test.sh .          # loads in a real shell, checks IPC
