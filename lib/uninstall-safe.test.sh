@@ -43,7 +43,7 @@ mkhome() {
     mkdir -p "$h/.config/omarchy/plugins" "$h/.local/state/better" "$h/.cache/better" "$h/bin"
     cp -r "$ROOT" "$h/.config/omarchy/plugins/pix.bar"
     rm -rf "$h/.config/omarchy/plugins/pix.bar/.git"
-    echo '{"lockMethod":"hyprlock"}' > "$h/.local/state/better/flags.json"
+    echo '{"bar":"default"}' > "$h/.local/state/better/flags.json"
     echo 'cached' > "$h/.cache/better/session"
     # An omarchy stub, so nothing reaches the real command. plugin list reports
     # pix.bar as registered, which is the branch that also restores the stock

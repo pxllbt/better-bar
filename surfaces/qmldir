@@ -13,7 +13,6 @@ GlassSurface GlassSurface.qml
 InterfaceSurface InterfaceSurface.qml
 Launcher Launcher.qml
 Link Link.qml
-LockSettings LockSettings.qml
 Media Media.qml
 MinimizedTray MinimizedTray.qml
 Mixer Mixer.qml
@@ -28,4 +27,3 @@ Wallpaper Wallpaper.qml
 WeatherSurface WeatherSurface.qml
 WifiSurface WifiSurface.qml
 PluginsSurface PluginsSurface.qml
-AltTabSurface AltTabSurface.qml

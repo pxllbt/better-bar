@@ -34,58 +34,6 @@ ShellRoot {
     property string peekMon: ""
 
     /**
-     * The monitor the Alt-Tab gesture opened on, and the only one that shows
-     * the switcher or takes the keyboard for it. Empty means no gesture is up.
-     * The alt-tab overlay window on every other monitor reads this to stay out
-     * of the way, so the switcher cannot appear on two screens at once.
-     */
-    property string alttabMon: ""
-
-    /**
-     * The address the switcher committed to, waiting for the overlay to go away
-     * before it is focused. Empty when there is nothing pending.
-     */
-    property string alttabPending: ""
-
-    /** Which switcher the pending commit belongs to: "window" or "workspace". */
-    property string alttabMode: "window"
-
-    /**
-     * Why the focus is deferred by a frame rather than dispatched inline.
-     *
-     * Closing the switcher unmaps its layer-shell window, and Hyprland resolves
-     * focus again when a keyboard-holding surface disappears. Dispatching the
-     * focus in the same tick as the close loses that race every time: the window
-     * is focused, and then the teardown hands focus straight back to the window
-     * that had it before — so the gesture appeared to do nothing. Waiting for the
-     * surface to be gone first is what makes the commit stick.
-     */
-    function focusAfterClose() {
-        if (alttabPending.length === 0)
-            return;
-        var addr = alttabPending;
-        var wasWorkspace = alttabMode === "workspace";
-        alttabPending = "";
-        if (wasWorkspace)
-            focusWorkspaceByName(addr);
-        else
-            focusByAddress(addr);
-    }
-
-    /**
-     * Switch to the workspace named `id`.
-     *
-     * By name rather than by the `e±1` relative selector the stock Super+Tab bind
-     * uses: the switcher has already decided which workspace is highlighted, and a
-     * relative step would be resolved against a focus that has not moved yet.
-     */
-    function focusWorkspaceByName(id) {
-        if (!id || id.length === 0)
-            return;
-        Hyprland.dispatch("hl.dsp.focus({ workspace = \"" + id + "\" })");
-    }
-
-    /**
      * Menu submenu the launcher should open at, set by the `menu` IPC handler
      * for the keys that used to summon `omarchy-menu toggle <route>`. Empty
      * means the launcher's root. Read by the Launcher surface on open.
@@ -161,63 +109,6 @@ ShellRoot {
         Hyprland.refreshToplevels();
     }
 
-    /**
-     * Focus the window at `addr`.
-     *
-     * Written as a string dispatch rather than the `h.focusWindow(h.getWindow())`
-     * callback form. The callback form takes a live HyprlandWindow object, so it
-     * silently does nothing for an address that is no longer in the compositor's
-     * table — which is exactly the case here, because the alt-tab list is a
-     * snapshot taken when the switcher opened and a window may have closed
-     * underneath it. The string form resolves the window at dispatch time
-     * instead.
-     *
-     * The `hl.dsp.focus({...})` shape is not decoration. Hyprland's config here is
-     * Lua, and it says so when you get it wrong: a bare `focuswindow 0x…` comes
-     * back as `hl.dispatch(focuswindow 0x…)` and dies with "')' expected near
-     * '0x…'", and even `address:0x…` dies with "')' expected near 'address'". Only
-     * the Lua table form is valid. `window = "address:…"` is the selector, the
-     * same convention the minimize/restore flow uses for `window.move`.
-     */
-    function focusByAddress(addr) {
-        if (!addr || addr.length === 0)
-            return;
-        Hyprland.dispatch("hl.dsp.focus({ window = \"address:" + addr + "\" })");
-    }
-
-    /**
-     * The shared open/step step behind both switcher gestures — Alt+Tab (windows)
-     * and Super+Tab (workspaces).
-     *
-     * One handler for the whole gesture rather than separate open and next
-     * handlers: from the compositor's side the second press is indistinguishable
-     * from the first, and only the shell knows whether the switcher is already up.
-     *
-     * Lives on the root rather than inside the IpcHandler because the two key
-     * handlers are thin forwarders to it and the overlay window's keyboard
-     * handler calls it too — an IpcHandler member is only reachable over IPC.
-     */
-    function switcher(mon, dir, wantMode) {
-        // Pinned once, on the first press, so the switcher cannot drift to another
-        // monitor halfway through the gesture. Re-resolving on every press would
-        // move it if focus changed mid-hold.
-        if (!AltTab.active)
-            root.alttabMon = AltTab.monitorName(mon);
-        // `open` returns false when there was nothing to switch between (an empty
-        // workspace for Alt+Tab, or no other workspace for Super+Tab). In that
-        // case the gesture is over: drop the monitor claim too, so the overlay
-        // cannot be left thinking it owns a gesture that is not happening, and the
-        // release that follows has nothing to commit.
-        if (!AltTab.open(mon, dir, wantMode)) {
-            root.alttabMon = "";
-            return false;
-        }
-        // Only window rows have a live capture to take.
-        if (!AltTab.workspaceMode)
-            AltTab.captureAll();
-        return true;
-    }
-
     Component.onCompleted: {
         refresh();
         Devices.restore();
@@ -250,14 +141,6 @@ ShellRoot {
 
     Process {
         id: battNoteProc
-    }
-
-
-    /** Fires once the switcher's layer surface has unmapped; see focusAfterClose. */
-    Timer {
-        id: alttabLandFocus
-        interval: 30
-        onTriggered: root.focusAfterClose()
     }
 
     Timer {
@@ -533,65 +416,6 @@ ShellRoot {
         }
         function peek(mon: string): void { root.peek(mon); }
         function hide(): void { root.close(); }
-
-        /**
-         * Alt-Tab: show the Windows-style switcher, or move its highlight one
-         * step if it is already up. One handler for the whole gesture rather
-         * than separate open/next handlers, because from the compositor's side
-         * the second ALT+TAB is indistinguishable from the first — only the
-         * shell knows whether the switcher is currently up.
-         *
-         * `dir` is -1 for ALT+SHIFT+TAB, so the keys map to one handler with a
-         * direction. An empty `mon` means "the focused monitor", resolved in
-         * AltTab so the list and the overlay cannot disagree about the screen.
-         */
-        function alttab(mon: string, dir: int): void {
-            root.switcher(mon, dir, "window");
-        }
-
-        /**
-         * Super+Tab: the same switcher, switching workspaces.
-         *
-         * Stock Super+Tab calls `focus { workspace = "e+1" }`, which moves to the
-         * next workspace the instant the key is pressed — you go there before you
-         * have seen what is there. This binds the whole gesture to the switcher
-         * instead, so it behaves exactly like Alt+Tab: the highlight moves while
-         * Super is held and the workspace is only entered on release.
-         */
-        function wstab(mon: string, dir: int): void {
-            root.switcher(mon, dir, "workspace");
-        }
-
-        /**
-         * Land on the highlighted row. Bound to the gesture's *release*, which is
-         * what makes it a switcher rather than a preview: nothing is focused until
-         * the modifier comes up.
-         *
-         * Inert unless the switcher is actually open — see AltTab.commit.
-         */
-        function alttabCommit(mon: string): void {
-            if (!AltTab.active) {
-                root.alttabMon = "";
-                root.alttabPending = "";
-                return;
-            }
-            // Read the target, close the switcher, and land it a frame later —
-            // see focusAfterClose.
-            root.alttabMode = AltTab.mode;
-            root.alttabPending = AltTab.current ? AltTab.current.address : "";
-            AltTab.close();
-            root.alttabMon = "";
-            if (root.alttabPending.length === 0)
-                return;
-            alttabLandFocus.restart();
-        }
-
-        /** Dismiss without switching — the switcher had nothing to offer. */
-        function alttabCancel(): void {
-            AltTab.close();
-            root.alttabMon = "";
-            root.alttabPending = "";
-        }
 
         /**
          * Memory saver door: drop every closed surface on every monitor right
@@ -1576,136 +1400,6 @@ ShellRoot {
                         dock.hovered = false;
                     }
                 }
-            }
-        }
-    }
-
-    /**
-     * The Alt-Tab switcher: one full-screen layer per monitor, mirroring the pill
-     * and dock windows rather than living inside the pill.
-     *
-     * It has to be its own window for three reasons. It covers the middle of the
-     * screen, which the pill never does. It needs the keyboard exclusively while
-     * Alt is held, which the pill only claims when a surface is open — and if the
-     * pill had it, expanding the pill for every Tab press would be visible. And
-     * it must not move any tiled window, so it claims no exclusive zone.
-     *
-     * The window exists on every monitor but only the one the gesture started on
-     * is visible and holds focus. Every monitor has the same window list
-     * available (`AltTab.items`), so a monitor that was not the one you started
-     * on is never the one you land on either.
-     */
-    Variants {
-        model: Quickshell.screens
-
-        PanelWindow {
-            id: altWin
-
-            required property var modelData
-
-            readonly property real s: modelData ? (modelData.height / 1080) * Flags.uiScale : 1
-
-            /** Only the gesture's own monitor shows the switcher. */
-            readonly property bool mine: AltTab.active && root.alttabMon === modelData.name
-
-            screen: modelData
-            color: "transparent"
-            exclusionMode: ExclusionMode.Ignore
-            WlrLayershell.layer: WlrLayer.Overlay
-            // Exclusive only while this monitor owns the gesture: taking the
-            // keyboard on every monitor would steal Tab from the desktop behind
-            // the one you are actually looking at.
-            WlrLayershell.keyboardFocus: (mine) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-            WlrLayershell.namespace: "better-alttab"
-
-            anchors { top: true; left: true; right: true; bottom: true }
-
-            /**
-             * The whole screen is the mask while the switcher is up, not just
-             * the card — the switcher is modal, exactly like Windows', and the
-             * marquee has to be startable from anywhere on the screen. An earlier
-             * version masked only the card and widened to the screen once a drag
-             * was under way, which is circular: a press outside the card never
-             * reaches the overlay at all, so it started a window drag underneath
-             * instead of a selection box, and the drag never began because the
-             * mask never widened.
-             *
-             * With no gesture up the mask is empty, so the layer costs nothing and
-             * clicks pass to the desktop.
-             *
-             * Declared with `Region` children rather than `Qt.rect`, which is how
-             * the pill and dock masks are written here and what Quickshell's
-             * `PendingRegion` expects.
-             */
-            mask: (mine || AltTab.dragging) ? altFullRegion : altHiddenRegion
-
-            Region {
-                id: altFullRegion
-                width: altWin.width
-                height: altWin.height
-            }
-            Region { id: altHiddenRegion }
-
-            /**
-             * The keyboard host.
-             *
-             * The keys are handled here rather than in AltTab.qml because this is
-             * the object that actually has focus, and it is force-activated for
-             * exactly the lifetime of the gesture. Tab moves the highlight and is
-             * accepted either way (the key belongs to us, not to the focused
-             * window); Escape cancels without switching; Enter and a plain Alt
-             * release both commit.
-             */
-            FocusScope {
-                id: altFocus
-                anchors.fill: parent
-                focus: altWin.mine
-                Keys.onPressed: (e) => {
-                    if (e.key === Qt.Key_Tab) {
-                        AltTab.step(e.modifiers & Qt.ShiftModifier ? -1 : 1);
-                        e.accepted = true;
-                    } else if (e.key === Qt.Key_Escape) {
-                        AltTab.close();
-                        root.alttabPending = "";
-                        alttabLandFocus.stop();
-                        e.accepted = true;
-                    } else if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
-                        root.alttabMode = AltTab.mode;
-                        root.alttabPending = AltTab.current ? AltTab.current.address : "";
-                        AltTab.close();
-                        root.alttabMon = "";
-                        if (root.alttabPending.length === 0)
-                            return;
-                        alttabLandFocus.restart();
-                        e.accepted = true;
-                    }
-                }
-            }
-
-            AltTabSurface {
-                id: altCard
-                anchors.fill: parent
-                s: altWin.s
-                open: altWin.mine
-            }
-
-            /**
-             * Take the keyboard the moment the gesture opens on this monitor.
-             * `forceActiveFocus` on a conditional focus is unreliable if it only
-             * lands on the same tick the window gains exclusive keyboard
-             * interactivity, so the activation is deferred one tick.
-             */
-            onMineChanged: {
-                if (mine)
-                    focusArm.restart();
-                else
-                    altFocus.forceActiveFocus();
-            }
-
-            Timer {
-                id: focusArm
-                interval: 1
-                onTriggered: if (altWin.mine) altFocus.forceActiveFocus()
             }
         }
     }

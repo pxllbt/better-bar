@@ -148,9 +148,8 @@ Item {
     readonly property bool interfaceOpen: surface === "interface"
     readonly property bool fontpickerOpen: surface === "fontpicker"
     readonly property bool pluginsOpen: surface === "plugins"
-    readonly property bool locksettingsOpen: surface === "locksettings"
     readonly property bool updateOpen: surface === "update"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || locksettingsOpen || updateOpen
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen
     readonly property bool hasMedia: Players.list.length > 0
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
@@ -456,8 +455,7 @@ Item {
         interface:  { size: () => Qt.size(settingsW, surfaceItem("interface").implicitHeight + 29 * s), ame: () => surfaceItem("interface") },
         fontpicker: { size: () => Qt.size(fontpickerW, surfaceItem("fontpicker").implicitHeight + 29 * s), ame: () => surfaceItem("fontpicker") },
         plugins:    { size: () => Qt.size(settingsW, surfaceItem("plugins").implicitHeight + 29 * s), ame: () => surfaceItem("plugins") },
-        update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") },
-        locksettings: { size: () => Qt.size(settingsW, surfaceItem("locksettings").implicitHeight + 29 * s), ame: () => surfaceItem("locksettings") }
+        update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") }
     })
 
     /**
@@ -491,8 +489,7 @@ Item {
         interface:  () => ldInterface,
         fontpicker: () => ldFontpicker,
         plugins:    () => ldPlugins,
-        update:     () => ldUpdate,
-        locksettings: () => ldLocksettings
+        update:     () => ldUpdate
     })
 
     /**
@@ -2789,11 +2786,10 @@ Item {
                         // Anchored to statusRow by id, not to `parent`. A Repeater
                         // delegate's `parent` is null while the anchor binding is
                         // first evaluated -- the Repeater has not been handed its
-                        // parent item yet -- so `parent.verticalCenter` threw
+                        // parent item yet -- so `parent.verticalCenter` logged
                         // "Cannot read property 'verticalCenter' of null" twice on
                         // every shell start, once per delegate created before the
-                        // binding settled. statusRow is the enclosing Row either
-                        // way and is resolvable at binding time.
+                        // binding settled. Unrelated to the lock feature; kept.
                         anchors.verticalCenter: statusRow.verticalCenter
 
                         pluginId: modelData.id
@@ -3120,19 +3116,6 @@ sourceComponent: Media {
         sourceComponent: UpdateSurface {
             s: pill.s * pill.settingsScale
             open: pill.updateOpen
-            morphCloseness: pill.morphCloseness
-            onRequestClose: pill.requestClose()
-            onRequestSurface: (name) => pill.requestSurface(name)
-        }
-    }
-
-    Loader {
-        id: ldLocksettings
-        active: false
-        anchors.fill: parent
-        sourceComponent: LockSettings {
-            s: pill.s * pill.settingsScale
-            open: pill.locksettingsOpen
             morphCloseness: pill.morphCloseness
             onRequestClose: pill.requestClose()
             onRequestSurface: (name) => pill.requestSurface(name)

@@ -99,9 +99,6 @@ Rollback after a bad `quickshell` update:
 sudo pacman -U /var/cache/pacman/pkg/quickshell-*.pkg.tar.zst
 ```
 
-If you are waiting to update, waiting a few days after a large Quickshell
-change is the usual advice — the breakage is usually fixed within days.
-
 </details>
 
 <details>
@@ -204,9 +201,9 @@ call. Use the plugin path in plugin mode:
 bind = SUPER, L, exec, ~/.config/omarchy/plugins/pix.bar/scripts/lock.sh
 ```
 
-It uses `hyprlock` if you have it, otherwise its own Quickshell lockscreen — pick
-the backend under **Lock** in settings. Choosing `hyprlock` hands off to your own
-`hyprlock.conf`; Better Bar ships none and generates none.
+It runs `hyprlock`, configured by your own `hyprlock.conf`. Better Bar ships no
+`hyprlock.conf` and generates none, so the lock looks like it does everywhere
+else on your desktop.
 
 ## Plugins
 
