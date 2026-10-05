@@ -150,8 +150,14 @@ run_quickshell_lock() {
         # grim hangs rather than failing when an output is powered off, and
         # this now runs on the critical path, so a hang would stop the lock
         # from ever being requested. Cap it and carry on without a backdrop.
-        if ! timeout 3 grim -t jpeg -q 90 "$SHOT" >>"$LOG" 2>&1; then
-            note "grim failed or timed out (rc=$?), continuing without pre-capture"
+        # Captured into a variable first: inside the `if !` branch, $? is the
+        # status of the negation rather than grim's, so a log line here read
+        # "rc=0" for every failure and could not distinguish a missing grim from
+        # a hung capture.
+        grim_rc=0
+        timeout 3 grim -t jpeg -q 90 "$SHOT" >>"$LOG" 2>&1 || grim_rc=$?
+        if [ "$grim_rc" -ne 0 ]; then
+            note "grim failed or timed out (rc=$grim_rc), continuing without pre-capture"
             rm -f "$SHOT"
         fi
     else
