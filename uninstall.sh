@@ -5,15 +5,27 @@ SHARE="${XDG_DATA_HOME:-$HOME/.local/share}"
 STATE="${XDG_STATE_HOME:-$HOME/.local/state}"
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}"
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}"
+PLUGINS="$CONF/omarchy/plugins"
 
 echo "Removing Better Bar..."
 
-# Stop a running instance. The shell is launched as
-# `quickshell --config <install root>` (or `qs -c`), so the
-# install root is the match; the bracket keeps pkill from
-# matching this script's own command line. Anything executed
-# from the install root (the clipboard watcher, lock helpers)
-# is caught by the second pattern.
+# Plugin install. The bar runs inside omarchy-shell, so `omarchy plugin remove`
+# is the supported door: it drops the checkout and points shell.json back at the
+# stock bar in one step. Checked first because it is the install the marketplace
+# documents, and leaving it to the manual path below would strand a checkout in
+# ~/.config/omarchy/plugins with nothing cleaning it up.
+if command -v omarchy >/dev/null 2>&1; then
+  if omarchy plugin list --json 2>/dev/null | grep -q '"pix\.bar"'; then
+    omarchy plugin remove pix.bar --yes >/dev/null 2>&1 \
+      || echo "Could not remove the pix.bar plugin — run: omarchy plugin remove pix.bar"
+  fi
+fi
+
+# Standalone install: the shell was launched as `quickshell --config <install
+# root>` (or `qs -c`), so the install root is the match; the brackets keep pkill
+# from matching this script's own command line. Anything executed from the
+# install root (the clipboard watcher, lock helpers) is caught by the last
+# pattern. No-op when the bar only ever ran inside omarchy-shell.
 pkill -f "[q]uickshell .*better-bar" 2>/dev/null || true
 pkill -f "[q]s .*better-bar" 2>/dev/null || true
 pkill -f "[b]etter-bar/scripts" 2>/dev/null || true
@@ -22,9 +34,17 @@ pkill -f "[b]etter-bar/scripts" 2>/dev/null || true
 rm -rf "$SHARE/quickshell/better-bar"
 rm -rf "$CONF/quickshell/better-bar"
 
-# The stock bar was hidden on install; put it back. Best effort:
-# if the stock shell is not running, the setting is still in
-# shell.json and applies at the next login.
+# A checkout left by an interrupted `omarchy plugin add` stages into a hidden
+# temp dir next to the plugin dir; clear those too rather than leaving them to
+# accumulate.
+if [ -d "$PLUGINS" ]; then
+  rm -rf "$PLUGINS"/.add.tmp.* 2>/dev/null || true
+fi
+
+# The stock bar was hidden on install; put it back. Best effort: if the stock
+# shell is not running, the setting is still in shell.json and applies at the
+# next login. `omarchy plugin remove` already restores the bar when it ran, so
+# this only matters for the standalone path.
 if command -v omarchy >/dev/null 2>&1; then
   omarchy toggle bar on >/dev/null 2>&1 \
     || echo "Could not restore the stock bar — run: omarchy toggle bar on"
@@ -56,6 +76,8 @@ rm -rf "$CACHE/cliphist-thumbs"
 rm -rf "$CACHE/pill"
 
 # Note: this script never edits your Hyprland config. The auto-launch line and
-# the SUPER keybinds were added by you, so remove them yourself:
+# the SUPER keybinds were added by you, so remove them yourself.
 echo "Better Bar removed."
-echo "Remove the exec-once auto-launch line and the SUPER keybinds from your Hyprland config."
+if [ -d "$SHARE/quickshell/better-bar" ] || [ -d "$PLUGINS/pix.bar" ]; then
+  echo "Remove the exec-once auto-launch line and the SUPER keybinds from your Hyprland config."
+fi
