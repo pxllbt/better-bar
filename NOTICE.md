@@ -12,8 +12,8 @@ that follow it:
   Copyright (c) 2026 amanhex.
 - **Better Bar** by pixllbeat — the modifications: the plugin
   capability registry and provider handover, the stock-plugin
-  suppression, the host-shell compatibility layer, and the
-  release itself. MIT,
+  suppression, the host-shell compatibility layer, the screen
+  lockscreen, and the release itself. MIT,
   Copyright (c) 2026 pixllbeat.
 
 Both upstream projects are MIT licensed; the full license text, with

@@ -136,9 +136,9 @@ call. Use the plugin path in plugin mode:
 bind = SUPER, L, exec, ~/.config/omarchy/plugins/pix.bar/scripts/lock.sh
 ```
 
-It runs `hyprlock`, configured by your own `hyprlock.conf`. Better Bar ships no
-`hyprlock.conf` and generates none, so the lock looks like it does everywhere
-else on your desktop.
+It uses `hyprlock` if you have it, otherwise its own Quickshell lockscreen — pick
+the backend under **Lock** in settings. Choosing `hyprlock` hands off to your own
+`hyprlock.conf`; Better Bar ships none and generates none.
 
 ## Plugins
 

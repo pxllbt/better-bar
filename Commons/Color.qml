@@ -100,8 +100,9 @@ QtObject {
     property color selectedText: root.pick("menu.selected-text", root.accent)
     property color selectedBorder: root.composed("menu.selected-border", "menu.selected-border-alpha", root.foreground, 0.0)
   }
-  // polkit's border and border-error are mutually exclusive in
-  // time, so one border-alpha companion is enough.
+  // polkit + lock share a single border-alpha across border / border-active /
+  // border-error: the three states are mutually exclusive in time, so one
+  // companion is enough.
   readonly property QtObject polkit: QtObject {
     property color background: root.composed("polkit.background", "polkit.background-alpha", root.background, 1.0)
     property color text: root.pick("polkit.text", root.foreground)
@@ -110,6 +111,16 @@ QtObject {
     property color borderError: root.composed("polkit.border-error", "polkit.border-alpha", root.urgent, 1.0)
     property color accent: root.pick("polkit.accent", root.accent)
     property color scrim: root.composed("polkit.scrim", "polkit.scrim-alpha", root.background, 0.5)
+  }
+  readonly property QtObject lock: QtObject {
+    property color background: root.composed("lock.background", "lock.background-alpha", root.background, 0.8)
+    property color text: root.pick("lock.text", root.foreground)
+    property color placeholder: root.shellValues["lock.placeholder"] ? root.flatColor(root.shellValues["lock.placeholder"], Util.alpha(root.foreground, 0.66)) : Util.alpha(root.foreground, 0.66)
+    property color textError: root.pick("lock.text-error", root.urgent)
+    property color border: root.composed("lock.border", "lock.border-alpha", root.foreground, 1.0)
+    property color borderActive: root.composed("lock.border-active", "lock.border-alpha", root.accent, 1.0)
+    property color borderError: root.composed("lock.border-error", "lock.border-alpha", root.urgent, 1.0)
+    property color selection: root.composed("lock.selection", "lock.selection-alpha", root.accent, 0.45)
   }
   // The image picker has no card surface; `scrim` is the full-screen dim
   // wash, and per-slice dim overlays / text outlines use the foundational

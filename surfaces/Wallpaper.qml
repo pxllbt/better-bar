@@ -1932,9 +1932,9 @@ PillSurface {
                 /**
                  * Marks the wallpaper actually on screen. Walls.current is the
                  * contents of the better-wallpaper state file — the same file
-                 * wallpaper.sh rewrites on every apply — so anything reading
-                 * current state, this dot included, agrees about which
-                 * wallpaper is current. Same 4px dot the
+                 * wallpaper.sh rewrites on every apply, and the same one the
+                 * lockscreen reads — so this dot and the lock screen can never
+                 * disagree about which wallpaper is current. Same 4px dot the
                  * dock uses for a running app.
                  *
                  * Top-right, not the dock's bottom-centre: the focused tile
