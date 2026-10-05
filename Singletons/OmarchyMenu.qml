@@ -242,13 +242,15 @@ Singleton {
     /**
      * Absolute path to an owned script.
      *
-     * Spelled out rather than taken from `Config.hyprPath` because using it here
-     * would mean importing `../Singletons` from a file that *lives in*
-     * Singletons/ — a self-import, which Quickshell resolves into a cycle and
-     * then fails to instantiate anything that touches the singleton.
+     * Routed through `Config.hyprPath` like every other script reference in the
+     * project, so this follows the install wherever it lands. It used to be
+     * spelled out as ~/.local/share/quickshell/better/scripts, which only holds
+     * for the standalone install and pointed at nothing when the shell was
+     * loaded by omarchy-shell as a plugin. Config lives in this same module, so
+     * reaching it needs no import — an explicit one would be a self-import,
+     * which Quickshell resolves into a cycle.
      */
-    readonly property string scriptsDir: (Quickshell.env("HOME") || "")
-        + "/.local/share/quickshell/better/scripts"
+    readonly property string scriptsDir: Config.hyprPath("scripts")
     readonly property string keybindingsScript: root.scriptsDir + "/keybindings.sh"
 
     readonly property var providers: ({
