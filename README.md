@@ -21,7 +21,7 @@ Better Bar is a widget layer for Hyprland built around a morphing pill at the to
 
 - **Dynamic island** — one morphing pill per monitor; every module grows its own surface out of it, in place.
 - **Dock** — pinned and running apps with hover magnification and multi-window previews (no cursor warp), auto-hide, and its own theme (Light / Dark / Dynamic / Manual) and glass.
-- **Surfaces** — launcher, weather, calendar, media, mixer, wallpaper strip + wallhaven search, screen recorder, clipboard, wifi, bluetooth, battery, power menu, system monitor, notifications, OSD, toasts, settings.
+- **Surfaces** — launcher, weather, calendar, media, mixer, wallpaper strip + wallhaven search, clipboard, wifi, bluetooth, battery, power menu, system monitor, notifications, OSD, toasts, settings.
 - **Wallpapers** — shuffled `awww` bag, live `mpvpaper` videos, per-wallpaper fit, and a palette that retints the UI.
 - **Extras** — night light, game mode, keep-awake, in-app updater.
 
@@ -66,7 +66,7 @@ Clones to `~/.local/share/quickshell/better-bar`, checks dependencies, hides the
   hl.bind(var_mainMod .. " + slash",     hl.dsp.exec_cmd("qs -p ~/.local/share/quickshell/better-bar ipc call better launcher \"\""))
   ```
 
-  Other handlers: mixer, calendar, media, power, battery, sysmon, recorder, gameMode, peek, hide, page …
+  Other handlers: mixer, calendar, media, power, battery, sysmon, gameMode, peek, hide, page …
 
 - **Lock** is a script rather than an IPC surface, so it gets its own bind:
 

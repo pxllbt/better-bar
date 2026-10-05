@@ -19,7 +19,6 @@ Mixer Mixer.qml
 Osd Osd.qml
 OsdPopup OsdPopup.qml
 Power Power.qml
-Recorder Recorder.qml
 SysmonSurface SysmonSurface.qml
 ThemeSurface ThemeSurface.qml
 Toast Toast.qml

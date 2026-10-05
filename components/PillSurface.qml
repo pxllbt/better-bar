@@ -41,7 +41,7 @@ Item {
      * surface (a collapsible dropdown snapping its height into implicitHeight) also
      * jumps the pill's target geometry, so closeness craters and the whole surface
      * dims for one frame until the body height Behavior catches up. That one frame
-     * is the flicker on the Display, Recorder and Appearance collapsibles. After
+     * is the flicker on the Display and Appearance collapsibles. After
      * the surface has settled, hold full opacity and let the body morph alone do
      * the reveal. Reset on close so the next open still fades in.
      */

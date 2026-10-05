@@ -22,7 +22,6 @@ Install these or the shell starts but breaks in places.
 | `curl + magick + python3 + ffmpeg` | `curl`, `imagemagick`, `python`, `ffmpeg` | wallpaper download, thumbnails, palette generation and video-wallpaper stills |
 | `cava` | `cava` | the music visualiser |
 | `cliphist + wl-paste` | `cliphist`, `wl-clipboard` | the clipboard history surface |
-| `slurp` | `slurp` | the window/region picker for screen recording |
 
 ## Optional
 
@@ -31,11 +30,9 @@ ones you actually want.
 
 | Package | Adds |
 | --- | --- |
-| `gpu-screen-recorder` | the screen-recording backend — recording is disabled without it |
 | `mpvpaper` | animated / video wallpapers |
 | `matugen` | Material base16 palettes (always-dark terminal theme, dynamic wallpaper palette) |
 | `ddcutil` | monitor brightness via DDC (external display faders) |
-| `kdialog` / `zenity` | the native folder picker for the record output directory |
 | `power-profiles-daemon` | the power-profile picker on the battery hover — the row shows "Not installed" without it, and it isn't needed on desktops |
 | `hyprlock` | the lock backend — the Lock action and the SUPER,L keybind run it, configured by your own `hyprlock.conf` |
 | `kitty` | live terminal palette reload via `kitty @ set-colors` (needs `allow_remote_control yes`, and `include ~/.cache/better/kitty-colors` for persistence) |

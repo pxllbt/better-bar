@@ -57,7 +57,6 @@ Item {
         // thirsty frequent fliers: one generous reset, then reclaim
         clipboard:   unloadS * 2 * 1000,
         media:       unloadS * 2 * 1000,
-        recorder:    unloadS * 2 * 1000,
         calendar:    unloadS * 2 * 1000,
         // everything else: the base tier, so a settings sweep releases as it goes
         default:     unloadS * 1000
@@ -138,7 +137,6 @@ Item {
     readonly property bool wifiOpen: surface === "wifi"
     readonly property bool btOpen: surface === "bt"
     readonly property bool batteryOpen: surface === "battery"
-    readonly property bool recorderOpen: surface === "recorder"
     readonly property bool sysmonOpen: surface === "sysmon"
     readonly property bool appearanceOpen: surface === "appearance"
     readonly property bool appcatOpen: surface === "appcat"
@@ -304,16 +302,6 @@ Item {
      */
     onOsdActiveChanged: if (osdActive && toastActive && !Notifs.toastCritical) Notifs.clearPopups()
 
-    /**
-     * Quick-record overlays belong only to the focused monitor the keybind
-     * targeted, so a single chooser and a single countdown toast appear. The
-     * standalone chooser is suppressed while the morphing recorder surface owns the
-     * pill; the countdown toast yields to the surface too (the surface shows its
-     * own in-bar countdown there).
-     */
-    readonly property bool quickHere: ScreenRec.quickMon === screenName
-    readonly property bool quickChoosing: quickHere && ScreenRec.quickChoosing && !surfaceOpen
-    readonly property bool quickCounting: quickHere && ScreenRec.counting && !recorderOpen
 
     /**
      * The resting face's base grid: a fixed 160x38, scaled by the monitor
@@ -347,15 +335,14 @@ Item {
     readonly property real stripMaxTitle: 220 * s
 
     readonly property real stripVizW: (Cava.bars * 1.8 + (Cava.bars - 1) * 1.2) * s
-    readonly property real stripRecW: 9 * s + 6 * s + stripRecTime.implicitWidth
 
-    /** Media-side gaps depend only on the visualizer and recorder states. */
-    readonly property int stripMediaGaps: 1 + (Cava.active ? 1 : 0) + (ScreenRec.recording ? 1 : 0) + (Cava.active && ScreenRec.recording ? 1 : 0)
+    /** Media-side gaps depend only on the visualizer. */
+    readonly property int stripMediaGaps: 1 + (Cava.active ? 1 : 0)
 
     readonly property bool stripMedia: Players.has && stripRoomForTitle >= stripMinTitle
     readonly property real stripRoomForTitle: stripCap - 2 * stripPad - stripArtW - stripFixedW
         - 4 * stripGap - stripMediaGaps * stripGap
-        - (Cava.active ? stripVizW : 0) - (ScreenRec.recording ? stripRecW : 0)
+        - (Cava.active ? stripVizW : 0)
     readonly property real stripTitleW: stripMedia ? Math.min(stripMaxTitle, stripRoomForTitle, Math.max(stripMinTitle, stripTitleMetrics.advanceWidth)) : 0
     readonly property real stripFixedW: stripDay.implicitWidth + stripTime.implicitWidth
         + stripWs.implicitWidth + stripLay.implicitWidth + stripBat.implicitWidth
@@ -365,10 +352,7 @@ Item {
         if (stripMedia) {
             w += stripArtW + stripGap + stripTitleW;
             if (Cava.active) w += stripVizW + stripGap;
-            if (ScreenRec.recording) w += stripRecW + stripGap;
             w += stripGap;
-        } else if (ScreenRec.recording) {
-            w += stripRecW + stripGap;
         }
         return w;
     }
@@ -389,7 +373,6 @@ Item {
     readonly property real batteryW: 316 * s
     readonly property real wifiW: 272 * s
     readonly property real btW: 286 * s
-    readonly property real recorderW: 384 * s
     readonly property real sysmonW: 392 * s
     readonly property real settingsScale: 0.9
     readonly property real settingsW: 392 * s * settingsScale
@@ -447,7 +430,6 @@ Item {
         wifi:      { size: () => Qt.size(wifiW, surfaceItem("wifi").implicitHeight + 26 * s), ame: () => surfaceItem("wifi") },
         bt:        { size: () => Qt.size(btW, surfaceItem("bt").implicitHeight + 26 * s), ame: () => surfaceItem("bt") },
         battery:   { size: () => Qt.size(batteryW, surfaceItem("battery").implicitHeight + 26 * s), ame: () => surfaceItem("battery") },
-        recorder:  { size: () => Qt.size(recorderW, surfaceItem("recorder").implicitHeight + 33 * s), ame: () => surfaceItem("recorder") },
         sysmon:    { size: () => Qt.size(sysmonW, surfaceItem("sysmon").implicitHeight + 33 * s), ame: () => surfaceItem("sysmon") },
         appearance: { size: () => Qt.size(settingsW, surfaceItem("appearance").implicitHeight + 29 * s), ame: () => surfaceItem("appearance") },
         appcat:     { size: () => Qt.size(settingsW, surfaceItem("appcat").implicitHeight + 29 * s), ame: () => surfaceItem("appcat") },
@@ -481,7 +463,6 @@ Item {
         wifi:       () => ldWifi,
         bt:         () => ldBt,
         battery:    () => ldBattery,
-        recorder:   () => ldRecorder,
         sysmon:     () => ldSysmon,
         appearance: () => ldAppearance,
         appcat:     () => ldAppcat,
@@ -646,14 +627,6 @@ Item {
     }
 
     /**
-     * Forward an arrow-key nudge to the open recorder's focused audio fader.
-     * Returns true when the recorder is open and a revealed fader consumed it.
-     */
-    function recorderStep(deltaPct) {
-        return (pill.recorderOpen && ldRecorder.item) ? ldRecorder.item.stepFocused(deltaPct) : false;
-    }
-
-    /**
      * Resolve which settings-family surface owns keyboard row navigation right
      * now: the category index or one of its morphing sub-surfaces. Returns null
      * when none of them is open.
@@ -714,31 +687,6 @@ Item {
             return false;
         nav.kbActivate();
         return true;
-    }
-
-    /**
-     * A tile was picked in the standalone quick-record chooser. Screen with several
-     * monitors flips to the inline sub-choice; otherwise each source kicks off its
-     * resolver (which counts down once the target is ready) and the chooser closes.
-     */
-    function quickChooseSource(kind) {
-        if (kind === "screen") {
-            if (ScreenRec.monitors.length > 1) {
-                ScreenRec.quickScreenChoosing = true;
-                return;
-            }
-            ScreenRec.prepareScreen(pill.screenName);
-        } else if (kind === "window") {
-            ScreenRec.prepareWindow();
-        }
-        ScreenRec.quickChoosing = false;
-        ScreenRec.quickScreenChoosing = false;
-    }
-
-    function quickPickMonitor(name) {
-        ScreenRec.quickChoosing = false;
-        ScreenRec.quickScreenChoosing = false;
-        ScreenRec.prepareScreen(name);
     }
 
     /**
@@ -876,11 +824,6 @@ Item {
         revealSession = false;
         hoverLatch = false;
         expandLatch = false;
-        revealTimer.stop();
-        if (quickHere && ScreenRec.quickChoosing) {
-            ScreenRec.quickChoosing = false;
-            ScreenRec.quickScreenChoosing = false;
-        }
     }
 
     QtObject {
@@ -1202,8 +1145,6 @@ Item {
             return mixerIcon.mapToItem(pill, mixerIcon.width / 2, mixerIcon.height + drop * 0.55);
         if (soulTarget === "power")
             return powerIcon.mapToItem(pill, powerIcon.width / 2, powerIcon.height + drop * 0.55);
-        if (soulTarget === "recorder")
-            return recorderIcon.mapToItem(pill, recorderIcon.width / 2, recorderIcon.height + drop * 0.55);
         if (soulTarget === "sysmon")
             return sysmonIcon.mapToItem(pill, sysmonIcon.width / 2, sysmonIcon.height + drop * 0.55);
         if (soulTarget === "wallpaper")
@@ -1863,24 +1804,6 @@ Item {
             anchors.centerIn: parent
             spacing: pill.stripGap
 
-            /** Recording duration in seconds; reset on each start. */
-            property int recSecs: 0
-            readonly property string recTime: {
-                const m = Math.floor(recSecs / 60);
-                const s = recSecs % 60;
-                return (m < 10 ? "0" + m : "" + m) + ":" + (s < 10 ? "0" + s : "" + s);
-            }
-            Timer {
-                interval: 1000
-                repeat: true
-                running: ScreenRec.recording
-                onTriggered: stripFace.recSecs += 1
-            }
-            Connections {
-                target: ScreenRec
-                function onRecordingChanged() { if (ScreenRec.recording) stripFace.recSecs = 0 }
-            }
-
             Rectangle {
                 id: stripArt
                 anchors.verticalCenter: parent.verticalCenter
@@ -1931,32 +1854,6 @@ Item {
                 visible: pill.stripMedia && Cava.active
                 s: pill.s
                 span: 14
-            }
-
-            Row {
-                id: stripRec
-                anchors.verticalCenter: parent.verticalCenter
-                visible: ScreenRec.recording
-                spacing: 6 * pill.s
-
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 9 * pill.s
-                    height: 9 * pill.s
-                    radius: width / 2
-                    color: Theme.verm
-                }
-
-                Text {
-                    id: stripRecTime
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: stripFace.recTime
-                    color: Theme.cream
-                    font.family: Theme.font
-                    font.pixelSize: 11.5 * pill.s
-                    font.weight: Font.DemiBold
-                    font.features: ({ "tnum": 1 })
-                }
             }
 
             AltText {
@@ -2654,60 +2551,6 @@ Item {
                 }
 
                 Item {
-                    id: recorderIcon
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 17 * pill.s
-                    height: 17 * pill.s
-                    visible: !Plugins.surfaceDisabled("recorder")
-
-                    GlyphIcon {
-                        anchors.fill: parent
-                        visible: !ScreenRec.recording
-                        name: "video"
-                        color: recorderArea.containsMouse ? Theme.cream : Theme.iconDim
-                        stroke: 1.7
-                    }
-
-                    Rectangle {
-                        anchors.centerIn: parent
-                        visible: ScreenRec.recording
-                        width: 12 * pill.s
-                        height: 12 * pill.s
-                        radius: width / 2
-                        color: Theme.verm
-                        SequentialAnimation on opacity {
-                            running: ScreenRec.recording
-                            loops: Animation.Infinite
-                            NumberAnimation { to: 0.4; duration: 500; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: 1; duration: 500; easing.type: Easing.InOutSine }
-                        }
-                    }
-
-                    MouseArea {
-                        id: recorderArea
-                        anchors.fill: parent
-                        anchors.margins: -6 * pill.s
-                        hoverEnabled: true
-                        enabled: hover.live
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: (e) => {
-                            if (e.button === Qt.RightButton) {
-                                if (ScreenRec.recording)
-                                    ScreenRec.stop();
-                                return;
-                            }
-                            pill.requestSurface("recorder");
-                        }
-                        onDoubleClicked: (e) => {
-                            if (e.button === Qt.LeftButton && ScreenRec.recording)
-                                ScreenRec.stop();
-                        }
-                        onContainsMouseChanged: if (containsMouse) pill.soulTarget = "recorder"
-                    }
-                }
-
-                Item {
                     id: wallpaperIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: 17 * pill.s
@@ -3054,19 +2897,6 @@ sourceComponent: Media {
     }
 
     Loader {
-        id: ldRecorder
-        active: false
-        anchors.fill: parent
-        sourceComponent: Recorder {
-            s: pill.s
-            screenName: pill.screenName
-            open: pill.recorderOpen
-            morphCloseness: pill.morphCloseness
-            onRequestClose: pill.requestClose()
-        }
-    }
-
-    Loader {
         id: ldSysmon
         active: false
         anchors.fill: parent
@@ -3260,212 +3090,6 @@ sourceComponent: Media {
                 font.pixelSize: 9 * pill.s
                 font.weight: Font.DemiBold
             }
-        }
-    }
-
-    /**
-     * Standalone quick-record source chooser. Driven by the SUPER+D keybind with
-     * no recorder surface open: it grows the pill on the focused monitor only
-     * (mode "quickChoose") and offers the same Screen and Window / Region picks as
-     * the surface. Screen with one monitor resolves at once; several monitors flip
-     * to the inline sub-choice. A pick fires ScreenRec.prepareScreen / prepareWindow
-     * → targetReady → the central countdown, then closes.
-     */
-    Item {
-        id: quickChooser
-        anchors.fill: parent
-        anchors.margins: 6 * pill.s
-        enabled: pill.mode === "quickChoose"
-        opacity: pill.mode === "quickChoose" ? Math.pow(pill.morphCloseness, 1.3) : 0
-        visible: opacity > 0.01
-        Behavior on opacity {
-            NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard }
-        }
-
-        Row {
-            id: quickSources
-            anchors.fill: parent
-            visible: !ScreenRec.quickScreenChoosing
-            spacing: 6 * pill.s
-
-            Repeater {
-                model: [
-                    { kind: "screen", label: "Screen", glyph: "monitor" },
-                    { kind: "window", label: "Window / Region", glyph: "video" }
-                ]
-
-                Rectangle {
-                    id: qSrcTile
-                    required property var modelData
-                    width: (quickSources.width - 6 * pill.s) / 2
-                    height: parent.height
-                    radius: 11 * pill.s
-                    color: qSrcArea.containsMouse ? Qt.alpha(Theme.vermLit, 0.16) : Theme.tileBg
-                    border.width: 1
-                    border.color: qSrcArea.containsMouse ? Qt.alpha(Theme.vermLit, 0.5) : Theme.border
-                    Behavior on color { ColorAnimation { duration: Motion.fast } }
-
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 8 * pill.s
-
-                        GlyphIcon {
-                            width: 16 * pill.s
-                            height: 16 * pill.s
-                            name: qSrcTile.modelData.glyph
-                            color: qSrcArea.containsMouse ? Theme.vermLit : Theme.iconDim
-                            stroke: 1.7
-                        }
-                        Text {
-                            height: 16 * pill.s
-                            verticalAlignment: Text.AlignVCenter
-                            text: qSrcTile.modelData.label
-                            color: qSrcArea.containsMouse ? Theme.cream : Theme.subtle
-                            font.family: Theme.font
-                            font.pixelSize: 11 * pill.s
-                            font.weight: Font.Bold
-                        }
-                    }
-
-                    MouseArea {
-                        id: qSrcArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: pill.quickChooseSource(qSrcTile.modelData.kind)
-                    }
-                }
-            }
-        }
-
-        ListView {
-            id: quickScreens
-            anchors.fill: parent
-            anchors.rightMargin: 22 * pill.s
-            visible: ScreenRec.quickScreenChoosing
-            orientation: ListView.Horizontal
-            spacing: 6 * pill.s
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            model: ScreenRec.monitors
-
-            delegate: Rectangle {
-                id: qMonTile
-                required property var modelData
-                width: 152 * pill.s
-                height: quickScreens.height
-                radius: 11 * pill.s
-                color: qMonArea.containsMouse ? Qt.alpha(Theme.vermLit, 0.16) : Theme.tileBg
-                border.width: 1
-                border.color: qMonArea.containsMouse ? Qt.alpha(Theme.vermLit, 0.5) : Theme.border
-                Behavior on color { ColorAnimation { duration: Motion.fast } }
-
-                Column {
-                    anchors.centerIn: parent
-                    spacing: 2 * pill.s
-
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: qMonTile.modelData.name
-                        color: Theme.cream
-                        font.family: Theme.font
-                        font.pixelSize: 11.5 * pill.s
-                        font.weight: Font.Bold
-                    }
-                    Text {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: qMonTile.modelData.w + " × " + qMonTile.modelData.h
-                        color: Theme.subtle
-                        font.family: Theme.font
-                        font.pixelSize: 9.5 * pill.s
-                        font.features: { "tnum": 1 }
-                    }
-                }
-
-                MouseArea {
-                    id: qMonArea
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: pill.quickPickMonitor(qMonTile.modelData.name)
-                }
-            }
-        }
-
-        WheelScroller {
-            flick: quickScreens
-            s: pill.s
-            anchors.fill: quickScreens
-            visible: ScreenRec.quickScreenChoosing
-        }
-
-        GlyphIcon {
-            anchors.top: parent.top
-            anchors.right: parent.right
-            anchors.margins: 5 * pill.s
-            visible: ScreenRec.quickScreenChoosing
-            width: 12 * pill.s
-            height: 12 * pill.s
-            name: "chevron-left"
-            color: qBackArea.containsMouse ? Theme.cream : Theme.faint
-            stroke: 2
-
-            MouseArea {
-                id: qBackArea
-                anchors.fill: parent
-                anchors.margins: -7 * pill.s
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: ScreenRec.quickScreenChoosing = false
-            }
-        }
-    }
-
-    /**
-     * Standalone pre-roll countdown toast. Shown at the pill top on the focused
-     * monitor when the central countdown runs and the recorder surface is closed
-     * (mode "quickCount"): a big flame-glow numeral over a small "GET READY" label.
-     * Tapping cancels. The surface's own in-bar countdown covers the surface case.
-     */
-    Item {
-        id: quickCount
-        anchors.fill: parent
-        enabled: pill.mode === "quickCount"
-        opacity: pill.mode === "quickCount" ? Math.pow(pill.morphCloseness, 1.3) : 0
-        visible: opacity > 0.01
-        Behavior on opacity {
-            NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard }
-        }
-
-        Column {
-            anchors.centerIn: parent
-            spacing: 1 * pill.s
-
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: ScreenRec.countdown
-                color: Theme.flameGlow
-                font.family: Theme.font
-                font.pixelSize: 28 * pill.s
-                font.weight: Font.ExtraBold
-                font.features: { "tnum": 1 }
-            }
-            Text {
-                anchors.horizontalCenter: parent.horizontalCenter
-                text: "GET READY"
-                color: Theme.dim
-                font.family: Theme.font
-                font.pixelSize: 8.5 * pill.s
-                font.weight: Font.Bold
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing: 1.6 * pill.s
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: ScreenRec.cancel()
         }
     }
 

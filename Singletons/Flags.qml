@@ -83,14 +83,6 @@ Singleton {
     property alias dockMinimal: adapter.dockMinimal
     property alias topGap: adapter.topGap
     property alias appGap: adapter.appGap
-    property alias recordCountdown: adapter.recordCountdown
-    property alias recordDir: adapter.recordDir
-    property alias recordFps: adapter.recordFps
-    property alias recordQuality: adapter.recordQuality
-    property alias recordCursor: adapter.recordCursor
-    property alias recordMic: adapter.recordMic
-    property alias recordDesktop: adapter.recordDesktop
-    property alias recordClearedBefore: adapter.recordClearedBefore
     property alias weatherCity: adapter.weatherCity
     property alias musicViz: adapter.musicViz
     property alias gameMode: adapter.gameMode
@@ -186,14 +178,6 @@ Singleton {
             property real topGap: 1
             //* Pill-to-window band as a fraction of the shipped 12px. 0 tucks the windows flush under the pill.
             property real appGap: 1
-            property int recordCountdown: 5
-            property string recordDir: ""
-            property int recordFps: 60
-            property string recordQuality: "high"
-            property bool recordCursor: true
-            property bool recordMic: true
-            property bool recordDesktop: true
-            property real recordClearedBefore: 0
             property string weatherCity: ""
             property bool musicViz: true
             property bool gameMode: false

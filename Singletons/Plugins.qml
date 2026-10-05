@@ -409,7 +409,7 @@ Singleton {
      * own surface comes back.
      */
     readonly property var ownCapabilities: ({
-        recorder: 1, launcher: 1, clipboard: 1, notifications: 1,
+        launcher: 1, clipboard: 1, notifications: 1,
         power: 1, mixer: 1, weather: 1, clock: 1, calendar: 1, wifi: 1,
         bluetooth: 1, media: 1, wallpaper: 1, osd: 1, appearance: 1,
         display: 1, nightlight: 1, sysmon: 1,
@@ -424,7 +424,7 @@ Singleton {
      * registry exists to prevent.
      */
     readonly property var surfaceCapability: ({
-        recorder: "recorder", launcher: "launcher", clipboard: "clipboard",
+        launcher: "launcher", clipboard: "clipboard",
         link: "notifications", power: "power", mixer: "mixer", weather: "weather",
         calendar: "calendar", wifi: "wifi", bt: "bluetooth",
         media: "media", wallpaper: "wallpaper", osd: "osd",

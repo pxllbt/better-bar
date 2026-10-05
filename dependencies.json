@@ -95,23 +95,10 @@
       "check": { "bins": ["cliphist", "wl-paste"] },
       "pkg": ["cliphist", "wl-clipboard"],
       "why": "the clipboard history surface"
-    },
-    {
-      "id": "screen-record-picker",
-      "check": { "bin": "slurp" },
-      "pkg": ["slurp"],
-      "why": "the window/region picker for screen recording"
     }
   ],
 
   "optional": [
-    {
-      "id": "gpu-screen-recorder",
-      "check": { "bin": "gpu-screen-recorder" },
-      "pkg": ["gpu-screen-recorder"],
-      "why": "the screen-recording backend — recording is disabled without it",
-      "nudge": true
-    },
     {
       "id": "mpvpaper",
       "check": { "bin": "mpvpaper" },
@@ -131,13 +118,6 @@
       "check": { "bin": "ddcutil" },
       "pkg": ["ddcutil"],
       "why": "monitor brightness via DDC (external display faders)",
-      "nudge": true
-    },
-    {
-      "id": "folder-picker",
-      "check": { "anyBin": ["kdialog", "zenity"] },
-      "pkg": ["kdialog", "zenity"],
-      "why": "the native folder picker for the record output directory",
       "nudge": true
     },
     {

@@ -405,30 +405,6 @@ ShellRoot {
         function power(mon: string): void { root.toggleSurface(mon, "power"); }
         function link(mon: string): void { root.toggleSurface(mon, "link"); }
         function battery(mon: string): void { root.toggleSurface(mon, "battery"); }
-        function recorder(mon: string): void { root.toggleSurface(mon, "recorder"); }
-        function screenrec(mon: string): void { root.toggleSurface(mon, "recorder"); }
-        function record(mon: string): void { root.toggleSurface(mon, "recorder"); }
-
-        /**
-         * Quick-record keybind (SUPER+D): one button cycles the whole flow with no
-         * surface. Recording → stop. Counting down → cancel. A chooser already up
-         * on this monitor → dismiss. Otherwise open the standalone source chooser on
-         * the focused monitor `mon`, so only that pill renders it.
-         */
-        function quickRecord(mon: string): void {
-            if (ScreenRec.recording) {
-                ScreenRec.stop();
-            } else if (ScreenRec.counting) {
-                ScreenRec.cancel();
-            } else if (ScreenRec.quickChoosing) {
-                ScreenRec.quickChoosing = false;
-                ScreenRec.quickScreenChoosing = false;
-            } else {
-                ScreenRec.quickMon = mon;
-                ScreenRec.quickScreenChoosing = false;
-                ScreenRec.quickChoosing = true;
-            }
-        }
         function gameMode(mon: string): void { Flags.gameMode = !Flags.gameMode; }
         function sysmon(mon: string): void { root.toggleSurface(mon, "sysmon"); }
         function system(mon: string): void { root.toggleSurface(mon, "sysmon"); }
@@ -684,10 +660,7 @@ ShellRoot {
                 enabled: overlay.modal
                 acceptedButtons: Qt.AllButtons
                 onPressed: (mouse) => {
-                    if (pill.quickChoosing) {
-                        ScreenRec.quickChoosing = false;
-                        ScreenRec.quickScreenChoosing = false;
-                    } else if (overlay.surfaceOpen) {
+                    if (overlay.surfaceOpen) {
                         var inside = mouse.x >= pillRegion.x && mouse.x <= pillRegion.x + pillRegion.width
                             && mouse.y >= pillRegion.y && mouse.y <= pillRegion.y + pillRegion.height;
                         if (!inside)
@@ -727,27 +700,23 @@ ShellRoot {
                 Keys.onEscapePressed: {
                     if (pill.wallpaperMenuOpen) {
                         pill.wallpaperMenuClose();
-                    } else if (pill.quickChoosing) {
-                        ScreenRec.quickChoosing = false;
-                        ScreenRec.quickScreenChoosing = false;
                     } else {
                         root.close();
                     }
                 }
                 Keys.onUpPressed: (e) => {
                     if (pill.wallpaperMenuOpen) { pill.wallpaperMenuMove(-1); e.accepted = true; }
-                    else e.accepted = pill.mixerStep(1) || pill.recorderStep(5) || pill.settingsMove(-1);
+                    else e.accepted = pill.mixerStep(1) || pill.settingsMove(-1);
                 }
                 Keys.onDownPressed: (e) => {
                     if (pill.wallpaperMenuOpen) { pill.wallpaperMenuMove(1); e.accepted = true; }
-                    else e.accepted = pill.mixerStep(-1) || pill.recorderStep(-5) || pill.settingsMove(1);
+                    else e.accepted = pill.mixerStep(-1) || pill.settingsMove(1);
                 }
                 Keys.onLeftPressed: (e) => {
                     if (pill.wallpaperMenuOpen) { e.accepted = true; }
                     else if (pill.mixerOpen) { pill.mixerFocusMove(-1); e.accepted = true; }
                     else if (pill.wallpaperOpen) { pill.wallpaperMove(-1); e.accepted = true; }
                     else if (pill.powerOpen) { pill.powerMove(-1); e.accepted = true; }
-                    else if (pill.recorderOpen) { e.accepted = pill.recorderStep(-5); }
                     else if (pill.settingsLike) { pill.settingsAdjust(-1); e.accepted = true; }
                 }
                 Keys.onRightPressed: (e) => {
@@ -755,7 +724,6 @@ ShellRoot {
                     else if (pill.mixerOpen) { pill.mixerFocusMove(1); e.accepted = true; }
                     else if (pill.wallpaperOpen) { pill.wallpaperMove(1); e.accepted = true; }
                     else if (pill.powerOpen) { pill.powerMove(1); e.accepted = true; }
-                    else if (pill.recorderOpen) { e.accepted = pill.recorderStep(5); }
                     else if (pill.settingsLike) { pill.settingsAdjust(1); e.accepted = true; }
                 }
 
