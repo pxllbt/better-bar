@@ -242,17 +242,13 @@ never edits your Hyprland config, so it cannot clean those up for you.
 
 ## Credits
 
-Built on top of [**Ricelin**](https://github.com/Gakuseei/Ricelin) by
-[**Gakuseei**](https://github.com/Gakuseei) — the pill concept, the
-morphing-surface architecture, and the original codebase this grew out of — and on
-[**Better**](https://github.com/amanhex) by **amanhex**, the codebase as it stood
-when this project took it up.
-
-Credit for the base code belongs to those authors. This repository is the
-modifications on top: the plugin capability registry, provider handover, stock
-plugin suppression, host-shell compatibility, and the release itself.
-[NOTICE.md](NOTICE.md) has the full lineage and licenses; both upstream projects
-are MIT.
+The pill and morphing-surface ideas and most of the original codebase come from
+[**Ukishima**](https://github.com/amanhex/Ukishima) (浮島) by **amanhex**, which
+is itself built on [**Ricelin**](https://github.com/Gakuseei/Ricelin) by
+[**Gakuseei**](https://github.com/Gakuseei). All credit for the base code goes to
+those authors; this fork adds the plugin capability registry, provider handover,
+stock-plugin suppression, Omarchy host-shell compatibility, and the release.
+[NOTICE.md](NOTICE.md) has the full lineage and licenses.
 
 ## License
 
