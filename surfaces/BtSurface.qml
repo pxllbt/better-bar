@@ -382,7 +382,10 @@ PillSurface {
 
                                 Text {
                                     width: parent.width
+                                    // deviceName/name is chosen by the peer and
+                                    // can read as HTML to Qt; never AutoText it.
                                     text: devItem.modelData ? (devItem.modelData.deviceName || devItem.modelData.name || "Unknown") : "Unknown"
+                                    textFormat: Text.PlainText
                                     color: devItem.isConnected ? Theme.cream : Theme.subtle
                                     font.family: Theme.font
                                     font.pixelSize: 11.5 * root.s
