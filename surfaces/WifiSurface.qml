@@ -460,8 +460,12 @@ PillSurface {
 
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "· " + root.statusText
-                color: root.activeNet ? Theme.vermLit : Theme.faint
+text: "· " + root.statusText
+                            // statusText carries activeNet.name when connected,
+                            // the same AP-owned string as a list SSID; pinned
+                            // to plain text for the same reason.
+                            textFormat: Text.PlainText
+                            color: root.activeNet ? Theme.vermLit : Theme.faint
                 font.family: Theme.font
                 font.pixelSize: 9.5 * root.s
                 font.weight: Font.Medium
@@ -606,6 +610,11 @@ PillSurface {
                                 anchors.rightMargin: 8 * root.s
                                 anchors.verticalCenter: parent.verticalCenter
                                 text: netItem.ssid.length ? netItem.ssid : "Hidden"
+                                // The SSID is broadcast by the access point we
+                                // are listing; AutoText would read a crafted
+                                // name like "<img src=...>" as rich text and
+                                // fetch it before the user ever connects.
+                                textFormat: Text.PlainText
                                 color: netItem.isActive ? Theme.vermLit : Theme.subtle
                                 font.family: Theme.font
                                 font.pixelSize: 11.5 * root.s
