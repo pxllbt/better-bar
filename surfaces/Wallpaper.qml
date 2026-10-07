@@ -385,15 +385,41 @@ PillSurface {
      * what is loaded pulls the next page in, so the feed grows
      * as it is scrolled.
      */
-    function move(delta) {
+     function move(delta) {
         if (itemCount === 0)
             return;
         var old = focusIndex;
-        var n = (focusIndex + delta) % itemCount;
-        if (n < 0)
-            n += itemCount;
-        if (n === old)
-            return;
+        var remote = root.whSource || root.wwSource || root.acSource;
+        // Wrap only in the local strip; in remote browse mode (wallhaven /
+        // wallwidgy / alphacoders) the feed is infinite, so wrapping back to
+        // the first entry is a disorienting jump instead of a page turn.
+        // Clamp instead: staying at the boundary lets the infinite-scroll
+        // trigger below pull the next page.
+        var n;
+        if (remote) {
+            n = Math.max(0, Math.min(itemCount - 1, focusIndex + delta));
+            if (n === old) {
+                // At a boundary in remote mode — don't move, but the
+                // page-fetch triggers below will extend the strip.
+                if (root.whSource && !root.whAppending && !root.whBlocked
+                    && !searchProc.running
+                    && focusIndex >= root.wallResults.length - 4) {
+                    root.loadWallhavenNext();
+                }
+                if (root.acSource && !root.acAppending && !root.acEnd
+                    && !searchProc.running
+                    && focusIndex >= root.acResults.length - 4) {
+                    root.loadAlphacodersNext();
+                }
+                return;
+            }
+        } else {
+            n = (focusIndex + delta) % itemCount;
+            if (n < 0)
+                n += itemCount;
+            if (n === old)
+                return;
+        }
         focusIndex = n;
         if (Math.abs(n - old) > itemCount / 2)
             pos = n;

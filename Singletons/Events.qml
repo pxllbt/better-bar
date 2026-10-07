@@ -372,10 +372,20 @@ Singleton {
         var body = kind === "start" ? "Starts · " + (e.time || "")
             : kind === "end" ? "Ends · " + (e.endTime || "")
             : "All day";
-        remProc.command = ["notify-send", "-a", "Better Bar",
-                           e.text || "Event", body];
+        root.remQueue.push({ summary: e.text || "Event", body: body });
+        if (!remProc.running)
+            root.drainReminders();
+    }
+
+    function drainReminders() {
+        if (root.remQueue.length === 0)
+            return;
+        var next = root.remQueue.shift();
+        remProc.command = ["notify-send", "-a", "Better Bar", next.summary, next.body];
         remProc.running = true;
     }
+
+    property var remQueue: []
 
     /**
      * Point the one-shot timer at the soonest reminder instant; stop it when
@@ -426,6 +436,7 @@ Singleton {
 
     Process {
         id: remProc
+        onExited: Qt.callLater(root.drainReminders)
     }
 
     Component.onCompleted: {

@@ -153,7 +153,18 @@ Item {
     component MenuRow: Item {
         id: mrow
 
-        property var entryData
+        /**
+         * Defaults to an empty entry, never null.
+         *
+         * `menuRows()` drops the holes a torn-down `ObjectList` leaves behind,
+         * but a tray app can also drop an entry between that snapshot and the
+         * delegate being created, and the delegate's own `modelData` is then
+         * null. Every row below reads `entryData` unconditionally across a dozen
+         * properties, so that one hole threw a TypeError per property per row
+         * and still drew a blank line where an entry used to be. Defaulting here
+         * contains it at the boundary instead of guarding every read.
+         */
+        property var entryData: ({})
         property real indent: 0
         property bool expanded: false
         signal activated()
@@ -319,6 +330,10 @@ Item {
                 radius: 12 * tray.s
                 clip: true
 
+                /** Screen height this window reports, for the card's cap. */
+                readonly property real screenH: menu.height
+                readonly property real maxCardH: Math.max(80 * tray.s, screenH - y - 8 * tray.s)
+
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: Theme.cardTop }
                     GradientStop { position: 1.0; color: Theme.cardBot }
@@ -328,7 +343,7 @@ Item {
 
                 property int expandedIdx: -1
 
-                implicitHeight: col.implicitHeight + 12 * tray.s
+                implicitHeight: Math.min(col.implicitHeight + 12 * tray.s, card.maxCardH)
                 height: implicitHeight
 
                 Rectangle {
@@ -352,57 +367,65 @@ Item {
 
                 MouseArea { anchors.fill: parent }
 
-                Column {
-                    id: col
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.margins: 6 * tray.s
-                    spacing: 0
+                Flickable {
+                    id: trayFlick
+                    anchors.fill: parent
+                    contentWidth: width
+                    contentHeight: col.implicitHeight + 12 * tray.s
+                    boundsBehavior: Flickable.StopAtBounds
+                    clip: true
+                    Column {
+                        id: col
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.margins: 6 * tray.s
+                        spacing: 0
 
-                    Repeater {
-                        model: tray.menuRows(opener)
+                        Repeater {
+                            model: tray.menuRows(opener)
 
-                        delegate: Column {
-                            id: entry
+                            delegate: Column {
+                                id: entry
 
-                            required property var modelData
-                            required property int index
-                            readonly property bool expanded: card.expandedIdx === index
+                                required property var modelData
+                                required property int index
+                                readonly property bool expanded: card.expandedIdx === index
 
-                            width: col.width
+                                width: col.width
 
-                            MenuRow {
-                                width: parent.width
-                                entryData: entry.modelData
-                                expanded: entry.expanded
-                                onActivated: {
-                                    if (entry.modelData.hasChildren) {
-                                        card.expandedIdx = entry.expanded ? -1 : entry.index;
-                                    } else {
-                                        entry.modelData.triggered();
-                                        menu.open = false;
+                                MenuRow {
+                                    width: parent.width
+                                    entryData: entry.modelData
+                                    expanded: entry.expanded
+                                    onActivated: {
+                                        if (entry.modelData.hasChildren) {
+                                            card.expandedIdx = entry.expanded ? -1 : entry.index;
+                                        } else {
+                                            entry.modelData.triggered();
+                                            menu.open = false;
+                                        }
                                     }
                                 }
-                            }
 
-                            QsMenuOpener {
-                                id: childOpener
-                                menu: entry.expanded ? entry.modelData : null
-                            }
+                                QsMenuOpener {
+                                    id: childOpener
+                                    menu: entry.expanded ? entry.modelData : null
+                                }
 
-                            Repeater {
-                                model: tray.menuRows(childOpener)
+                                Repeater {
+                                    model: tray.menuRows(childOpener)
 
-                                delegate: MenuRow {
-                                    required property var modelData
-                                    width: entry.width
-                                    indent: 14 * tray.s
-                                    entryData: modelData
-                                    onActivated: {
-                                        if (!modelData.hasChildren) {
-                                            modelData.triggered();
-                                            menu.open = false;
+                                    delegate: MenuRow {
+                                        required property var modelData
+                                        width: entry.width
+                                        indent: 14 * tray.s
+                                        entryData: modelData
+                                        onActivated: {
+                                            if (!modelData.hasChildren) {
+                                                modelData.triggered();
+                                                menu.open = false;
+                                            }
                                         }
                                     }
                                 }

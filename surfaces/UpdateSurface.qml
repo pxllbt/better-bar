@@ -177,6 +177,8 @@ SettingsSurface {
     }
 
     /** Probe said the checkout is clean, or the user said go anyway. */
+    function applyLocalCommits(n) { commitCountProc.ahead = n; }
+    function applyPending(n) { countProc.ahead = n; }
     function runUpdate() {
         root.busy = true;
         root.status = "Fetching latest master...";
@@ -666,13 +668,29 @@ Item { width: 1; height: 10 * root.s }
      */
     Process {
         id: dirtProbeProc
-        stdout: StdioCollector {
-            onStreamFinished: dirtProbeProc.dirty = this.text.trim().length > 0;
-        }
         property bool dirty: false
         command: ["git", "-C", Config.configDir, "status", "--porcelain"]
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: dirtProbeProc.dirty = text.trim().length > 0
+        }
         onExited: function (exitCode) {
             root.localDirty = exitCode === 0 ? dirtProbeProc.dirty : false;
+            skipProbeProc.running = true;
+        }
+    }
+
+    Process {
+        id: skipProbeProc
+        property bool dirty: false
+        command: ["git", "-C", Config.configDir, "ls-files", "-v"]
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: skipProbeProc.dirty = /^(S|h) /m.test(text)
+        }
+        onExited: function (exitCode) {
+            if (exitCode === 0)
+                root.localDirty = root.localDirty || skipProbeProc.dirty;
             headRefProbeProc.running = true;
         }
     }
@@ -691,14 +709,16 @@ Item { width: 1; height: 10 * root.s }
 
     Process {
         id: commitCountProc
+        property int ahead: -1
         command: ["git", "-C", Config.configDir, "rev-list", "--count", "refs/remotes/origin/update-probe..HEAD"]
-        onExited: function (exitCode, standardOutput) {
-            // Same shape as countProc below, counted in the other direction:
-            // how many commits HEAD has that the fetched ref does not. An
-            // unreadable answer stays false, the permissive direction, because
-            // an unreadable probe must not block every update.
-            var n = exitCode === 0 ? parseInt(String(standardOutput).trim(), 10) : 0;
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root.applyLocalCommits(parseInt(text.trim(), 10))
+        }
+        onExited: function (exitCode) {
+            var n = exitCode === 0 ? commitCountProc.ahead : NaN;
             root.localCommits = !isNaN(n) && n > 0;
+            commitCountProc.ahead = -1;
             root.busy = false;
             root.status = "";
             if (root.updateRisky)
@@ -708,7 +728,7 @@ Item { width: 1; height: 10 * root.s }
         }
     }
 
-/**
+    /**
      * Update path: the deployment must mirror origin/master exactly. A plain
      * `git pull` fatals with "Need to specify how to reconcile divergent
      * branches" whenever the checkout's history has diverged from the remote
@@ -764,7 +784,6 @@ Item { width: 1; height: 10 * root.s }
                 // Couldn't reach the network: leave the surface quiet rather
                 // than claiming "up to date" on a check that never happened.
                 root.checked = false;
-                root.lastProbeMs = 0;
                 return;
             }
             countProc.running = true;
@@ -773,22 +792,23 @@ Item { width: 1; height: 10 * root.s }
 
     Process {
         id: countProc
+        property int ahead: -1
         command: ["git", "-C", Config.configDir, "rev-list", "--count", "HEAD..refs/remotes/origin/update-probe"]
-        onExited: function (exitCode, standardOutput) {
-            if (exitCode !== 0) {
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root.applyPending(parseInt(text.trim(), 10))
+        }
+        onExited: function (exitCode) {
+            var n = exitCode === 0 ? countProc.ahead : NaN;
+            if (isNaN(n)) {
                 // Count failed (e.g. no update-probe ref): don't claim anything.
                 root.checked = false;
-                root.lastProbeMs = 0;
-                return;
-            }
-            var n = parseInt(String(standardOutput).trim(), 10);
-            if (isNaN(n)) {
-                root.checked = false;
-                root.lastProbeMs = 0;
+                countProc.ahead = -1;
                 return;
             }
             root.checked = true;
             root.pending = n;
+            countProc.ahead = -1;
         }
     }
 

@@ -252,6 +252,26 @@ Singleton {
         root.popups = [];
     }
 
+    function notify(summary, body, actions, timeout) {
+        var n = {
+            id: "better-" + Date.now(),
+            appName: "Better Bar",
+            appIcon: "",
+            desktopEntry: "",
+            image: "",
+            summary: summary,
+            body: body,
+            urgency: NotificationUrgency.Normal,
+            actions: actions || [],
+            tracked: true
+        };
+        var e = Object.assign({}, root.expireAt);
+        e[n.id] = Date.now() + (timeout || 3500);
+        root.expireAt = e;
+        if (!Flags.dnd)
+            root.popups = root.popups.concat([n]).slice(-3);
+    }
+
     function removePopup(n) {
         root.popups = root.popups.filter(function(p) { return p !== n; });
     }

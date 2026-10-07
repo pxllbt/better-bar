@@ -474,13 +474,15 @@ thumbget() {
     [ -n "$url" ] || exit 1
     local base digest cache tmp
     base="${XDG_CACHE_HOME:-$HOME/.cache}/better/wh-thumbs"
-    mkdir -p "$base"
     digest=$(printf '%s\n' "$url" | sha1sum | cut -c1-24)
     # The cache holds the resized JPEG, so the suffix is part
     # of the name. Qt decodes by content, and the LRU prune
     # below counts the directory either way.
     cache="$base/$digest.jpg"
+    # Cache check before mkdir — every hit skips the directory
+    # creation entirely, which is the point of the disk cache.
     [ -s "$cache" ] && { printf '%s\n' "$cache"; exit 0; }
+    mkdir -p "$base"
     # The rate gate exists for wallhaven's API budget. The
     # WallWidgy thumbnails come from GitHub's raw CDN, which
     # has no such budget, so they fetch without it -- the

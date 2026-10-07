@@ -39,26 +39,29 @@ cell_expr=$(grep -oE 'readonly property real iconCell: *([0-9.]+) \* s' "$PILL" 
 ok "the icon cell is declared in scaled units" \
     "$([ -n "$cell_expr" ] && echo yes || echo no)" "yes"
 
-# The hover row: the region whose icons share one baseline.
-#
-# Start from the *enclosing* `Row {`, not from `id: hoverRow`. The id is a
-# property line and sits after the opening brace, so counting depth from there
-# begins inside the container at 0; the first child's closing brace then reads as
-# the end of the row and the region comes back truncated. Step back to the
-# nearest preceding line that opens a block.
-idline=$(grep -n 'id: hoverRow' "$PILL" | head -1 | cut -d: -f1)
-[ -n "$idline" ] || { echo "no hoverRow in Pill.qml" >&2; exit 1; }
-start=$(awk -v idline="$idline" '
-    NR < idline && /^[[:space:]]*[A-Za-z]+[[:space:]]*\{[[:space:]]*$/ { last = NR }
+# The native strip cells: one inline Component per cell in Pill.qml. They used
+# to sit directly in the hover row, which now renders StripLayout.resolved
+# through a Repeater; the region whose icons share one baseline is the cell
+# components' section. Walk from the opening of `cellWeather` to the closing of
+# `cellPower`.
+first_id=$(grep -n 'id: cellWeather' "$PILL" | head -1 | cut -d: -f1)
+last_id=$(grep -n 'id: cellPower' "$PILL" | head -1 | cut -d: -f1)
+[ -n "$first_id" ] && [ -n "$last_id" ] || { echo "no cell components in Pill.qml" >&2; exit 1; }
+start=$(awk -v idline="$first_id" '
+    NR < idline && /^[[:space:]]*Component[[:space:]]*\{[[:space:]]*$/ { last = NR }
     END { print last }' "$PILL")
-[ -n "$start" ] || { echo "no enclosing block for hoverRow" >&2; exit 1; }
-row=$(awk -v from="$start" '
+end=$(awk -v idline="$last_id" '
+    NR < idline && /^[[:space:]]*Component[[:space:]]*\{[[:space:]]*$/ { last = NR }
+    END { print last }' "$PILL")
+[ -n "$start" ] && [ -n "$end" ] || { echo "no enclosing Component blocks" >&2; exit 1; }
+row=$(awk -v from="$start" -v to="$end" '
     NR < from { next }
     { print
       n = gsub(/\{/, "{"); m = gsub(/\}/, "}")
       depth += n - m
       if (n > 0) opened = 1
-      if (opened && depth <= 0) exit }' "$PILL")
+      if (opened && depth <= 0 && NR >= to) exit }' "$PILL")
+[ -n "$row" ] || { echo "empty cell-components region" >&2; exit 1; }
 
 # Guard: an extraction that yields nothing (or a fragment) would let every
 # per-cell assertion pass vacuously, which is how a broken test reports green.
@@ -117,11 +120,12 @@ ok "PluginButton's glyph stroke matches the row" \
 # first evaluates, so the `parent` form logged "Cannot read property
 # 'verticalCenter' of null" on every shell start. The id form is the fix, so the
 # assertion pins it -- asserting only that *some* anchor exists would let the
-# throwing version back in.
+# throwing version back in. The strip delegate is StripCell inside the Repeater
+# over StripLayout.resolved.
 ok "the plugin delegate is vertically centred in the row" \
-    "$(grep -A20 'model: Plugins.pillWidgetsGeneric' "$PILL" | grep -c 'anchors.verticalCenter: statusRow.verticalCenter')" "1"
+    "$(grep -A16 'model: StripLayout.resolved' "$PILL" | grep -c 'anchors.verticalCenter: statusRow.verticalCenter')" "1"
 ok "no delegate anchors to a parent that is null at bind time" \
-    "$(grep -A20 'model: Plugins.pillWidgetsGeneric' "$PILL" | grep -c 'anchors.verticalCenter: parent\.')" "0"
+    "$(grep -A16 'model: StripLayout.resolved' "$PILL" | grep -c 'anchors.verticalCenter: parent\.')" "0"
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then

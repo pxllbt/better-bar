@@ -139,7 +139,7 @@ PillSurface {
      * handled the step.
      */
     function stepFocused(deltaPct) {
-        if (focusIndex < 0)
+        if (focusIndex < 0 || focusIndex >= faders.length)
             return false;
         faders[focusIndex].step(deltaPct);
         keyLatch.restart();

@@ -54,6 +54,13 @@ ok "both are combined into one risky flag" \
 # (which counts untracked files too), rev-list --count for local commits.
 ok "porcelain status is probed" \
     "$(grep -cE '"status", "--porcelain"' "$SURFACE")" "1"
+ok "skip-worktree and assume-unchanged files are probed" \
+    "$(grep -cE '"ls-files", "-v"' "$SURFACE")" "1"
+# QProcess.onExited carries (exitCode, exitStatus), not stdout.
+ok "git output is not read from onExited's second argument" \
+    "$(grep -cE 'function \(exitCode, standardOutput\)' "$SURFACE")" "0"
+ok "both reverse commit counts use StdioCollector" \
+    "$(grep -cE 'onStreamFinished: root\.(applyLocalCommits|applyPending)' "$SURFACE")" "2"
 # Two counts, opposite directions: how far behind master this checkout is
 # (update-probe..HEAD is the local-commits direction, HEAD..update-probe the
 # pending-commits one). Both must exist or one of the two questions is unasked.
@@ -70,6 +77,13 @@ ok "the commit count is taken against the ref the probe refreshes" \
     "$(grep -cE '"fetch", "--quiet", "origin", "\+master:refs/remotes/origin/update-probe"' "$SURFACE")" "2"
 ok "the probe's count runs after its fetch, not in parallel" \
     "$(grep -cE 'headRefProbeProc.running = true' "$SURFACE")" "1"
+
+ok "a singleton updater polls and notifies once per remote head" \
+    "$(grep -cE 'singleton Updater Updater\.qml' "$ROOT/Singletons/qmldir")" "1"
+ok "the notification helper exists" \
+    "$(grep -cE 'function notify\(summary, body, actions, timeout\)' "$ROOT/Singletons/Notifs.qml")" "1"
+ok "the update surface sub honors updater count" \
+    "$(grep -cE 'Updater\.pending > 0' "$ROOT/surfaces/Appearance.qml")" "1"
 
 # --- the confirmation ------------------------------------------------------
 ok "the confirmation row exists" \

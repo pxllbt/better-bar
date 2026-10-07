@@ -161,7 +161,39 @@ Item {
     readonly property var btAdapter: (typeof Bluetooth !== "undefined" && Bluetooth) ? Bluetooth.defaultAdapter : null
     readonly property bool btOn: btAdapter ? btAdapter.enabled === true : false
     readonly property bool surfaceOpen: surface.length > 0
+
+    /**
+     * A plugin surface — the strip's plugin cells expand the bar into their own
+     * content exactly like a native cell ("plugin:omarchy.audio"). The pill
+     * treats the whole family as one `plugin` surface; the plugin id is pinned
+     * separately so the loader knows which plugin's QML to host. A trailing
+     * ":panel" marks the variant a right-click opened: the strip entry itself
+     * is left-click content, the plugin's settings/panel surface is the
+     * right-click content, and both expand the bar the same way.
+     */
+    readonly property bool pluginSurfaceOpen: surface.startsWith("plugin:")
+    readonly property bool pluginPopupOpen: !!(pluginSurfaceOpen && ldPluginSurface.item && ldPluginSurface.item.popupActive)
+    readonly property string pluginSurfaceTarget: pluginSurfaceOpen ? surface.substring(7) : ""
+    readonly property bool pluginSurfacePanelMode: pluginSurfaceTarget.indexOf(":panel") >= 0
+    readonly property string pluginSurfaceId: {
+        const at = pluginSurfaceTarget.indexOf(":panel");
+        return at >= 0 ? pluginSurfaceTarget.substring(0, at) : pluginSurfaceTarget;
+    }
+    readonly property string pluginSurfaceEntryPoint: pluginSurfaceOpen
+        ? (pluginSurfacePanelMode ? Plugins.settingsEntryFor(pluginSurfaceId) : Plugins.barEntryFor(pluginSurfaceId))
+        : ""
+
     property bool hoverLatch: false
+
+    /**
+     * A strip layout menu is open (some StripCell dropped its card below the
+     * pill). The card sits below the pill window, so the pill would otherwise
+     * retract the instant the cursor leaves its own body -- the menu would be
+     * neither reachable nor clickable. Latched here and un-latched when the
+     * last card closes, so `expanded`/`mode` stay "hover" (and the input mask
+     * grows to cover the card) for as long as the menu needs the cursor.
+     */
+    property bool stripMenuOpen: false
 
     /**
      * False for the first seconds after the shell maps. Hyprland hands pointer
@@ -178,7 +210,7 @@ Item {
         onTriggered: pill.bootSettled = true
     }
 
-    readonly property bool expanded: surfaceOpen || held || hoverLatch || expandLatch
+    readonly property bool expanded: surfaceOpen || held || hoverLatch || expandLatch || stripMenuOpen
 
     /**
      * First expansion (hover, latch, held, or any surface) marks weather as
@@ -455,7 +487,16 @@ Item {
         interface:  { size: () => Qt.size(settingsW, surfaceItem("interface").implicitHeight + 29 * s), ame: () => surfaceItem("interface") },
         fontpicker: { size: () => Qt.size(fontpickerW, surfaceItem("fontpicker").implicitHeight + 29 * s), ame: () => surfaceItem("fontpicker") },
         plugins:    { size: () => Qt.size(settingsW, surfaceItem("plugins").implicitHeight + 29 * s), ame: () => surfaceItem("plugins") },
-        update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") }
+        update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") },
+        plugin:     { size: () => {
+                // Omarchy plug-ins render their UIs as popout layer surfaces;
+                // there is no embeddable content to morph the pill into, so the
+                // pill stays at its strip size and the plugin's window does the
+                // work. (Kept as a separate thunk so `surfaceItem` spins up
+                // the loader and fills its inject contract before any call.)
+                surfaceItem("plugin");
+                return pill.restSize;
+            }, ame: () => surfaceItem("plugin") }
     })
 
     /**
@@ -489,7 +530,8 @@ Item {
         interface:  () => ldInterface,
         fontpicker: () => ldFontpicker,
         plugins:    () => ldPlugins,
-        update:     () => ldUpdate
+        update:     () => ldUpdate,
+        plugin:     () => ldPluginSurface
     })
 
     /**
@@ -499,8 +541,24 @@ Item {
      * cancelUnload by the time this could re-fire, so the countdown restarts
      * on the next close — "open again before its tier elapses, stay alive".
      */
+    /**
+     * Plugin surfaces close under their full surface string ("plugin:audio")
+     * but live in the machinery under the bare family name ("plugin"), so every
+     * unload call normalizes before it keys anything. Everything else passes
+     * through untouched.
+     */
+    function normSurface(name) {
+        return (name && name.length > 7 && name.indexOf("plugin:") === 0) ? "plugin" : name;
+    }
+
     function scheduleUnload(name) {
-        if (!name || !pill.loaders[name])
+        // With the saver off the tier is effectively infinite, so nothing would
+        // ever be swept on its own; keeping the sweep running would evict purely
+        // on the residency cap, which is not what the cap is for.
+        if (!Flags.memorySaver)
+            return;
+        name = pill.normSurface(name);
+        if (!name || !Object.prototype.hasOwnProperty.call(pill.loaders, name))
             return;
         const ld = pill.loaders[name]();
         if (!ld || !ld.active)
@@ -510,6 +568,7 @@ Item {
     }
 
     function cancelUnload(name) {
+        name = pill.normSurface(name);
         if (!name)
             return;
         delete pill.closedAt[name];
@@ -523,6 +582,7 @@ Item {
      * the full default so they never evict accidentally early.
      */
     function idleFor(name) {
+        name = pill.normSurface(name);
         var v = pill.unloadIdleMs[name];
         if (v === undefined)
             v = pill.unloadIdleMs.default;
@@ -535,6 +595,7 @@ Item {
      * real teardown (worth a GC) from a name that was already inert.
      */
     function dropClosed(name) {
+        name = pill.normSurface(name);
         const fn = pill.loaders[name];
         const ld = fn ? fn() : null;
         const wasLive = !!(ld && ld.active);
@@ -608,11 +669,12 @@ Item {
     }
 
     readonly property string mode: dragActive ? "dragOver"
-        : (surfaceOpen && surfaces[surface] !== undefined ? surface
+        : (pluginSurfaceOpen ? "plugin"
+        : (surfaceOpen && Object.prototype.hasOwnProperty.call(pill.surfaces, surface) ? surface
         : (Flags.gameMode ? "game"
         : (toastActive && Notifs.toastCritical && !held ? "toast"
         : (toastActive && !held ? "toast"
-        : (expanded ? "hover" : "rest")))))
+        : (expanded ? "hover" : "rest"))))))
 
     /**
      * AppImage drag-install state, live only while a file hovers the resting pill.
@@ -623,6 +685,8 @@ Item {
     property string dragStage: ""
 
     signal requestSurface(string name)
+    /** Morph the bar into a plugin's surface; the id (and optional right-click panel variant) live in the surface string. */
+    signal requestPluginSurface(string pluginId, bool settingsMode)
     signal requestClose()
 
     /**
@@ -882,7 +946,14 @@ Item {
                 }
             }
         }
-        onExited: () => sleepWatcher.running = true
+        onExited: () => sleepRespawn.restart()
+    }
+
+    Timer {
+        id: sleepRespawn
+        interval: 2000
+        repeat: false
+        onTriggered: if (!sleepWatcher.running) sleepWatcher.running = true
     }
 
     property real morphRadius: (mode === "rest" || mode === "hover" || mode === "game") ? restCorner : openCorner
@@ -1151,28 +1222,9 @@ Item {
         void pill.width;
         void pill.height;
         const drop = 12 * pill.s;
-        if (soulTarget === "wifi")
-            return wifiIcon.mapToItem(pill, wifiIcon.width / 2, wifiIcon.height + drop * 0.55);
-        if (soulTarget === "bt")
-            return btIcon.mapToItem(pill, btIcon.width / 2, btIcon.height + drop * 0.55);
-        if (soulTarget === "battery")
-            return batteryIcon.mapToItem(pill, batteryIcon.width / 2, batteryIcon.height + drop * 0.55);
-        if (soulTarget === "inbox")
-            return inboxIcon.mapToItem(pill, inboxIcon.width / 2, inboxIcon.height + drop * 0.55);
-        if (soulTarget === "mixer")
-            return mixerIcon.mapToItem(pill, mixerIcon.width / 2, mixerIcon.height + drop * 0.55);
-        if (soulTarget === "power")
-            return powerIcon.mapToItem(pill, powerIcon.width / 2, powerIcon.height + drop * 0.55);
-        if (soulTarget === "sysmon")
-            return sysmonIcon.mapToItem(pill, sysmonIcon.width / 2, sysmonIcon.height + drop * 0.55);
-        if (soulTarget === "wallpaper")
-            return wallpaperIcon.mapToItem(pill, wallpaperIcon.width / 2, wallpaperIcon.height + drop * 0.55);
-        if (soulTarget === "clipboard")
-            return clipboardIcon.mapToItem(pill, clipboardIcon.width / 2, clipboardIcon.height + drop * 0.55);
-        if (soulTarget === "launcher")
-            return launcherIcon.mapToItem(pill, launcherIcon.width / 2, launcherIcon.height + drop * 0.55);
-        if (soulTarget === "appearance")
-            return appearanceIcon.mapToItem(pill, appearanceIcon.width / 2, appearanceIcon.height + drop * 0.55);
+        const native = pill.iconFor(soulTarget);
+        if (native)
+            return native.mapToItem(pill, native.width / 2, native.height + drop * 0.55);
         if (soulTarget === "ws" && soulWsIndex >= 0) {
             void ws.activeName;
             void ws.width;
@@ -1188,8 +1240,8 @@ Item {
      * descriptor and maps it. Null = nothing open (or a surface with no anchor,
      * e.g. wallpaper), so Ame falls back to the pill's own hover/wake anchor.
      */
-    readonly property var ameSurface: (surfaceOpen && surfaces[surface] !== undefined)
-        ? surfaces[surface].ame() : null
+    readonly property var ameSurface: (surfaceOpen && surfaces[mode] !== undefined)
+        ? surfaces[mode].ame() : null
 
     Ame {
         id: ame
@@ -1794,7 +1846,7 @@ Item {
     Item {
         id: rest
         anchors.fill: parent
-        opacity: (pill.expanded || pill.dragActive || pill.mode === "game" || pill.mode === "toast") ? 0 : Math.pow(pill.morphCloseness, 1.5)
+        opacity: ((pill.expanded && !pill.pluginPopupOpen) || pill.dragActive || pill.mode === "game" || pill.mode === "toast") ? 0 : Math.pow(pill.morphCloseness, 1.5)
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: pill.mode === "rest" ? Motion.fast : Math.round(260 * Motion.mult) } }
 
@@ -1818,7 +1870,7 @@ Item {
             // strip mode it is far wider than the card-sized body a surface
             // morphs the pill into, so leaving it up overflows the pill and
             // covers the surface.
-            visible: pill.specialView === "" && pill.stripBar && !pill.surfaceOpen
+            visible: pill.specialView === "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
             anchors.centerIn: parent
             spacing: pill.stripGap
 
@@ -2188,10 +2240,73 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 12 * pill.s
 
+                Repeater {
+                    id: stripCells
+                    model: StripLayout.resolved
+
+                    delegate: StripCell {
+                        required property var modelData
+
+                        anchors.verticalCenter: statusRow.verticalCenter
+
+                        kind: modelData ? modelData.kind : ""
+                        cellId: modelData ? modelData.id : ""
+                        pluginId: modelData ? modelData.id : ""
+                        cellComponent: pill.cellComponentFor(modelData)
+                        s: pill.s
+                        hoverLive: hover.live
+                        barHeightOverride: pill.height
+                        barWidthOverride: pill.width
+                    }
+                }
+            }
+        }
+    }
+
+
+    // Native strip cells: one movable unit per Component. Each root
+    // exposes `cellPresent` -- whether it wants to paint right now. The
+    // StripCell slot tracks that flag instead of the item's `visible`,
+    // because the Loader mirrors its own visibility back onto the loaded
+    // item, so `item.visible` can never drive the parent.
+    Component {
+        id: cellTray
+                Row {
+                    spacing: 12 * pill.s
+                    property bool cellPresent: true
+
+                                    MinimizedTray {
+                                        id: minimized
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        s: pill.s
+                                        screenName: pill.screenName
+                                        enabled: hover.live
+                                        visible: count > 0
+                                    }
+                                    Rectangle {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        visible: minimized.count > 0
+                                        width: 1
+                                        height: pill.iconCell
+                                        color: Theme.hair
+                                        opacity: 0.7
+                                    }
+                                    Tray {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        s: pill.s
+                                        barWindow: pill.barWindow
+                                        enabled: hover.live
+                                    }
+                }
+    }
+
+    Component {
+        id: cellWeather
                 Item {
                     id: weatherGlance
                     anchors.verticalCenter: parent.verticalCenter
                     visible: Weather.ready && !Plugins.surfaceDisabled("weather")
+                    property bool cellPresent: Weather.ready && !Plugins.surfaceDisabled("weather")
                     width: weatherRow.implicitWidth
                     height: weatherRow.implicitHeight
 
@@ -2239,36 +2354,15 @@ Item {
                     }
                     // better: tooltip weather
                 }
+    }
 
-                MinimizedTray {
-                    id: minimized
-                    anchors.verticalCenter: parent.verticalCenter
-                    s: pill.s
-                    screenName: pill.screenName
-                    enabled: hover.live
-                    visible: count > 0
-                }
-
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: minimized.count > 0
-                    width: 1
-                    height: pill.iconCell
-                    color: Theme.hair
-                    opacity: 0.7
-                }
-
-                Tray {
-                    anchors.verticalCenter: parent.verticalCenter
-                    s: pill.s
-                    barWindow: pill.barWindow
-                    enabled: hover.live
-                }
-
+    Component {
+        id: cellDnd
                 Item {
                     id: dndIcon
                     anchors.verticalCenter: parent.verticalCenter
                     visible: Flags.dnd
+                    property bool cellPresent: Flags.dnd
                     width: pill.iconCell
                     height: pill.iconCell
 
@@ -2320,16 +2414,15 @@ Item {
                         }
                     }
                 }
+    }
 
-                Row {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: pill.wifiDev !== null || pill.btAdapter !== null || Battery.present
-                    spacing: 12 * pill.s
-
+    Component {
+        id: cellWifi
                     Item {
                         id: wifiIcon
                         anchors.verticalCenter: parent.verticalCenter
                         visible: pill.wifiDev !== null && !Plugins.surfaceDisabled("wifi")
+                        property bool cellPresent: pill.wifiDev !== null && !Plugins.surfaceDisabled("wifi")
                         width: pill.iconCell
                         height: pill.iconCell
 
@@ -2369,11 +2462,15 @@ Item {
                         }
                         // better: tooltip wifi
                     }
+    }
 
+    Component {
+        id: cellBt
                     Item {
                         id: btIcon
                         anchors.verticalCenter: parent.verticalCenter
                         visible: pill.btAdapter !== null && !Plugins.surfaceDisabled("bt")
+                        property bool cellPresent: pill.btAdapter !== null && !Plugins.surfaceDisabled("bt")
                         width: pill.iconCell
                         height: pill.iconCell
 
@@ -2413,11 +2510,15 @@ Item {
                         }
                         // better: tooltip bt
                     }
+    }
 
+    Component {
+        id: cellBattery
                     Item {
                         id: batteryIcon
                         anchors.verticalCenter: parent.verticalCenter
                         visible: Battery.present
+                        property bool cellPresent: Battery.present
                         width: battPct.implicitWidth
                         height: pill.iconCell
 
@@ -2451,13 +2552,16 @@ Item {
                         }
                         // better: tooltip battery
                     }
-                }
+    }
 
+    Component {
+        id: cellInbox
                 Item {
                     id: inboxIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
+                    property bool cellPresent: true
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2498,13 +2602,17 @@ Item {
                     }
                     // better: tooltip inbox
                 }
+    }
 
+    Component {
+        id: cellMixer
                 Item {
                     id: mixerIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("mixer")
+                    property bool cellPresent: !Plugins.surfaceDisabled("mixer")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2533,12 +2641,16 @@ Item {
                     }
                     // better: tooltip mixer
                 }
+    }
 
+    Component {
+        id: cellSysmon
                 Item {
                     id: sysmonIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
+                    property bool cellPresent: true
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2567,13 +2679,17 @@ Item {
                     }
                     // better: tooltip sysmon
                 }
+    }
 
+    Component {
+        id: cellWallpaper
                 Item {
                     id: wallpaperIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("wallpaper")
+                    property bool cellPresent: !Plugins.surfaceDisabled("wallpaper")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2602,13 +2718,17 @@ Item {
                     }
                     // better: tooltip wallpaper
                 }
+    }
 
+    Component {
+        id: cellClipboard
                 Item {
                     id: clipboardIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("clipboard")
+                    property bool cellPresent: !Plugins.surfaceDisabled("clipboard")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2637,13 +2757,17 @@ Item {
                     }
                     // better: tooltip clipboard
                 }
+    }
 
+    Component {
+        id: cellLauncher
                 Item {
                     id: launcherIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("launcher")
+                    property bool cellPresent: !Plugins.surfaceDisabled("launcher")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2672,13 +2796,17 @@ Item {
                     }
                     // better: tooltip launcher
                 }
+    }
 
+    Component {
+        id: cellAppearance
                 Item {
                     id: appearanceIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("appearance")
+                    property bool cellPresent: !Plugins.surfaceDisabled("appearance")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2715,13 +2843,17 @@ Item {
                     }
                     // better: tooltip appearance
                 }
+    }
 
+    Component {
+        id: cellPower
                 Item {
                     id: powerIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
                     visible: !Plugins.surfaceDisabled("power")
+                    property bool cellPresent: !Plugins.surfaceDisabled("power")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -2751,56 +2883,48 @@ Item {
                     }
                     // better: tooltip power
                 }
+    }
 
-                /**
-                 * Enabled plugins get their own strip entries here.
-                 *
-                 * `pillWidgetsGeneric` is the whole contract: enabled, a
-                 * bar-widget, not the host's own menu or agents window, not
-                 * cloned away, and not one whose capability the bar supersedes
-                 * with its own surface. Anything a plugin would be able to claim
-                 * a cell for is filtered out by that list rather than by
-                 * conditions repeated here, so a second place cannot disagree
-                 * about what belongs in the strip.
-                 *
-                 * `PluginButton` mounts each plugin's real bar surface on the
-                 * first click rather than summoning it, because the host paints
-                 * a bar-widget's popout against the bar it is handed and that
-                 * bar is the hidden one -- a summon returns ok and shows nothing.
-                 *
-                 * The band height is forwarded so a plugin's keyboard panel
-                 * lands under the pill instead of measuring the full-screen
-                 * overlay window as the bar. The stub reports position "top",
-                 * which is where the pill docks.
-                 */
-                Repeater {
-                    model: Plugins.pillWidgetsGeneric
-
-                    delegate: PluginButton {
-                        required property var modelData
-
-                        // Every other cell in this row rides the same baseline;
-                        // a delegate that does not sits a pixel low the moment a
-                        // plugin is enabled.
-                        //
-                        // Anchored to statusRow by id, not to `parent`. A Repeater
-                        // delegate's `parent` is null while the anchor binding is
-                        // first evaluated -- the Repeater has not been handed its
-                        // parent item yet -- so `parent.verticalCenter` logged
-                        // "Cannot read property 'verticalCenter' of null" twice on
-                        // every shell start, once per delegate created before the
-                        // binding settled. Unrelated to the lock feature; kept.
-                        anchors.verticalCenter: statusRow.verticalCenter
-
-                        pluginId: modelData.id
-                        s: pill.s
-                        hoverLive: hover.live
-                        barHeightOverride: pill.height
-                        barWidthOverride: pill.width
-                    }
-                }
-            }
+    // Close every open strip layout menu at once (Escape).
+    function closeStripMenus() {
+        if (stripCells.count === 0) return;
+        for (let i = 0; i < stripCells.count; i++) {
+            const d = stripCells.itemAt(i);
+            if (d) d.closeMenu();
         }
+    }
+
+    // Resolve a native cell slot by its id, for soul anchoring. The cell ids
+    // live inside their Components now, so soulPoint cannot name them; it asks
+    // the strip's delegates instead.
+    function iconFor(target) {
+        if (!target || stripCells.count === 0) return null;
+        for (let i = 0; i < stripCells.count; i++) {
+            const d = stripCells.itemAt(i);
+            if (d && d.cellId === target) return d.nativeItem;
+        }
+        return null;
+    }
+
+    function cellComponentFor(e) {
+        if (!e || e.kind !== "cell") return null;
+        switch (e.id) {
+        case "tray": return cellTray;
+        case "weather": return cellWeather;
+        case "dnd": return cellDnd;
+        case "wifi": return cellWifi;
+        case "bt": return cellBt;
+        case "battery": return cellBattery;
+        case "inbox": return cellInbox;
+        case "mixer": return cellMixer;
+        case "sysmon": return cellSysmon;
+        case "wallpaper": return cellWallpaper;
+        case "clipboard": return cellClipboard;
+        case "launcher": return cellLauncher;
+        case "appearance": return cellAppearance;
+        case "power": return cellPower;
+        }
+        return null;
     }
 
     /**
@@ -2843,6 +2967,21 @@ Item {
             s: pill.s
             open: pill.weatherOpen
             morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+        }
+    }
+
+    Loader {
+        id: ldPluginSurface
+        active: false
+        anchors.fill: parent
+        sourceComponent: PluginHostSurface {
+            s: pill.s
+            open: pill.pluginSurfaceOpen
+            morphCloseness: pill.morphCloseness
+            pluginId: pill.pluginSurfaceId
+            barHeightOverride: pill.y + pill.height
+            entryPoint: pill.pluginSurfaceEntryPoint
             onRequestClose: pill.requestClose()
         }
     }
@@ -2908,9 +3047,9 @@ sourceComponent: Media {
             open: pill.mediaOpen
             morphCloseness: pill.morphCloseness
             topFlat: (pill.mode === "game" || pill.stripBar) ? 1 : 0
-            pinned: pill.pinned
+            pinned: pill.held
             onRequestClose: pill.requestClose()
-            onRequestPin: pill.forcePinned = !pill.forcePinned
+            onRequestPin: pill.forcePinned = !pill.held
             onRequestExpand: {
                 pill.requestClose();
                 pill.hoverLatch = true;

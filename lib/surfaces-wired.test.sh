@@ -89,23 +89,115 @@ done
 ok "every navigated surface resolves to a registered type whose file exists" \
     "$(printf '%s' "$unresolved" | sed 's/^ *//')" ""
 
-# Plugins: the strip's Repeater, its model, and the component it delegates to.
+# Plugins: the strip's Repeater, the layout model it renders, and the
+# delegate that hosts PluginButton.
 ok "the strip renders plugin entries with a Repeater" \
-    "$(grep -c 'model:[[:space:]]*Plugins.pillWidgetsGeneric' "$PILL")" "1"
-ok "the strip's plugin delegate is PluginButton" \
-    "$(grep -c 'delegate:[[:space:]]*PluginButton' "$PILL")" "1"
+    "$(grep -c 'model:[[:space:]]*StripLayout.resolved' "$PILL")" "1"
+ok "the strip's plugin delegate is StripCell" \
+    "$(grep -c 'delegate:[[:space:]]*StripCell' "$PILL")" "1"
+ok "StripCell mounts PluginButton" \
+    "$(grep -c 'PluginButton[[:space:]]*{' "$ROOT/components/StripCell.qml")" "1"
 ok "PluginButton is registered as a component" \
     "$(grep -cE '^PluginButton[[:space:]]+PluginButton\.qml$' "$ROOT/components/qmldir")" "1"
 ok "PluginButton is actually instantiated somewhere" \
     "$(grep -rc 'PluginButton[[:space:]]*{' --include=*.qml "$ROOT" 2>/dev/null | grep -v ':0' | wc -l)" "1"
 
 # The band geometry the plugin panels position against.
-ok "plugin entries forward the band height so a panel lands under the pill" \
+ok "plugin strip entry forwards the band height" \
     "$(grep -c 'barHeightOverride:[[:space:]]*pill.height' "$PILL")" "1"
 
 # dock: routed, not rendered by the pill.
 ok "the dock row is routed to the dock rather than opened as a pill surface" \
     "$(grep -cE 'surface === "dock"' "$ROOT/shell.qml")" "1"
+
+if command -v node >/dev/null 2>&1; then
+    if node - "$ROOT/surfaces/PluginHostSurface.qml" "$PILL" <<'JS'
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const source = fs.readFileSync(process.argv[2], "utf8");
+const pill = fs.readFileSync(process.argv[3], "utf8");
+assert(/onRequestClose:\s*pill\.requestClose\(\)/.test(pill), "pill receives popup close requests");
+assert(/function onOpenedChanged\(\)\s*\{\s*root\.panelOpenedChanged\(\);/.test(source), "host handles popup closure");
+const start = source.indexOf("    function panelOpenedChanged() {");
+const end = source.indexOf("    function inject()", start);
+assert(start >= 0 && end > start, "panel close handler exists");
+let closes = 0;
+const root = { open: true, panelWasOpened: false, requestClose() { closes++; } };
+const widget = { item: { opened: false } };
+const panelOpenedChanged = vm.runInNewContext(`(${source.slice(start, end).trim()})`, { root, widget });
+panelOpenedChanged();
+assert.equal(closes, 0);
+widget.item.opened = true;
+panelOpenedChanged();
+widget.item.opened = false;
+panelOpenedChanged();
+assert.equal(closes, 1, "closing the popup should close the pill");
+panelOpenedChanged();
+assert.equal(closes, 1, "a close must be handled once");
+root.panelWasOpened = false;
+panelOpenedChanged();
+assert.equal(closes, 1, "a plugin without an open popup must not close");
+widget.item.opened = true;
+panelOpenedChanged();
+widget.item.opened = false;
+panelOpenedChanged();
+assert.equal(closes, 2, "closing a bar-widget popup should close the pill too");
+root.open = false;
+panelOpenedChanged();
+assert.equal(closes, 2, "an already closed pill must not close again");
+const openStart = source.indexOf("    onOpenChanged: {");
+const openEnd = source.indexOf("    mTop:", openStart);
+assert(openStart >= 0 && openEnd > openStart, "host handles pill close");
+const openBody = source.slice(openStart, openEnd).trim().replace(/^onOpenChanged:\s*\{/, "").replace(/\}\s*$/, "");
+let popupCloses = 0;
+widget.item.opened = true;
+widget.item.close = () => { popupCloses++; widget.item.opened = false; };
+root.panelWasOpened = true;
+vm.runInNewContext(`(function() { ${openBody} })`, { root, widget, open: false })();
+assert.equal(popupCloses, 1, "hiding the pill should hide its popup after the surface resets");
+function binding(qml, pattern, scope) {
+    const match = pattern.exec(qml);
+    assert(match, `missing binding: ${pattern}`);
+    return vm.runInNewContext(match[1], scope);
+}
+const active = /readonly property bool popupActive:\s*([^\n]+)/;
+assert.equal(binding(source, active, { widget: { item: { opened: true } } }), true);
+assert.equal(binding(source, active, { widget: { item: { opened: false } } }), false);
+assert.equal(binding(source, active, { widget: { item: {} } }), false);
+const loader = source.slice(source.indexOf("id: widget"), source.indexOf("onStatusChanged", source.indexOf("id: widget")));
+const loaderOpacity = /^\s*opacity:\s*([^\n]+)/m;
+assert.equal(binding(loader, loaderOpacity, { root: { popupActive: true } }), 0);
+assert.equal(binding(loader, loaderOpacity, { root: { popupActive: false } }), 1);
+const popup = /readonly property bool pluginPopupOpen:\s*([^\n]+)/;
+assert.equal(binding(pill, popup, { pluginSurfaceOpen: true, ldPluginSurface: { item: { popupActive: true } } }), true);
+assert.equal(binding(pill, popup, { pluginSurfaceOpen: false, ldPluginSurface: { item: { popupActive: true } } }), false);
+const rest = pill.slice(pill.indexOf("id: rest"), pill.indexOf("Behavior on opacity", pill.indexOf("id: rest")));
+const restOpacity = /^\s*opacity:\s*([^\n]+)/m;
+const restPill = { expanded: true, dragActive: false, mode: "plugin", morphCloseness: 1, pluginPopupOpen: true };
+assert.equal(binding(rest, restOpacity, { pill: restPill, Math }), 1, "popup should show the compact pill face");
+restPill.pluginPopupOpen = false;
+assert.equal(binding(rest, restOpacity, { pill: restPill, Math }), 0, "inline plugins keep their surface");
+const strip = pill.slice(pill.indexOf("id: stripFace"), pill.indexOf("anchors.centerIn: parent", pill.indexOf("id: stripFace")));
+const stripVisible = /^\s*visible:\s*([^\n]+)/m;
+const stripPill = { specialView: "", stripBar: true, surfaceOpen: true, pluginPopupOpen: true };
+assert.equal(binding(strip, stripVisible, { pill: stripPill }), true);
+stripPill.pluginPopupOpen = false;
+assert.equal(binding(strip, stripVisible, { pill: stripPill }), false);
+const bar = source.slice(source.indexOf("id: barStub"), source.indexOf("Flickable {", source.indexOf("id: barStub")));
+const barHeight = /^\s*barHeightOverride:\s*([^\n]+)/m;
+assert.equal(binding(bar, barHeight, { root: { barHeightOverride: 39, height: 10 } }), 39);
+const hostLoader = pill.slice(pill.indexOf("id: ldPluginSurface"), pill.indexOf("id: ldLauncher", pill.indexOf("id: ldPluginSurface")));
+assert.equal(binding(hostLoader, barHeight, { pill: { y: 8, height: 39 } }), 47, "popup anchor must clear the pill's top inset");
+JS
+    then
+        ok "plugin popup lifecycle and compact pill presentation" "yes" "yes"
+    else
+        ok "plugin popup lifecycle and compact pill presentation" "no" "yes"
+    fi
+else
+    ok "node is available for popup lifecycle test" "no" "yes"
+fi
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then

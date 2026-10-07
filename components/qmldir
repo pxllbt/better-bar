@@ -27,5 +27,6 @@ WifiGlyph WifiGlyph.qml
 Workspaces Workspaces.qml
 PluginBarStub PluginBarStub.qml
 PluginButton PluginButton.qml
+StripCell StripCell.qml
 ActiveBorderRing ActiveBorderRing.qml
 AltText AltText.qml

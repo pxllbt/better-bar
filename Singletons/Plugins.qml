@@ -134,7 +134,8 @@ Singleton {
 
     readonly property var pillWidgetsGeneric: root.pillWidgets.filter(root.hostsInStrip)
 
-    readonly property bool surfaceOpen: false
+    /** True while the plugins surface is on screen, which polls the registry tighter. */
+    property bool surfaceOpen: false
 
     // ---- lookup -------------------------------------------------------------
 
@@ -179,6 +180,34 @@ Singleton {
         return file ? m.dir + "/" + file : "";
     }
 
+    /**
+     * The content a right-click on this plugin's cell should expand the bar
+     * into. Nearly every bar-widget plugin separates the role: the barWidget
+     * is the strip entry and `Panel.qml` beside it (or the `panel` entry point,
+     * when the manifest names one) is the settings panel. `Panel.qml` in-repo
+     * behind this heuristic are exactly the popups the plugin's own right-click
+     * opens; if it cannot be found the fallback keeps the barWidget by opening
+     * the same content left-click would, so a plugin never loses its click.
+     */
+    function settingsEntryFor(id) {
+        var m = root.manifestFor(id);
+        if (!m)
+            return "";
+        var panel = String((m.entryPoints || {}).panel || "");
+        if (panel)
+            return m.dir + "/" + panel;
+        var bar = String((m.entryPoints || {}).barWidget || "");
+        if (bar && bar !== "Panel.qml" && bar !== "Settings.qml") {
+            var ix = bar.lastIndexOf("/");
+            var maybe = (ix >= 0 ? bar.substring(0, ix + 1) : "") + "Panel.qml";
+            // Cheap existence check via the manifest dir: the sibling the plugin
+            // ships against may be named Panel.qml; if it is not, the surface's
+            // loader falls back to the bar widget, so a wrong guess cannot blank
+            // the cell.
+            return m.dir + "/" + maybe;
+        }
+        return barEntryFor(id);
+    }
     // ---- strip icon + render mode -------------------------------------------
 
     /**

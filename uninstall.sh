@@ -66,7 +66,9 @@ add() {
 }
 
 add "$SHARE/quickshell/better-bar"
+add "$SHARE/quickshell/better"
 add "$CONF/quickshell/better-bar"
+add "$CONF/quickshell/better"
 add "$PLUGINS/pix.bar"
 add "$STATE/better"
 add "$CACHE/better"
@@ -165,8 +167,11 @@ fi
 # install root (the clipboard watcher, lock helpers) is caught by the last
 # pattern. No-op when the bar only ever ran inside omarchy-shell.
 pkill -f "[q]uickshell .*better-bar" 2>/dev/null || true
+pkill -f "[q]uickshell .*better/shell\.qml" 2>/dev/null || true
 pkill -f "[q]s .*better-bar" 2>/dev/null || true
+pkill -f "[q]s .*better/shell\.qml" 2>/dev/null || true
 pkill -f "[b]etter-bar/scripts" 2>/dev/null || true
+pkill -f "[b]etter/scripts" 2>/dev/null || true
 
 # The stock bar was hidden on install; put it back. Best effort: if the stock
 # shell is not running, the flag is still on disk and applies at the next login.

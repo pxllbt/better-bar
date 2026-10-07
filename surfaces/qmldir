@@ -27,3 +27,4 @@ Wallpaper Wallpaper.qml
 WeatherSurface WeatherSurface.qml
 WifiSurface WifiSurface.qml
 PluginsSurface PluginsSurface.qml
+PluginHostSurface PluginHostSurface.qml

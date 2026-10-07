@@ -644,36 +644,81 @@ PillSurface {
                 }
             }
 
+            /* Expand and Pin sit on one row: a Column positions its own
+             * children, so a second sibling anchored to the first would be
+             * told to ignore its anchors and pile up on the same line. */
             Item {
+                id: actionRow
                 width: infoStack.width
                 height: 15 * root.s
 
-                Row {
-                    width: infoStack.width
-                    spacing: 6 * root.s
+                Item {
+                    id: expandCtl
+                    anchors.left: parent.left
+                    width: 52 * root.s
+                    height: parent.height
+
+                    Row {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6 * root.s
+
+                        GlyphIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 12 * root.s
+                            height: 12 * root.s
+                            name: "layers"
+                            color: Theme.iconDim
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Expand"
+                            color: Theme.dim
+                            font.family: Theme.font
+                            font.pixelSize: 10 * root.s
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.requestExpand()
+                    }
+                }
+
+                Item {
+                    id: pinCtl
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.left: expandCtl.right
+                    anchors.leftMargin: 8 * root.s
+                    width: 46 * root.s
+                    height: parent.height
 
                     GlyphIcon {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 12 * root.s
                         height: 12 * root.s
-                        name: "layers"
-                        color: Theme.iconDim
+                        name: "pin"
+                        color: root.pinned ? Theme.vermLit : Theme.iconDim
                     }
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: "Expand"
-                        color: Theme.dim
+                        anchors.left: parent.left
+                        anchors.leftMargin: 17 * root.s
+                        text: root.pinned ? "Pinned" : "Pin"
+                        color: root.pinned ? Theme.vermLit : Theme.dim
                         font.family: Theme.font
                         font.pixelSize: 10 * root.s
                     }
-                }
 
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.requestExpand()
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.requestPin()
+                    }
                 }
             }
         }

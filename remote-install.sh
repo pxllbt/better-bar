@@ -3,12 +3,16 @@ set -eu
 
 REPO="https://github.com/pxllbt/better-bar.git"
 NAME="Better Bar"
-INSTALL_ROOT="${HOME}/.local/share/quickshell/better-bar"
+INSTALL_ROOT="${HOME}/.local/share/quickshell/better"
 
 if [ -d "$INSTALL_ROOT" ]; then
   printf '\033[1;33m%s is already installed at %s\033[0m\n' "$NAME" "$INSTALL_ROOT"
   printf 'Pulling latest changes...\n'
-  git -C "$INSTALL_ROOT" pull --ff-only origin master || printf '\033[1;33mCould not pull — try removing %s and reinstalling.\033[0m\n' "$INSTALL_ROOT"
+  git -C "$INSTALL_ROOT" pull --ff-only origin master || {
+    printf '\033[1;31mCould not pull latest code — keeping existing install.\033[0m\n'
+    printf 'Upstream: %s\n' "$REPO"
+    exit 1
+  }
 else
   printf 'Cloning %s...\n' "$NAME"
   git clone --depth 1 --branch master "$REPO" "$INSTALL_ROOT"

@@ -66,6 +66,8 @@ ShellRoot {
     property bool fullBattNotified: false
 
     function battNote(urgency, summary, body) {
+        if (battNoteProc.running)
+            return;
         battNoteProc.command = urgency.length > 0
             ? ["notify-send", "-a", "Better Bar", "-u", urgency, summary, body]
             : ["notify-send", "-a", "Better Bar", summary, body];
@@ -81,7 +83,7 @@ ShellRoot {
     function battCheck() {
         if (!Battery.present)
             return;
-        if (!Battery.discharging || Battery.pct > 25) {
+        if (!Battery.discharging || Battery.pct >= 25) {
             root.battNotifiedBelow = 100;
             if (root.battRepeatTimer)
                 root.battRepeatTimer.stop();
@@ -224,7 +226,7 @@ ShellRoot {
         id: inhibitSweep
         running: !root.inhibitSwept
         command: ["sh", "-c",
-            "for p in $(pgrep -x systemd-inhibit); do case \"$(tr '\\0' ' ' < /proc/$p/cmdline 2>/dev/null)\" in *\"--who=Better Bar\"*|*\"--who=Better Bar\"*) kill $p 2>/dev/null ;; esac; done; exit 0"]
+            "for p in $(pgrep -x systemd-inhibit); do case \"$(tr '\\0' ' ' < /proc/$p/cmdline 2>/dev/null)\" in *\"--who=Better Bar\"*) kill $p 2>/dev/null ;; esac; done; exit 0"]
         onExited: root.inhibitSwept = true
     }
 
@@ -315,8 +317,8 @@ ShellRoot {
             // the per-monitor dock window delegate, invisible from the
             // root's scope, so the delegate opens its own panel when
             // the monitor matches the pill that asked.
-            root.close();
             root.dockSettingsRequested(mon);
+            root.close();
             return;
         }
         if (root.openMon === mon && root.openSurface === surface) {
@@ -331,6 +333,22 @@ ShellRoot {
         root.openMon = "";
         root.openSurface = "";
         root.menuRoute = "";
+    }
+
+    /**
+     * How tall the band must be while `mon` has a surface open.
+     *
+     * The band is sized by the reserve window, which is a sibling of the pill
+     * and cannot see it, so the open pill's own height is published here by
+     * each monitor's Pill through `surfaceBandHeight`. Reading `pill.height`
+     * directly from the reserve would be a ReferenceError: `pill` is scoped to
+     * the overlay delegate. 0 means "no surface is open on that monitor".
+     */
+    property var surfaceBandHeight: ({})
+
+    function openSurfaceHeight(mon) {
+        var h = surfaceBandHeight[mon];
+        return typeof h === "number" && h > 0 ? h : 0;
     }
 
     function peek(mon) {
@@ -494,7 +512,10 @@ ShellRoot {
              */
             readonly property bool monFullscreen: root.fullscreenOn(modelData.name)
             readonly property bool offCursor: CursorTrack.offCursor(modelData.name)
-            readonly property real bandH: monFullscreen ? 0 : (Flags.gameMode ? gameBarH : ((Flags.autoHide || offCursor) ? 0 : reservedH))
+            readonly property bool surfaceOpenHere: root.openMon === modelData.name && root.openSurface.length > 0
+            readonly property real bandH: monFullscreen ? 0
+                : (surfaceOpenHere ? root.openSurfaceHeight(modelData.name)
+                : (Flags.gameMode ? gameBarH : ((Flags.autoHide || offCursor) ? 0 : reservedH)))
 
             screen: modelData
             color: "transparent"
@@ -529,7 +550,9 @@ ShellRoot {
              * are shorter than titled ones, and the float lip mirrors the
              * pill's topGap at half scale.
              */
-            readonly property real dockH: (Flags.dockMinimal ? 58 : 68) * s
+            readonly property real dockH: root.pillBarHeight > 0
+                ? Math.max(root.pillBarHeight, 44 * s)
+                : (Flags.dockMinimal ? 58 : 68) * s
             readonly property real dockGap: 4 * Flags.topGap * s
             readonly property real reservedH: dockH + dockGap
 
@@ -591,12 +614,12 @@ ShellRoot {
             color: "transparent"
             exclusionMode: ExclusionMode.Ignore
             WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.keyboardFocus: (surfaceOpen) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+            WlrLayershell.keyboardFocus: (surfaceOpen && !pill.pluginSurfaceOpen) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
             WlrLayershell.namespace: "better"
 
             anchors { top: true; left: true; right: true; bottom: true }
 
-            mask: monFullscreen ? hiddenRegion : (modal ? fullRegion : (pill.mode === "game" ? pillRegion : (Flags.autoHide ? (pill.revealSession || pill.transientLive ? revealPillRegion : (pill.expanded ? pillRegion : revealRegion)) : pillRegion)))
+            mask: monFullscreen ? hiddenRegion : (modal ? fullRegion : (pill.mode === "game" ? pillRegion : (Flags.autoHide ? (pill.revealSession || pill.transientLive ? revealPillRegion : (pill.expanded ? pillRegion : revealRegion)) : (pill.hidden ? hiddenRegion : pillRegion))))
             Region { id: hiddenRegion }
 
             /**
@@ -625,6 +648,21 @@ ShellRoot {
                 y: pill.y
                 width: baseW + pill.inputPadRight
                 height: Math.max(pill.height, pill.targetH)
+
+                /**
+                 * A strip layout menu hangs below the pill, outside `pillRegion`,
+                 * so the pill would retract and the card would refuse clicks the
+                 * instant the cursor leaves the pill body. While any card is open
+                 * the pill latches itself expanded (`stripMenuOpen`); this box
+                 * brings the whole drop span into the input mask so the pointer
+                 * can glide down into the menu and its rows stay clickable.
+                 */
+                Region {
+                    x: pill.x
+                    y: pill.y + pill.height
+                    width: pill.width
+                    height: pill.stripMenuOpen ? 150 * s : 0
+                }
             }
 
             /**
@@ -665,7 +703,8 @@ ShellRoot {
                             && mouse.y >= pillRegion.y && mouse.y <= pillRegion.y + pillRegion.height;
                         if (!inside)
                             root.close();
-                        else if (mouse.y <= pillRegion.y + 40 * pill.s)
+                        else if (mouse.y <= pillRegion.y + 40 * pill.s
+                            && mouse.x <= pillRegion.x + 52 * pill.s)
                             pill.surfaceBack();
                     } else {
                         pill.pinned = false;
@@ -698,7 +737,9 @@ ShellRoot {
                     onHoveredChanged: if (enabled) pill.hovered = hovered
                 }
                 Keys.onEscapePressed: {
-                    if (pill.wallpaperMenuOpen) {
+                    if (pill.stripMenuOpen) {
+                        pill.closeStripMenus();
+                    } else if (pill.wallpaperMenuOpen) {
                         pill.wallpaperMenuClose();
                     } else {
                         root.close();
@@ -801,7 +842,8 @@ ShellRoot {
                     height: 8 * overlay.s
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
-                    enabled: (Flags.autoHide || Flags.cursorFollow) && !pill.surfaceOpen && !Flags.gameMode
+                    enabled: (Flags.autoHide || (Flags.cursorFollow && pill.hidden))
+                        && !pill.surfaceOpen && !Flags.gameMode
                     visible: enabled
                     keys: ["text/uri-list"]
                     onEntered: (drag) => {
@@ -860,7 +902,15 @@ ShellRoot {
                         }
                     }
 
+                    readonly property bool bandFollowsSurface: overlay.surfaceOpen
+                    onBandFollowsSurfaceChanged: {
+                        var h = Object.assign({}, root.surfaceBandHeight);
+                        h[pill.screenName] = overlay.surfaceOpen ? pill.height : 0;
+                        root.surfaceBandHeight = h;
+                    }
+
                     onRequestSurface: (name) => root.toggleSurface(overlay.modelData.name, name)
+                    onRequestPluginSurface: (pluginId, settingsMode) => root.toggleSurface(overlay.modelData.name, "plugin:" + pluginId + (settingsMode ? ":panel" : ""))
                     onRequestClose: root.close()
                 }
 
@@ -1118,7 +1168,7 @@ ShellRoot {
             Region {
                 id: dockRevealRegion
                 readonly property real revealW: dockWin.width
-                readonly property real revealH: 18 * dock.s
+                readonly property real revealH: 8 * dock.s
                 x: 0
                 y: dockWin.height - revealH
                 width: revealW

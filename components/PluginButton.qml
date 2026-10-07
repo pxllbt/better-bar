@@ -59,6 +59,14 @@ Item {
     property real barHeightOverride: -1
     property real barWidthOverride: -1
 
+    /**
+     * A widget with a bar entry opens its content in the pill's own surface:
+     * the bar expands into the plugin exactly as a native cell expands into the
+     * calendar. StripCell wires this to the pill's surface opener; host-mounted
+     * kinds (no bar entry) and a function missing here fall back to the popout.
+     */
+    property var openSurfaceRequest: null
+
     readonly property var plugin: Plugins.byId(pluginId)
     readonly property string pluginName: plugin && plugin.name ? plugin.name : pluginId
 
@@ -143,7 +151,26 @@ Item {
      * than openPanel because a plugin the user has just enabled is not in the
      * registry yet, and summon refuses a disabled plugin outright.
      */
-    function openOwn() {
+    /**
+     * Open this plugin's own panel, in the pill's morphing-window surface.
+     * The bar-widget opens the primary content; the plugin's settings panel is
+     * the separate right-click contract routed through the same surface.
+     */
+    function openOwn(settingsMode) {
+        if (!root.hostMounted && root.entryPoint !== "") {
+            if (root.openSurfaceRequest) {
+                root.openSurfaceRequest(root.pluginId, !!settingsMode);
+                return;
+            }
+        }
+        if (settingsMode) {
+            // No surface host to carry the settings request: fall through to a
+            // host summon rather than dropping the right-click.
+            if (!root.hostMounted && root.openSurfaceRequest) {
+                root.openSurfaceRequest(root.pluginId, true);
+                return;
+            }
+        }
         if (root.mounted && widget.item && typeof widget.item.open === "function") {
             widget.item.open();
             return;
@@ -178,7 +205,9 @@ Item {
         if (barStub.pressAny(button))
             return;
         if (button === Qt.LeftButton)
-            root.openOwn();
+            root.openOwn(false);
+        else if (button === Qt.RightButton)
+            root.openOwn(true);
     }
 
     function activate() {

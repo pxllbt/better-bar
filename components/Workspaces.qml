@@ -65,7 +65,17 @@ Item {
     function refreshData() {
         if (!workspaces.watch)
             return;
-        proc.running = true;
+        debounce.restart();
+    }
+
+    Timer {
+        id: debounce
+        interval: 60
+        repeat: false
+        onTriggered: {
+            if (!proc.running)
+                proc.running = true;
+        }
     }
 
     function rebuild() {

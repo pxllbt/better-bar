@@ -60,10 +60,11 @@ Item {
     property bool suppressed: false
 
     /**
-     * The dock's own settings panel, opened from the gear chip below. It is one
-     * page, not a stack: the app picker used to be a second surface reached by
-     * a nav row, but it is one setting among the dock's others, so it now opens
-     * in place under its own row and there is nothing to navigate between.
+     * The dock's own settings panel, opened from the pill's Display → Dock
+     * Settings tile. It is one page, not a stack: the app picker used to be a
+     * second surface reached by a nav row, but it is one setting among the
+     * dock's others, so it now opens in place under its own row and there is
+     * nothing to navigate between.
      *
      * The panel itself is NOT a child of this item. The shell hosts it as a
      * sibling, because this bar is translated off the bottom edge when the dock
@@ -73,14 +74,6 @@ Item {
      * the shell draws and places the panel.
      */
     property bool settingsOpen: false
-
-    /** The gear's action, and the only way in or out of the panel. */
-    function toggleSettings() {
-        if (root.settingsOpen)
-            root.closeSettings();
-        else
-            root.openSettings();
-    }
 
     function openSettings() {
         root.settingsOpen = true;
@@ -92,8 +85,8 @@ Item {
 
     /**
      * Auto-hide must not retract the bar out from under its own open panel: the
-     * gear is the panel's visible close affordance, and a bar that slid away
-     * would leave the panel floating over an empty strip of screen.
+     * panel is raised out of the bar, and a bar that slid away would leave it
+     * floating over an empty strip of screen.
      *
      * This says nothing about `suppressed` — the dock being switched off slides
      * the bar whatever the panel is doing, on purpose. The panel is a sibling of
@@ -651,12 +644,12 @@ Item {
      * applied to that same judgement.
      *
      * No open-time guard is needed, which is worth stating because one used to
-     * be here. `openSettings` has a single call site — the gear's `onClicked` —
-     * and the gear is inside `dockRegion`, which is in the input mask both
-     * before and after the panel opens. So the pointer is on the bar when the
-     * panel appears, `hovered` is already true, and this cannot fire on the
-     * way in. That is a property of the geometry, so if a second way to open
-     * the panel is ever added it has to be re-checked rather than assumed.
+     * be here. `openSettings` has a single call site — the pill's Display →
+     * Dock Settings tile — and the panel is a sibling of this bar rather than a
+     * child, so appearing does not move the pointer off `dockRegion` and
+     * `hovered` cannot flap as the panel rises. That is a property of the
+     * geometry, so if the panel is ever opened from inside the dock itself it
+     * has to be re-checked rather than assumed.
      */
     Timer {
         id: revealTimer
@@ -975,7 +968,9 @@ Item {
             var t = tls[i];
             if (t && t.workspace)
                 s += root.classOf(t) + ":" + t.address
-                    + (t.activated ? ":1" : ":0") + ";";
+                    + (t.activated ? ":1" : ":0")
+                    + ":" + (t.workspace.name || "")
+                    + (t.minimized ? "m" : "-") + ";";
         }
         for (var j = 0; j < root.pins.length; j++)
             s += "P:" + root.pins[j] + ";";
@@ -1401,8 +1396,7 @@ Item {
 
     /**
      * The app chips, centred in the slab. The wrap is the slab's full
-     * width, so the Row centres on the slab exactly as it did before
-     * the gear slot reserved space at the right end.
+     * width, so the Row centres on the slab exactly as it did before.
      */
     Item {
         id: chipsWrap

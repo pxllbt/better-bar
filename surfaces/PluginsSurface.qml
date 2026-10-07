@@ -187,6 +187,12 @@ SettingsSurface {
         Qt.callLater(root.syncRows);
     }
 
+    onOpenChanged: {
+        Plugins.surfaceOpen = open;
+        if (open)
+            Plugins.refresh();
+    }
+
     Connections {
         target: root
         function onFocusRowItemChanged() { root.followFocus(root.focusRowItem); }
@@ -329,6 +335,16 @@ SettingsSurface {
                         // The entry handed to the shared nav list, kept so the
                         // same object can be withdrawn when this delegate dies.
                         property var navEntry: null
+                        /**
+                         * The surface this plugin could take over, resolved
+                         * once per row. It is "" for a plugin that claims no
+                         * capability, and `ownCapabilities[""]` is undefined —
+                         * so the swap control's `visible` has to compare
+                         * against 1 rather than coerce the lookup straight to
+                         * a bool, which is what logged "Unable to assign
+                         * [undefined] to bool" once per plugin per open.
+                         */
+                        readonly property string rowCapability: Plugins.capabilityFor(modelData.id)
 
                         surface: root
                         icon: prow.modelData.kinds.indexOf("bar-widget") !== -1 ? "layers"
@@ -408,13 +424,13 @@ SettingsSurface {
                             // surface steps aside until it is uninstalled or
                             // the choice is reversed here.
                             GlyphIcon {
-                                width: 13 * root.s
-                                height: 13 * root.s
-                                name: Plugins.providerChosen(prow.modelData) ? "return" : "check"
-                                color: swapArea.containsMouse ? Theme.cream : Theme.iconDim
-                                stroke: 1.8
-                                visible: Plugins.capabilityFor(prow.modelData.id).length > 0
-                                    && Plugins.ownCapabilities[Plugins.capabilityFor(prow.modelData.id)]
+                                    width: 13 * root.s
+                                    height: 13 * root.s
+                                    name: Plugins.providerChosen(prow.modelData) ? "return" : "check"
+                                    color: swapArea.containsMouse ? Theme.cream : Theme.iconDim
+                                    stroke: 1.8
+                                    visible: prow.rowCapability.length > 0
+                                        && Plugins.ownCapabilities[prow.rowCapability] === 1
 
                                 MouseArea {
                                     id: swapArea

@@ -20,6 +20,7 @@ singleton Players Players.qml
 singleton NightLight NightLight.qml
 singleton GameMode GameMode.qml
 singleton Config Config.qml
+singleton Updater Updater.qml
 singleton DockPins DockPins.qml
 singleton DockState DockState.qml
 singleton Plugins Plugins.qml
@@ -27,3 +28,4 @@ singleton ThemeColors ThemeColors.qml
 singleton OmarchyMenu OmarchyMenu.qml
 singleton ThemeSync ThemeSync.qml
 singleton CursorTrack CursorTrack.qml
+singleton StripLayout StripLayout.qml

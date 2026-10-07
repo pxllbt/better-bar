@@ -125,10 +125,10 @@ Singleton {
     }
 
     Timer {
-        interval: 300
+        interval: 750
         running: Flags.cursorFollow
         repeat: true
-        onTriggered: cursorProc.running = true
+        onTriggered: { if (!cursorProc.running) cursorProc.running = true }
     }
 
     Component.onCompleted: if (Flags.cursorFollow) readRects()

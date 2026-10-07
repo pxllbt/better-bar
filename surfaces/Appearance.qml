@@ -150,7 +150,9 @@ Item { width: 1; height: 10 * root.s }
             surface: root
             glyph: "↻"
             name: "Update"
-            sub: "Pull latest · re-applies the patch"
+            sub: Updater.checked && Updater.pending > 0
+                ? Updater.pending + (Updater.pending === 1 ? " commit behind · view in UPDATE" : " commits behind · view in UPDATE")
+                : "Pull latest · re-applies the patch"
 
             GlyphIcon {
                 width: 16 * root.s

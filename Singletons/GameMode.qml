@@ -21,6 +21,8 @@ Singleton {
 
     onActiveChanged: active ? root.enter() : root.leave()
 
+    Component.onCompleted: if (root.active) root.run("on");
+
     function enter() {
         Flags.gamePrevDnd = Flags.dnd;
         Flags.gamePrevViz = Flags.musicViz;

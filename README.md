@@ -111,13 +111,13 @@ Omarchy, or if you want it on a desktop where Omarchy's bar is not in play:
 curl -fsSL https://raw.githubusercontent.com/pxllbt/better-bar/master/remote-install.sh | bash
 ```
 
-This clones to `~/.local/share/quickshell/better-bar`, checks dependencies, hides
+This clones to `~/.local/share/quickshell/better`, checks dependencies, hides
 the stock bar (`omarchy toggle bar off`; undo with `omarchy toggle bar on`), and
 prints the autostart line and keybinds to add. That mode needs two lines in your
 Hyprland config:
 
 ```conf
-exec-once = ~/.local/share/quickshell/better-bar/launch.sh
+exec-once = ~/.local/share/quickshell/better/launch.sh
 exec-once = awww-daemon
 ```
 
@@ -141,7 +141,7 @@ install:
 | Install | Command |
 | --- | --- |
 | Plugin | `omarchy-shell better <surface> ""` |
-| Standalone | `qs -p ~/.local/share/quickshell/better-bar ipc call better <surface> ""` |
+| Standalone | `qs -p ~/.local/share/quickshell/better ipc call better <surface> ""` |
 
 <details>
 <summary>Running the tests</summary>
@@ -189,9 +189,9 @@ bind = SUPER, slash,   exec, omarchy-shell better launcher ""
 
 ```conf
 # standalone install
-bind = SUPER, SHIFT+W, exec, qs -p ~/.local/share/quickshell/better-bar ipc call better wallpaper ""
-bind = SUPER, SHIFT+V, exec, qs -p ~/.local/share/quickshell/better-bar ipc call better clipboard ""
-bind = SUPER, slash,   exec, qs -p ~/.local/share/quickshell/better-bar ipc call better launcher ""
+bind = SUPER, SHIFT+W, exec, qs -p ~/.local/share/quickshell/better ipc call better wallpaper ""
+bind = SUPER, SHIFT+V, exec, qs -p ~/.local/share/quickshell/better ipc call better clipboard ""
+bind = SUPER, slash,   exec, qs -p ~/.local/share/quickshell/better ipc call better launcher ""
 ```
 
 Locking is a script rather than a surface, so it takes a path instead of an IPC
