@@ -208,8 +208,20 @@ QtObject {
     mergeShell()
   }
 
-  // Startup load only. Runtime theme switches push the payload explicitly
-  // through shell IPC.
+  // Both theme files are re-read on every theme switch, through the watcher
+  // below. They used to be `watchChanges: false` and loaded only once at
+  // startup, on the assumption that a runtime switch would "push the payload
+  // explicitly through shell IPC" -- an IPC handler that never existed. So the
+  // palette, every popups/bar/tooltip role and all shell.toml typography stayed
+  // frozen at the startup theme while the rest of the bar followed the switch,
+  // which reads as half-synced rather than not-synced. They cannot simply be
+  // watched directly: omarchy installs a theme with `rm -rf; mv`, replacing
+  // current/theme wholesale, so a watch on the old inode goes permanently deaf.
+  //
+  // theme.name is rewritten in place with `echo >`, on the same inode, after the
+  // swap lands -- the same file ThemeSync watches for the same reason. Reloading
+  // the two FileViews re-resolves current/theme, so the paths are followed
+  // through the new symlink.
   property FileView colorsFile: FileView {
     id: colorsFile
     path: root.currentThemePath + "/colors.toml"
@@ -224,6 +236,47 @@ QtObject {
     printErrors: false
     onLoaded: root.loadShell(text())
     onLoadFailed: root.loadShell("")
+  }
+
+  /**
+   * Re-read both theme files.
+   *
+   * Ordering matters: the palette is loaded first so shell.toml's role tokens
+   * resolve against the new theme's colors rather than the old ones.
+   */
+  function reloadTheme() {
+    colorsFile.reload();
+    shellFile.reload();
+  }
+
+  /**
+   * The switch signal.
+   *
+   * The delay is not about ordering the two writes -- `theme.name` is written
+   * after the directory swap -- but that the file event and the rename are not
+   * atomic with respect to each other, so a read fired immediately can still
+   * catch the pre-swap tree on some filesystems. Same reasoning, and the same
+   * 400ms, as ThemeSync's own settle timer.
+   */
+  FileView {
+    id: themeName
+    path: root.stateHome + "/omarchy/current/theme.name"
+    blockLoading: true
+    // Not `atomicWrites`: omarchy writes this with `echo >`, a truncate and
+    // rewrite of the same inode rather than a temp-file rename.
+    watchChanges: true
+    printErrors: false
+    onFileChanged: {
+      reload();
+      themeSettle.restart();
+    }
+    Component.onCompleted: reload()
+  }
+
+  Timer {
+    id: themeSettle
+    interval: 400
+    onTriggered: root.reloadTheme()
   }
   // Machine-level override, layered on top of whatever theme is active. This
   // is where `omarchy display text size` writes `[font] base-size`. Watched so the

@@ -20,20 +20,156 @@ Item {
 
     property real s: 1
     property var barWindow
+    /** The widget's own shell.json entry, when a host injects one. */
+    property var settings: null
+
+    /**
+     * Item ids the user chose to hide, and where that choice is kept.
+     *
+     * Persisted to the widget's own shell.json entry rather than kept in
+     * memory: the symptom this exists for is an icon that outlives its app --
+     * a Steam tray item that stays registered after the client exits, or an app
+     * that registers once and never unregisters. With no way to hide it, the
+     * dead icon sits there permanently, and clicking it does nothing. That
+     * reads as "opening apps from the tray is broken" when in fact one icon is
+     * a ghost. Omarchy's own tray carries the same hide list for the same
+     * reason.
+     *
+     * `bar.shell.updateEntryInline` is the stock facade for this and writes
+     * `pinned`/`hidden` onto the widget's own entry, one key per process; the
+     * two arrays are small, so this is not a hot path.
+     */
+    property var hiddenIds: {
+        if (settings && settings.hidden instanceof Array)
+            return settings.hidden.slice();
+        return readHiddenFile();
+    }
+
+    /** Written through the widget entry, with a file fallback for a host that has no facade. */
+    property string hiddenPath: (Quickshell.env("XDG_STATE_HOME")
+        || (Quickshell.env("HOME") + "/.local/state")) + "/better/tray-hidden.json"
+
+    function readHiddenFile() {
+        if (!hiddenFile.loaded)
+            hiddenFile.reload();
+        try {
+            var parsed = JSON.parse(String(hiddenFile.text() || "[]").trim());
+            return parsed instanceof Array ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    /**
+     * Write the hide list.
+     *
+     * The widget-entry facade is the stock route, used when the host provides
+     * it. When it does not -- a standalone bar with no Omarchy shell behind it --
+     * the list is written to XDG_STATE_HOME instead, so the choice survives a
+     * restart either way rather than being silently dropped. Both writes are
+     * best effort: losing the preference is not worth failing the hide.
+     */
+    function persistHidden(next) {
+        tray.hiddenIds = next;
+        var bar = tray.barWindow && tray.barWindow.bar;
+        if (bar && bar.shell && typeof bar.shell.updateEntryInline === "function") {
+            bar.shell.updateEntryInline("pix.bar", { id: "pix.bar", hidden: next });
+        }
+        hiddenFile.setText(JSON.stringify(next));
+    }
+
+    FileView {
+        id: hiddenFile
+        path: tray.hiddenPath
+        watchChanges: false
+        printErrors: false
+    }
+
+    function isHidden(iid) {
+        return tray.hiddenIds.indexOf(String(iid || "")) !== -1;
+    }
+
+    function toggleHide(iid) {
+        var id = String(iid || "");
+        if (!id)
+            return;
+        var next = tray.hiddenIds.slice();
+        var at = next.indexOf(id);
+        if (at !== -1)
+            next.splice(at, 1);
+        else
+            next.push(id);
+        tray.persistHidden(next);
+    }
+
+    /**
+     * An item with no identity left is a ghost: no icon and no title means there
+     * is nothing to click and nothing to name in the manage list, so it is
+     * dropped rather than drawn as an empty box that looks like a live app.
+     */
+    function isDead(it) {
+        if (!it)
+            return true;
+        return !(it.id || it.title || it.tooltipTitle || it.icon);
+    }
 
     /**
      * StatusNotifier items shown in the tray. nm-applet and blueman are hidden:
      * the pill draws its own wifi and bluetooth module icons with dedicated
      * surfaces, so their tray icons would only duplicate the same status.
      * Matching runs across id, title and tooltip so applet renames stay covered.
+     * User-hidden ids and identity-less ghosts are dropped here, once, rather
+     * than in every reader.
      */
     readonly property var trayItems: SystemTray.items.values.filter(function (it) {
+        if (tray.isDead(it))
+            return false;
+        if (tray.isHidden(it.id))
+            return false;
         var key = ((it.id || "") + " " + (it.title || "") + " " + (it.tooltipTitle || "")).toLowerCase();
         return !/(nm[ _-]?applet|blueman|network[- ]?manager|bluetooth[- ]?manager)/.test(key);
     })
 
-    visible: tray.trayItems.length > 0
-    implicitWidth: visible ? row.implicitWidth : 0
+    /**
+     * Every item, hidden ones included, for the manage list. A hidden item that
+     * cannot be listed cannot be un-hidden either, so the manage list is built
+     * from the unfiltered set -- which is also why a ghost is left out: there is
+     * no id to persist, so hiding one would never be reversible.
+     */
+    function manageRows() {
+        var values = SystemTray.items.values;
+        var out = [];
+        for (var i = 0; i < values.length; i++) {
+            var it = values[i];
+            if (tray.isDead(it))
+                continue;
+            if (tray.suppressedByBar(it))
+                continue;
+            out.push({
+                id: String(it.id || it.title || ""),
+                label: it.tooltipTitle || it.title || it.id,
+                hidden: tray.isHidden(it.id)
+            });
+        }
+        return out;
+    }
+
+    /** The applets the bar already draws itself, so manage does not offer them. */
+    function suppressedByBar(it) {
+        var key = ((it.id || "") + " " + (it.title || "") + " " + (it.tooltipTitle || "")).toLowerCase();
+        return /(nm[ _-]?applet|blueman|network[- ]?manager|bluetooth[- ]?manager)/.test(key);
+    }
+
+    function showManage(anchorItem) {
+        manageOpen = true;
+        var p = anchorItem.mapToItem(null, anchorItem.width / 2, 0);
+        manage.anchorX = p.x;
+    }
+
+    property bool manageOpen: false
+
+    visible: tray.trayItems.length > 0 || tray.manageOpen
+    implicitWidth: visible ? row.implicitWidth + (tray.manageOpen ? 0 : 0) : 0
     implicitHeight: 24 * tray.s
 
     function showMenu(item, anchorItem) {
@@ -165,14 +301,22 @@ Item {
          * contains it at the boundary instead of guarding every read.
          */
         property var entryData: ({})
+        /** True for a torn-down entry, so the row can hide itself instead of
+         *  drawing a line of defaults for an app that is no longer there. */
+        readonly property bool gone: entryData === null
         property real indent: 0
         property bool expanded: false
         signal activated()
 
-        height: entryData.isSeparator ? 9 * tray.s : 32 * tray.s
+        // A torn-down entry collapses to nothing. `entryData` is explicitly assigned
+        // `modelData`, and a Repeater delegate whose model dropped the entry can
+        // still be holding the last value while a re-evaluation reads it as null
+        // -- which is what turned every read below into a TypeError. Collapsing
+        // on it costs nothing: the row it would have drawn no longer exists.
+        height: mrow.gone ? 0 : (entryData.isSeparator ? 9 * tray.s : 32 * tray.s)
 
         Rectangle {
-            visible: mrow.entryData.isSeparator
+            visible: !mrow.gone && mrow.entryData.isSeparator
             anchors.verticalCenter: parent.verticalCenter
             anchors.left: parent.left
             anchors.right: parent.right
@@ -183,7 +327,7 @@ Item {
         }
 
         Rectangle {
-            visible: !mrow.entryData.isSeparator
+            visible: !mrow.gone && !mrow.entryData.isSeparator
             anchors.fill: parent
             anchors.leftMargin: mrow.indent
             radius: 8 * tray.s
@@ -234,20 +378,20 @@ Item {
                 anchors.left: stateBox.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.leftMargin: stateBox.present ? 8 * tray.s : 0
-                width: mrow.entryData.icon ? 15 * tray.s : 0
+                width: mrow.gone || !mrow.entryData.icon ? 0 : 15 * tray.s
                 height: 15 * tray.s
-                source: mrow.entryData.icon
+                source: mrow.gone ? "" : mrow.entryData.icon
                 sourceSize.width: 30
                 sourceSize.height: 30
                 fillMode: Image.PreserveAspectFit
                 smooth: true
                 cache: true
-                visible: mrow.entryData.icon
+                visible: !mrow.gone && !!mrow.entryData.icon
             }
 
             Text {
                 anchors.left: entryIcon.right
-                anchors.leftMargin: mrow.entryData.icon ? 9 * tray.s : 0
+                anchors.leftMargin: (!mrow.gone && mrow.entryData.icon) ? 9 * tray.s : 0
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.right: chevron.visible ? chevron.left : parent.right
                 anchors.rightMargin: 14 * tray.s
@@ -265,7 +409,7 @@ Item {
                 anchors.right: parent.right
                 anchors.rightMargin: 10 * tray.s
                 anchors.verticalCenter: parent.verticalCenter
-                visible: mrow.entryData.hasChildren === true
+                visible: !mrow.gone && mrow.entryData.hasChildren === true
                 width: 10 * tray.s
                 height: 10 * tray.s
                 name: "chevron-right"
@@ -279,7 +423,7 @@ Item {
                 id: mrowArea
                 anchors.fill: parent
                 hoverEnabled: true
-                enabled: mrow.entryData.enabled
+                enabled: !mrow.gone && mrow.entryData.enabled
                 cursorShape: Qt.PointingHandCursor
                 onClicked: mrow.activated()
             }
