@@ -41,7 +41,8 @@ cursor.
 - **Dock** — pinned and running apps, hover magnification, multi-window previews, auto-hide, and its own Light / Dark / Dynamic / Manual theme and glass.
 - **Surfaces** — launcher, weather, calendar, media, mixer, wallpaper strip and search, clipboard, wifi, bluetooth, battery, power menu, system monitor, notifications, OSD, toasts, settings.
 - **Wallpapers** — a shuffled [`awww`](https://github.com/LGFae/awww) bag, live `mpvpaper` video wallpapers, per-wallpaper fit, and a palette pulled from each wallpaper that retints the UI.
-- **Extras** — night light, game mode, keep-awake, and an in-app updater.
+- **Extras** — night light, game mode, keep-awake, and an in-app updater that tells you when a new version is out.
+- **Plugins** — enabled Omarchy plugins get their own strip entries, and a left-click opens the widget in the bar while a right-click opens its settings panel.
 
 ## Requirements
 
@@ -73,6 +74,19 @@ Updating is a `git reset --hard` against the install, so it discards local
 commits and uncommitted changes rather than merging with them. The **Update**
 surface checks for both first and asks before throwing them away; the CLI
 command does not, so keep work you care about on a branch.
+
+### Update notifications
+
+The bar checks upstream on its own every six hours and raises a single toast the
+first time it sees a new commit, with an action that opens the **Update**
+surface. It stays quiet once the same commit has been announced, records the
+commit it last reported in `~/.local/state/better/update-notified`, and says
+nothing at all when the checkout is up to date or GitHub is unreachable.
+
+The count is also on the **Update** tile in **Appearance**, so the state is
+visible without waiting for a toast. Neither the toast nor the count ever
+discards anything: applying an update still goes through the confirmation above.
+Do-not-disturb suppresses the toast, not the count.
 
 <details>
 <summary>If the bar stops loading after a system update</summary>
@@ -210,6 +224,19 @@ else on your desktop.
 No other plugins are needed: the bar ships its own surface for everything the
 stock Omarchy plugins do. Your installed plugins still work — any stock
 `bar-widget` appears in the pill's strip as-is.
+
+The bar hosts those widgets itself instead of asking Omarchy to draw them,
+because Omarchy paints a bar-widget's popup against its own bar window, and that
+window is the one Better Bar replaced. So:
+
+- **Left-click** a plugin entry to expand the bar into the widget itself.
+- **Right-click** it to open the plugin's own settings panel, floating under the
+  bar. Escape, a click elsewhere, or closing the bar closes the panel.
+- Most plugins ship a `Panel.qml` beside their bar widget; when the manifest
+  names a `panel` entry point that is used instead.
+
+Plugins keep reading and writing their own settings, so nothing here needs to be
+edited in an installed plugin to work.
 
 Where a plugin does a job the bar also does, only one can be the default. The
 order is **a plugin you picked for the job, then the bar's own surface, then the
