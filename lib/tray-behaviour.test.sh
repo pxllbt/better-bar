@@ -59,6 +59,29 @@ ok "a menu-only item opens its menu on click" \
 ok "an item with no identity is dropped" \
     "$(grep -cE 'function isDead' "$TRAY")" "1"
 
+
+# --- a torn-down entry must not throw ---------------------------------------
+# `entryData: entry.modelData` explicitly assigns null when a tray app drops an
+# entry between the snapshot and the delegate being built. An explicit null
+# OVERWRITES a `property var entryData: ({})` default, so every unconditional
+# read below threw "Cannot read property of null" (observed at Tray.qml lines
+# 355/356/358/399/400) and still drew a blank row. The null has to be coerced
+# away in one place rather than guarded at a dozen read sites.
+ok "the raw slot may be null" \
+    "$(grep -cE 'property var slotData: modelData' "$TRAY")" "1"
+ok "entryData coerces a torn-down entry to an empty object" \
+    "$(grep -cE 'readonly property var entryData: \(slotData === null \|\| slotData === undefined\)' "$TRAY")" "1"
+ok "gone is derived from the raw slot" \
+    "$(grep -cE 'readonly property bool gone: slotData === null \|\| slotData === undefined' "$TRAY")" "1"
+ok "every delegate binds the raw slot, not the coerced object" \
+    "$(grep -vE '^\s*(\*|//)' "$TRAY" | grep -cE '^\s+slotData: (entry\.)?modelData$')" "2"
+if grep -vE '^\s*(\*|//)' "$TRAY" | grep -qE 'entryData: entry\.modelData'; then
+    failed=$((failed + 1))
+    printf '\033[31m  FAIL: the delegate must not assign the raw slot to entryData\033[0m\n'
+else
+    printf '\033[32m  ok: nothing assigns raw modelData straight into entryData\033[0m\n'
+fi
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
     exit 1

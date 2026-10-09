@@ -249,35 +249,12 @@ QtObject {
     shellFile.reload();
   }
 
-  /**
-   * The switch signal.
-   *
-   * The delay is not about ordering the two writes -- `theme.name` is written
-   * after the directory swap -- but that the file event and the rename are not
-   * atomic with respect to each other, so a read fired immediately can still
-   * catch the pre-swap tree on some filesystems. Same reasoning, and the same
-   * 400ms, as ThemeSync's own settle timer.
-   */
-  FileView {
-    id: themeName
-    path: root.stateHome + "/omarchy/current/theme.name"
-    blockLoading: true
-    // Not `atomicWrites`: omarchy writes this with `echo >`, a truncate and
-    // rewrite of the same inode rather than a temp-file rename.
-    watchChanges: true
-    printErrors: false
-    onFileChanged: {
-      reload();
-      themeSettle.restart();
-    }
-    Component.onCompleted: reload()
-  }
+  // There is deliberately no theme watcher here. The switch signal and its
+  // 400ms settle delay live in ThemeSync (the file event and the directory
+  // rename are not atomic with respect to each other, so an immediate re-read
+  // can still catch the pre-swap tree); ThemeSync's settle timer calls
+  // reloadTheme() once it has decided the theme has actually changed.
 
-  Timer {
-    id: themeSettle
-    interval: 400
-    onTriggered: root.reloadTheme()
-  }
   // Machine-level override, layered on top of whatever theme is active. This
   // is where `omarchy display text size` writes `[font] base-size`. Watched so the
   // CLI takes effect live without restarting the shell; absent by default.

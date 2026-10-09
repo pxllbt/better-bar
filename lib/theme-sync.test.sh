@@ -35,17 +35,17 @@ ok() {
 
 [ -f "$COLOR" ] || { echo "no Color.qml at $COLOR" >&2; exit 1; }
 
-ok "the theme is watched through theme.name, the inode that survives a swap" \
-    "$(grep -cE 'path: root\.stateHome \+ "/omarchy/current/theme\.name"' "$COLOR")" "1"
-ok "that watcher is live" \
-    "$(grep -cE 'watchChanges: true' "$COLOR")" "2"
+ok "ThemeSync watches theme.name, the inode that survives a swap" \
+    "$(grep -c 'themeNamePath: root.stateDir + "/theme.name"' "$ROOT/Singletons/ThemeSync.qml")" "1"
+
+# ThemeSync must forward a theme switch to a full theme-file reload.
+ok "the theme watcher drives Color.reloadTheme" \
+    "$(grep -c 'Color.reloadTheme()' "$ROOT/Singletons/ThemeSync.qml")" "1"
 
 # The whole point: a theme change has to reach BOTH theme files, through one
 # path that re-resolves the swapped symlink.
 ok "a theme change reloads both theme files" \
     "$(sed -n '/function reloadTheme/,/^  }/p' "$COLOR" | grep -cE 'colorsFile\.reload\(\)|shellFile\.reload\(\)')" "2"
-ok "the theme change signal is wired to the reload" \
-    "$(grep -cE 'onFileChanged: \{' "$COLOR")" "1"
 
 # shell.toml drives typography, spacing and every popup role, so a theme that
 # ships one must not be silently ignored.

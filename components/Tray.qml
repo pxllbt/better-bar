@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Io
 import Quickshell.Services.SystemTray
 import "../Singletons"
 
@@ -290,29 +291,32 @@ Item {
         id: mrow
 
         /**
-         * Defaults to an empty entry, never null.
+         * The raw slot, and the only place null is allowed to exist.
          *
          * `menuRows()` drops the holes a torn-down `ObjectList` leaves behind,
          * but a tray app can also drop an entry between that snapshot and the
-         * delegate being created, and the delegate's own `modelData` is then
-         * null. Every row below reads `entryData` unconditionally across a dozen
-         * properties, so that one hole threw a TypeError per property per row
-         * and still drew a blank line where an entry used to be. Defaulting here
-         * contains it at the boundary instead of guarding every read.
+         * delegate being created, so `modelData` arrives as null. The row binds
+         * `entryData: entry.modelData`, and an explicit null assignment
+         * *overwrites* a `property var entryData: ({})` default -- so a defaulted
+         * property was no protection at all, and the dozen unconditional reads
+         * below each threw "Cannot read property of null".
          */
-        property var entryData: ({})
+        property var slotData: modelData
+        /**
+         * Always an object. Reads go through this, so a torn-down entry yields
+         * undefined (falsy, harmless) instead of throwing; `gone` decides whether
+         * the row draws anything.
+         */
+        readonly property var entryData: (slotData === null || slotData === undefined) ? ({}) : slotData
         /** True for a torn-down entry, so the row can hide itself instead of
          *  drawing a line of defaults for an app that is no longer there. */
-        readonly property bool gone: entryData === null
+        readonly property bool gone: slotData === null || slotData === undefined
         property real indent: 0
         property bool expanded: false
         signal activated()
 
-        // A torn-down entry collapses to nothing. `entryData` is explicitly assigned
-        // `modelData`, and a Repeater delegate whose model dropped the entry can
-        // still be holding the last value while a re-evaluation reads it as null
-        // -- which is what turned every read below into a TypeError. Collapsing
-        // on it costs nothing: the row it would have drawn no longer exists.
+        // A torn-down entry collapses to nothing: the row it would have drawn
+        // no longer exists, so drawing nothing is free.
         height: mrow.gone ? 0 : (entryData.isSeparator ? 9 * tray.s : 32 * tray.s)
 
         Rectangle {
@@ -540,7 +544,7 @@ Item {
 
                                 MenuRow {
                                     width: parent.width
-                                    entryData: entry.modelData
+                                    slotData: entry.modelData
                                     expanded: entry.expanded
                                     onActivated: {
                                         if (entry.modelData.hasChildren) {
@@ -564,7 +568,7 @@ Item {
                                         required property var modelData
                                         width: entry.width
                                         indent: 14 * tray.s
-                                        entryData: modelData
+                                        slotData: modelData
                                         onActivated: {
                                             if (!modelData.hasChildren) {
                                                 modelData.triggered();

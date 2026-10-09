@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../Commons"
 
 /**
  * One watcher for "the desktop's look changed", driving the palette and the
@@ -133,7 +134,7 @@ Singleton {
     Timer {
         id: settle
         interval: 400
-        onTriggered: root.probe()
+        onTriggered: { root.probe(); Color.reloadTheme(); }
     }
 
     FileView {
