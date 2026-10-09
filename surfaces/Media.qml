@@ -8,17 +8,14 @@ import Quickshell.Widgets
 import "../Singletons"
 import "../components"
 
-/**
- * Now-playing card. A small square cover floats detached on the left; the
- * middle stacks the source line, title, artist·album and the seek seam with
- * the transport controls; the right end carries three minimal live reads —
- * network speed, the first connected Bluetooth device with battery, and the
- * toggle that keeps the pill expanded. Nothing bleeds off the card and no
- * cover wash tints it, so the background stays the theme gradient. The seam's
- * brush head docks the pill's soul bead (Ame). Now-playing data comes from
- * [[Players]]; with several players running the source token glows into a
- * bubble that opens a picker.
- */
+    /** Source line, title, artist·album and the seek seam with the transport
+     * controls; the right end carries two minimal live reads — network speed,
+     * the first connected Bluetooth device with battery. Nothing bleeds off the
+     * card and no cover wash tints it, so the background stays the theme
+     * gradient. The seam's brush head docks the pill's soul bead (Ame).
+     * Now-playing data comes from [[Players]]; with several players running the
+     * source token glows into a bubble that opens a picker.
+     */
 PillSurface {
     id: root
 
@@ -26,16 +23,12 @@ PillSurface {
     property real topFlat: 0
     Behavior on topFlat { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph; easing.bezierCurve: Motion.morphCurve } }
 
-    /** Pin state: the right-end toggle keeps the expanded pill open after the card closes. */
-    property bool pinned: false
-
-    signal requestPin()
     signal requestExpand()
 
     /**
      * With expandTo "media" the card is hover-driven in every auto-hide mode:
      * leaving it (past a small margin + grace window) closes the surface again
-     * so the pill shrinks back to rest (or hides). Pinning disarms the guard.
+     * so the pill shrinks back to rest (or hides).
      */
     Timer {
         id: leaveGuardT
@@ -45,7 +38,7 @@ PillSurface {
 
     HoverHandler {
         id: leaveGuard
-        enabled: root.open && Flags.expandTo === "media" && !root.pinned
+         enabled: root.open && Flags.expandTo === "media"
         margin: 10 * root.s
         onHoveredChanged: {
             if (enabled && !hovered)
@@ -644,81 +637,40 @@ PillSurface {
                 }
             }
 
-            /* Expand and Pin sit on one row: a Column positions its own
-             * children, so a second sibling anchored to the first would be
-             * told to ignore its anchors and pile up on the same line. */
+            /* Expand sits on its own row so a Column can position it
+             * without a sibling fighting over anchors. */
             Item {
-                id: actionRow
-                width: infoStack.width
-                height: 15 * root.s
+                id: expandCtl
+                anchors.left: parent.left
+                width: 52 * root.s
+                height: parent.height
 
-                Item {
-                    id: expandCtl
-                    anchors.left: parent.left
-                    width: 52 * root.s
-                    height: parent.height
-
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 6 * root.s
-
-                        GlyphIcon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 12 * root.s
-                            height: 12 * root.s
-                            name: "layers"
-                            color: Theme.iconDim
-                        }
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "Expand"
-                            color: Theme.dim
-                            font.family: Theme.font
-                            font.pixelSize: 10 * root.s
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.requestExpand()
-                    }
-                }
-
-                Item {
-                    id: pinCtl
+                Row {
                     anchors.verticalCenter: parent.verticalCenter
-                    anchors.left: expandCtl.right
-                    anchors.leftMargin: 8 * root.s
-                    width: 46 * root.s
-                    height: parent.height
+                    spacing: 6 * root.s
 
                     GlyphIcon {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 12 * root.s
                         height: 12 * root.s
-                        name: "pin"
-                        color: root.pinned ? Theme.vermLit : Theme.iconDim
+                        name: "layers"
+                        color: Theme.iconDim
                     }
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 17 * root.s
-                        text: root.pinned ? "Pinned" : "Pin"
-                        color: root.pinned ? Theme.vermLit : Theme.dim
+                        text: "Expand"
+                        color: Theme.dim
                         font.family: Theme.font
                         font.pixelSize: 10 * root.s
                     }
+                }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.requestPin()
-                    }
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.requestExpand()
                 }
             }
         }

@@ -3047,9 +3047,7 @@ sourceComponent: Media {
             open: pill.mediaOpen
             morphCloseness: pill.morphCloseness
             topFlat: (pill.mode === "game" || pill.stripBar) ? 1 : 0
-            pinned: pill.held
             onRequestClose: pill.requestClose()
-            onRequestPin: pill.forcePinned = !pill.held
             onRequestExpand: {
                 pill.requestClose();
                 pill.hoverLatch = true;
