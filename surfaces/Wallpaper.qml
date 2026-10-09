@@ -1043,13 +1043,16 @@ PillSurface {
                     parsed = null;
                 }
                 if (parsed && !Array.isArray(parsed) && (parsed.wallhaven === "blocked" || parsed.wallwidgy === "blocked")) {
-                    // The remote source is blocking or failing: stop fetching
-                    // and let whRetry own the re-checks, so the strip never
-                    // dogs the ban.
+                    // The remote source is rate-limiting us: stop fetching and
+                    // let whRetry own the re-checks, so the strip never dogs the
+                    // ban. The results already loaded are deliberately KEPT
+                    // instead of blanked: wiping them shrank itemCount to 0, which
+                    // the onItemsChanged clamp then translated into an instant
+                    // focusIndex = 0 -- the strip snapping back to the start the
+                    // moment a page fetch came back blocked. Keeping the loaded
+                    // feed leaves the scroll position intact and the strip still
+                    // browsable while the retry waits for the ban to lift.
                     root.whBlocked = true;
-                    root.wallResults = [];
-                    root.wwResults = [];
-                    root.acResults = [];
                     root.thumbQueue = [];
                     root.searching = false;
                     return;
@@ -1070,12 +1073,21 @@ PillSurface {
                         root.whAppending = false;
                         root.enqueueThumbs(base, base + out.length);
                     } else {
+                        // A fresh (non-append) fetch replaces the feed -- i.e.
+                        // the retry that follows a rate-limit block, or a sort
+                        // change. Hold the user's scroll position across the
+                        // swap instead of yanking them back to index 0: clamp the
+                        // old focus into the new range so a recovery from a block
+                        // does not "go back to the start" the moment results come
+                        // back in.
+                        var keep = root.focusIndex;
                         root.wallResults = out;
                         root.thumbLocal = {};
                         root.thumbQueue = [];
                         root.enqueueThumbs(0, root.wallResults.length);
-                        root.focusIndex = 0;
-                        root.pos = 0;
+                        root.focusIndex = Math.min(keep, Math.max(0, root.wallResults.length - 1));
+                        if (root.pos !== root.focusIndex)
+                            root.pos = root.focusIndex;
                     }
                 } else if (root.acSource) {
                     // Alpha Coders has no block signal to honour: it serves an
