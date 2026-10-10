@@ -45,6 +45,8 @@ PillSurface {
     id: root
 
     property int focusIndex: 0
+    /** Path of the wallpaper the strip was last centred on; see onRefreshDone. */
+    property string _lastCentered: ""
 
     /**
      * Search mode. While off the strip browses local files and bare keys are
@@ -561,6 +563,9 @@ PillSurface {
             }
         focusIndex = idx;
         pos = idx;
+        // Remember what we centred on so onRefreshDone only re-centres when the
+        // on-screen wallpaper actually changes.
+        root._lastCentered = Walls.current;
     }
 
     /**
@@ -912,8 +917,17 @@ PillSurface {
          * applying a wallpaper never yanks the browse strip away.
          */
         function onRefreshDone() {
-            if (root.active && !root.whSource && !root.wwSource && !root.acSource && !(root.searching && root.query.length > 0))
-                root.centerOnCurrent();
+            if (root.active && !root.whSource && !root.wwSource && !root.acSource && !(root.searching && root.query.length > 0)) {
+                // Only re-centre when the wallpaper actually changed. Re-centring
+                // on every refresh yanked the user back to the current tile --
+                // often index 0 -- while they were browsing, which is the
+                // "going back to the start" complaint. Otherwise preserve the
+                // position they scrolled to.
+                if (Walls.current !== root._lastCentered) {
+                    root._lastCentered = Walls.current;
+                    root.centerOnCurrent();
+                }
+            }
         }
     }
 
