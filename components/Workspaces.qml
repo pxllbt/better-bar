@@ -2,7 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Handlers
 import Quickshell.Io
 import Quickshell.Hyprland
 import "../Singletons"
@@ -303,14 +302,14 @@ Item {
          }
     }
 
-    SwipeHandler {
-        id: swipe
+    DragHandler {
+        id: drag
         anchors.fill: parent
-        acceptedButtons: Qt.AllButtons
         enabled: workspaces.enabled && workspaces.watch
+        acceptedButtons: Qt.AllButtons
         onActiveChanged: {
-            if (!swipe.active) {
-                var dx = swipe.translation.x;
+            if (!drag.active) {
+                var dx = drag.translation.x;
                 if (Math.abs(dx) > 80 * workspaces.s) {
                     if (dx < 0)
                         Hyprland.dispatch("workspace e+1");
