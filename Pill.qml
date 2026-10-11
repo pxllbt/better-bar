@@ -2388,7 +2388,7 @@ Item {
                     height: 17 * pill.s
                     anchors.verticalCenter: statusRow.verticalCenter
 
-                    Behavior on width { NumberAnimation { duration: Motion.fast, easing.type: Easing.OutCubic } }
+                    Behavior on width { NumberAnimation { duration: Motion.fast } }
 
                     Row {
                         id: ghostRow
