@@ -56,6 +56,25 @@ Singleton {
     property string lastError: ""
 
     /**
+     * Per-plugin load health. Each key is a plugin id; value is an object:
+     *   { status: "ok" | "broken" | "uninstalled", lastError: string, retryCount: int }
+     * Populated by PluginButton's Loader status and the manifest scan. Broken
+     * plugins that still exist on disk get a faded ghost icon with a retry click;
+     * uninstalled ones are removed from the registry but remembered briefly so
+     * the ghost strip can show a "missing" badge.
+     */
+    property var health: ({})
+
+    /** Plugins that exist in manifests but failed to load their barWidget. */
+    readonly property var brokenPlugins: Object.keys(root.health)
+        .filter(function(id) { return root.health[id] && root.health[id].status === "broken"; })
+        .map(function(id) { return root.byId(id) || { id: id, name: root.health[id].lastError }; })
+
+    readonly property var missingPlugins: Object.keys(root.health)
+        .filter(function(id) { return root.health[id] && root.health[id].status === "uninstalled"; })
+        .map(function(id) { return { id: id, name: root.health[id].lastError || id }; })
+
+    /**
      * Layout changes come from outside too (CLI, host menu), so the registry is
      * polled rather than trusted as a one-shot read.
      *
@@ -136,6 +155,47 @@ Singleton {
 
     /** True while the plugins surface is on screen, which polls the registry tighter. */
     property bool surfaceOpen: false
+
+    // ---- health tracking ------------------------------------------------------
+
+    /**
+     * Record a plugin's load health. Called by PluginButton's Loader status
+     * when a barWidget fails to load, or by the manifest scan when a previously
+     * present plugin disappears.
+     */
+    function markHealth(id, status, err) {
+        var h = Object.assign({}, root.health);
+        h[id] = {
+            status: status,
+            lastError: err || "",
+            retryCount: (h[id] && h[id].retryCount) || 0,
+            ts: Date.now()
+        };
+        root.health = h;
+    }
+
+    /**
+     * Clear a plugin's health record — used when it loads successfully.
+     */
+    function clearHealth(id) {
+        if (!root.health[id]) return;
+        var h = Object.assign({}, root.health);
+        delete h[id];
+        root.health = h;
+    }
+
+    /**
+     * Force a plugin manifest re-scan and reload. Used by the retry click
+     * on a broken plugin's ghost icon.
+     */
+    function reloadPlugin(id) {
+        var h = root.health[id];
+        if (!h) return;
+        h.retryCount = (h.retryCount || 0) + 1;
+        h.status = "retrying";
+        root.health = root.health;
+        root.refresh();
+    }
 
     // ---- lookup -------------------------------------------------------------
 

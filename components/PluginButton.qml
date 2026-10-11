@@ -261,13 +261,14 @@ Item {
         height: root.glyphMode ? 0 : root.height
         opacity: root.glyphMode ? 0 : 1
 
-        Loader {
+         Loader {
             id: widget
             anchors.fill: parent
             active: root.mounted
             source: root.mounted ? root.entryPoint : ""
             onLoaded: {
                 root.inject();
+                Plugins.clearHealth(root.pluginId);
                 // Replay whichever press was waiting on the mount, then fall back
                 // to the open request that has no button of its own.
                 if (root.pendingPress !== 0) {
@@ -277,6 +278,12 @@ Item {
                 } else if (root.pendingOpen) {
                     root.pendingOpen = false;
                     root.openOwn();
+                }
+            }
+            onStatusChanged: {
+                if (widget.status === Loader.Error) {
+                    var err = widget.errorString || "Failed to load widget";
+                    Plugins.markHealth(root.pluginId, "broken", err);
                 }
             }
         }

@@ -1142,10 +1142,57 @@ Item {
                 ctx.ellipse(c - R * 0.62, c - R * 0.66, R * 0.6, R * 0.36);
                 ctx.fillStyle = "rgba(255,246,240,0.6)";
                 ctx.fill();
-            }
-        }
+                         }
 
-        MouseArea {
+                        Repeater {
+                            model: Plugins.brokenPlugins
+
+                            delegate: Item {
+                                required property var modelData
+                                required property int index
+
+                                width: 17 * pill.s
+                                height: 17 * pill.s
+
+                                GlyphIcon {
+                                    id: brokenIcon
+                                    anchors.centerIn: parent
+                                    width: 11 * pill.s
+                                    height: 11 * pill.s
+                                    name: Plugins.iconFor(modelData.id)
+                                    color: Theme.verm
+                                    stroke: 1.5 * pill.s
+                                    opacity: 0.4
+                                }
+
+                                GlyphIcon {
+                                    anchors.centerIn: parent
+                                    width: 8 * pill.s
+                                    height: 8 * pill.s
+                                    name: "close"
+                                    color: Theme.vermLit
+                                    stroke: 1.2 * pill.s
+                                    opacity: 0.7
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: Plugins.reloadPlugin(modelData.id)
+                                }
+
+                                Tooltip {
+                                    s: pill.s
+                                    placement: "below"
+                                    title: modelData.name || modelData.id
+                                    desc: Plugins.health[modelData.id] ? (Plugins.health[modelData.id].lastError || "Failed to load — click to retry") : "Click to reload"
+                                }
+                            }
+                        }
+                    }
+
+                    MouseArea {
             id: budArea
             anchors.fill: parent
             enabled: bud.shown

@@ -142,6 +142,22 @@ ok "Pill renders ghost strip for disabled plugins" "$has_ghost_strip" "3"
 has_ghost_click=$(grep -c 'Plugins.openOrEnable.*modelData' "$PILL" || true)
 ok "Ghost strip icons enable plugins on click" "$has_ghost_click" "1"
 
+# 18. Plugin health indicator for broken/uninstalled plugins
+has_health_prop=$(grep -c 'property var health' "$ROOT/Singletons/Plugins.qml" || true)
+ok "Plugins tracks per-plugin health status" "$has_health_prop" "1"
+
+has_mark_health=$(grep -c 'function markHealth' "$ROOT/Singletons/Plugins.qml" || true)
+ok "Plugins provides markHealth for broken plugin tracking" "$has_mark_health" "1"
+
+has_reload=$(grep -c 'function reloadPlugin' "$ROOT/Singletons/Plugins.qml" || true)
+ok "Plugins provides reloadPlugin for retry" "$has_reload" "1"
+
+has_broken_ghost=$(grep -c 'brokenPlugins' "$PILL" || true)
+ok "Pill shows broken plugins in ghost strip with retry" "$has_broken_ghost" "1"
+
+has_load_status=$(grep -c 'onStatusChanged' "$ROOT/components/PluginButton.qml" || true)
+ok "PluginButton reports loader status as plugin health" "$has_load_status" "1"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%d media-pill checks failed\n' "$failed" >&2
     exit 1
