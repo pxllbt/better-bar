@@ -44,6 +44,23 @@ ok "seekArea.enabled is guarded with Boolean(...)" "$undefined_seek" "1"
 cava_silence_bug=$(grep -c 'let moved = flat;' "$CAVA" || true)
 ok "Cava levels update does not have silence churn bug" "$cava_silence_bug" "0"
 
+# 6a. Strip face has hover handler for workspace pulse
+has_strip_hover=$(grep -c 'id: stripFaceMouse' "$PILL" || true)
+ok "Strip face has hover handler for workspace pulse" "$has_strip_hover" "1"
+
+# 6b. Workspaces has pulseMode for clock-hover effect
+WS_FILE="$ROOT/components/Workspaces.qml"
+has_pulse_mode=$(grep -c 'pulseMode' "$WS_FILE" || true)
+ok "Workspaces supports pulseMode for strip-hover effect" "$has_pulse_mode" "4"
+
+# 6c. Battery bolt has charging pulse animation
+has_charge_pulse=$(grep -A20 'id: stripBat' "$PILL" | grep -c 'Battery.charging.*Animation' || true)
+ok "Battery charging icon pulses with infinite animation" "$has_charge_pulse" "1"
+
+# 6d. Strip clock elements scale on hover
+has_strip_scale=$(grep -c 'scale: pill.stripHover' "$PILL" || true)
+ok "Strip clock elements scale on strip hover" "$has_strip_scale" "2"
+
 # 7. Pill handles desktop without battery in stripFixedW
 has_bat_guard=$(grep -c 'Battery.present ? stripBat.implicitWidth : 0' "$PILL" || true)
 ok "Pill stripFixedW guards Battery.present" "$has_bat_guard" "1"

@@ -367,6 +367,7 @@ Item {
      */
     readonly property real stripPad: 20 * s
     readonly property real stripGap: 16 * s
+    readonly property bool stripHover: stripFaceMouse.containsMouse
     readonly property real stripCap: Math.max(320 * s, Math.min(600 * s, (barWindow ? barWindow.width : 1920 * s) - 60 * s))
 
     // No strip-face zoom property lives here any more. The width slider used to
@@ -1875,7 +1876,7 @@ Item {
          * moment this mode is shown, and its `enabled: hover.live` only gates
          * the dot MouseAreas, never its hyprctl watcher.
          */
-        Row {
+    Row {
             id: stripFace
             // Hides while a surface is open: this is the resting bar, and in
             // strip mode it is far wider than the card-sized body a surface
@@ -1884,6 +1885,15 @@ Item {
             visible: pill.specialView === "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
             anchors.centerIn: parent
             spacing: pill.stripGap
+
+            MouseArea {
+                id: stripFaceMouse
+                anchors.fill: parent
+                anchors.margins: -8 * pill.s
+                hoverEnabled: true
+                // Propagate hover to workspace dots in hover row
+                onContainsMouseChanged: ws && (ws.pulseMode = containsMouse)
+            }
 
             Rectangle {
                 id: stripArt
@@ -1996,6 +2006,8 @@ Item {
                 font.family: Theme.font
                 font.pixelSize: 12 * pill.s
                 font.weight: Font.DemiBold
+                scale: pill.stripHover ? 1.05 : 1
+                Behavior on scale { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
             }
             AltText {
                 id: stripTime
@@ -2014,6 +2026,8 @@ Item {
                 font.pixelSize: 12 * pill.s
                 font.weight: Font.DemiBold
                 font.features: { "tnum": 1 }
+                scale: pill.stripHover ? 1.1 : 1
+                Behavior on scale { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
             }
             AltText {
                 id: stripLay
@@ -2053,6 +2067,16 @@ Item {
                     name: "bolt"
                     color: Battery.low ? Theme.vermLit : Theme.dim
                     stroke: 1.6
+                    scale: Battery.charging ? 1.15 : 1
+                    Behavior on scale {
+                        NumberAnimation {
+                            duration: 1200
+                            easing.type: Easing.InOutSine
+                            loops: Battery.charging ? Animation.Infinite : 1
+                            property from: 1
+                            property to: 1.15
+                        }
+                    }
                 }
                 AltText {
                     anchors.verticalCenter: parent.verticalCenter

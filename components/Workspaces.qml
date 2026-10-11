@@ -119,9 +119,27 @@ Item {
         return true;
     }
 
-    property int hoverIndex: -1
+    /** When true, dots are in "clock-hovered" state — faded in with staggered pulse. */
+    property bool pulseMode: false
+
+    property int pulseTick: 0
+    Timer {
+        id: pulseTimer
+        interval: 80
+        repeat: true
+        running: workspaces.pulseMode
+        onTriggered: workspaces.pulseTick += 1
+    }
 
     readonly property int activeIndex: range.indexOf(parseInt(activeName))
+
+    readonly property real clockHoverPhase: {
+        if (workspaces.pulseMode) {
+            return Math.sin(workspaces.pulsePhase * 2 * Math.PI);
+        }
+        return 0;
+    }
+    readonly property real pulseDelay: 80
 
     /**
      * Centre x of a dot slot from target layout widths (active stick is wider).
@@ -246,7 +264,14 @@ Item {
                     height: workspaces.dotW
                     radius: height / 2
                     color: slot.isActive ? Theme.vermLit : Theme.cream
-                    opacity: slot.isActive ? 1.0 : (area.containsMouse ? 0.7 : 0.3)
+                    opacity: {
+                        if (slot.isActive) {
+                            if (workspaces.pulseMode)
+                                return 0.5 + 0.5 * Math.sin((workspaces.pulseTick - slot.index) * 0.5);
+                            return 1.0;
+                        }
+                        return area.containsMouse ? 0.7 : 0.3;
+                    }
                     Behavior on opacity { NumberAnimation { duration: Motion.fast } }
                 }
 
