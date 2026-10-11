@@ -379,13 +379,13 @@ Item {
     readonly property real stripMinTitle: 55 * s
     readonly property real stripMaxTitle: 220 * s
 
-    readonly property real stripVizW: (Cava.bars * 1.8 + (Cava.bars - 1) * 1.5) * s
+    readonly property real stripVizW: Cava.active ? 62 * s : 0
     readonly property real stripControlsW: 38 * s
 
     /** Media-side gaps depend only on the visualizer. */
     readonly property int stripMediaGaps: 2 + (Cava.active ? 1 : 0)
 
-    readonly property bool stripMedia: Players.has && stripRoomForTitle >= stripMinTitle
+    readonly property bool stripMedia: (Players.has || Cava.active) && stripRoomForTitle >= stripMinTitle
     readonly property real stripRoomForTitle: stripCap - 2 * stripPad - stripArtW - stripFixedW - stripControlsW
         - 4 * stripGap - stripMediaGaps * stripGap
         - (Cava.active ? stripVizW : 0)
