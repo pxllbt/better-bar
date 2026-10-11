@@ -298,9 +298,27 @@ Item {
                             workspaces.hoverIndex = slot.index;
                         else if (workspaces.hoverIndex === slot.index)
                             workspaces.hoverIndex = -1;
-                    }
+             }
+         }
+    }
+
+    SwipeHandler {
+        id: swipe
+        anchors.fill: parent
+        acceptedButtons: Qt.AllButtons
+        enabled: workspaces.enabled && workspaces.watch
+        onActiveChanged: {
+            if (!swipe.active) {
+                var dx = swipe.translation.x;
+                if (Math.abs(dx) > 80 * workspaces.s) {
+                    if (dx < 0)
+                        Hyprland.dispatch("workspace e+1");
+                    else
+                        Hyprland.dispatch("workspace e-1");
                 }
             }
         }
+    }
+}
     }
 }
