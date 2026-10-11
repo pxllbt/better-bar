@@ -119,6 +119,8 @@ Item {
         return true;
     }
 
+    property int hoverIndex: -1
+
     /** When true, dots are in "clock-hovered" state — faded in with staggered pulse. */
     property bool pulseMode: false
 
