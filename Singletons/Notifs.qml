@@ -9,15 +9,18 @@ Singleton {
     property var seenIds: ({})
     property var arrivalMs: ({})
     property var popups: []
+    property var snoozed: []
     property int tick: 0
     property var expandedApps: ({})
     property var history: []
     property var userDismissed: ({})
     property var expireAt: ({})
     property var hookedIds: ({})
+    property var snoozeUntil: ({})
 
     readonly property var tracked: server.trackedNotifications.values
     readonly property int count: tracked.length + history.length
+    readonly property var snoozedNotifications: snoozed.map(function(s) { return s.n; })
 
     /** The toast actually shown is the newest popup; critical flags whether it must never be covered. */
     readonly property bool toastCritical: {
@@ -276,6 +279,31 @@ Singleton {
         root.popups = root.popups.filter(function(p) { return p !== n; });
     }
 
+    function snoozeNotification(n, minutes) {
+        if (!n) return;
+        root.snoozed = root.snoozed.filter(function(s) { return s.n !== n; });
+        var until = Date.now() + minutes * 60000;
+        var su = Object.assign({}, snoozeUntil);
+        su[n.id] = until;
+        root.snoozeUntil = su;
+        root.snoozed = root.snoozed.concat([{ n: n, until: until, summary: n.summary || "", body: n.body || "" }]);
+        root.popups = root.popups.filter(function(p) { return p !== n; });
+        if (typeof n.dismiss === "function") n.dismiss();
+        var d = Object.assign({}, root.userDismissed);
+        d[n.id] = true;
+        root.userDismissed = d;
+    }
+
+    function unsnooze(n) {
+        var idx = root.snoozed.findIndex(function(s) { return s.n === n; });
+        if (idx < 0) return;
+        root.snoozed = root.snoozed.slice(0, idx).concat(root.snoozed.slice(idx + 1));
+        var su = Object.assign({}, snoozeUntil);
+        delete su[n.id];
+        root.snoozeUntil = su;
+        root.popups = root.popups.concat([n]).slice(-3);
+    }
+
     /**
      * Drop every pending popup at once. Used when a transient OSD covers a
      * non-critical toast: the toast is retired permanently instead of
@@ -354,9 +382,16 @@ Singleton {
 
     Timer {
         interval: 30000
-        running: root.count > 0
+        running: root.count > 0 || root.snoozed.length > 0
         repeat: true
-        onTriggered: root.tick++
+        onTriggered: {
+            root.tick++;
+            var now = Date.now();
+            var due = root.snoozed.filter(function(s) { return s.until <= now; });
+            for (var i = 0; i < due.length; i++) {
+                root.unsnooze(due[i].n);
+            }
+        }
     }
 
     NotificationServer {

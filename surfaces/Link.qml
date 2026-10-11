@@ -364,6 +364,97 @@ PillSurface {
         }
 
         Item {
+            visible: Notifs.snoozed.length > 0
+            width: parent.width
+            height: snoozeCol.implicitHeight
+
+            Column {
+                id: snoozeCol
+                width: parent.width
+                spacing: 6 * root.s
+
+                Text {
+                    anchors.left: parent.left
+                    text: "SNOOZED"
+                    color: Theme.subtle
+                    font.family: Theme.font
+                    font.pixelSize: 10 * root.s
+                    font.weight: Font.DemiBold
+                    font.capitalization: Font.AllUppercase
+                    font.letterSpacing: 1.6 * root.s
+                }
+
+                Repeater {
+                    model: Notifs.snoozed
+
+                    Rectangle {
+                        id: snoozeRow
+                        required property var modelData
+                        width: parent.width
+                        height: 44 * root.s
+                        radius: 8 * root.s
+                        color: Theme.tileBg
+                        border.width: 1
+                        border.color: Theme.border
+
+                        Row {
+                            anchors.fill: parent
+                            anchors.margins: 8 * root.s
+                            spacing: 8 * root.s
+
+                            Image {
+                                source: Notifs.iconFor(modelData.n)
+                                sourceSize.width: 24 * root.s
+                                sourceSize.height: 24 * root.s
+                                fillMode: Image.PreserveAspectCrop
+                                visible: source.toString().length > 0
+                            }
+
+                            Column {
+                                width: parent.width - 40 * root.s
+                                height: parent.height
+                                spacing: 2 * root.s
+
+                                Text {
+                                    width: parent.width
+                                    text: modelData.n.summary || ""
+                                    color: Theme.cream
+                                    font.family: Theme.font
+                                    font.pixelSize: 10.5 * root.s
+                                    font.weight: Font.DemiBold
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    width: parent.width
+                                    text: modelData.n.body || ""
+                                    color: Theme.dim
+                                    font.family: Theme.font
+                                    font.pixelSize: 9.5 * root.s
+                                    elide: Text.ElideRight
+                                }
+
+                                Text {
+                                    width: parent.width
+                                    color: Theme.faint
+                                    font.family: Theme.font
+                                    font.pixelSize: 8.5 * root.s
+                                    text: Notifs.ageLabel(modelData.n) + " • snoozed for " + Math.ceil((modelData.until - Date.now()) / 60000) + "m"
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Notifs.unsnooze(modelData.n)
+                        }
+                    }
+                }
+            }
+        }
+
+        Item {
             visible: Notifs.count > 0
             width: parent.width
             height: notifFlick.height

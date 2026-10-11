@@ -195,5 +195,49 @@ Item {
                 }
             }
         }
+
+        Row {
+            visible: root.notif.urgency !== NotificationUrgency.Critical
+            spacing: 4 * root.s
+            topPadding: 4 * root.s
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+
+            property var options: [5, 15, 60]
+
+            Repeater {
+                model: root.options
+
+                Rectangle {
+                    id: snoozePill
+                    required property int modelData
+
+                    height: 18 * root.s
+                    width: snoozeText.implicitWidth + 12 * root.s
+                    radius: 999
+                    color: Theme.tileBg
+                    border.width: 1
+                    border.color: Theme.border
+                    opacity: 0.7
+
+                    Text {
+                        id: snoozeText
+                        anchors.centerIn: parent
+                        text: modelData < 60 ? modelData + "m" : (modelData / 60) + "h"
+                        color: Theme.dim
+                        font.family: Theme.font
+                        font.pixelSize: 9 * root.s
+                        font.weight: Font.DemiBold
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Notifs.snoozeNotification(root.notif, snoozePill.modelData)
+                    }
+                }
+            }
+        }
     }
 }
