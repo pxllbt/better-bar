@@ -52,6 +52,17 @@ Item {
         Qt.rgba(0.45, 0.85, 0.90, 1)  
     ]
 
+    readonly property Gradient stripGrad: Gradient {
+        GradientStop { position: 0.0; color: root.bandColors[1] }
+        GradientStop { position: 0.5; color: root.bandColors[2] }
+        GradientStop { position: 1.0; color: root.bandColors[3] }
+    }
+    readonly property Gradient cardGrad: Gradient {
+        GradientStop { position: 0.0; color: Theme.verm }
+        GradientStop { position: 0.5; color: Theme.accent }
+        GradientStop { position: 1.0; color: Theme.vermLit }
+    }
+
     Rectangle {
         id: breath
         anchors.centerIn: parent
@@ -63,15 +74,7 @@ Item {
 
         readonly property real phase: root.inStrip ? root.centerLevel : root.summedLevel
 
-        gradient: inStrip ? Gradient {
-            GradientStop { position: 0.0; color: root.bandColors[1] }
-            GradientStop { position: 0.5; color: root.bandColors[2] }
-            GradientStop { position: 1.0; color: root.bandColors[3] }
-        } : Gradient {
-            GradientStop { position: 0.0; color: Theme.verm }
-            GradientStop { position: 0.5; color: Theme.accent }
-            GradientStop { position: 1.0; color: Theme.vermLit }
-        }
+        gradient: root.inStrip ? root.stripGrad : root.cardGrad
 
         opacity: Cava.active ? Math.max(0.25, 0.4 + 0.6 * root.phase) : 0.1
         Behavior on opacity { NumberAnimation { duration: Motion.fast } }
