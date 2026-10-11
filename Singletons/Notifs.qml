@@ -10,6 +10,7 @@ Singleton {
     property var arrivalMs: ({})
     property var popups: []
     property var snoozed: []
+    property var reminders: []
     property int tick: 0
     property var expandedApps: ({})
     property var history: []
@@ -21,6 +22,7 @@ Singleton {
     readonly property var tracked: server.trackedNotifications.values
     readonly property int count: tracked.length + history.length
     readonly property var snoozedNotifications: snoozed.map(function(s) { return s.n; })
+    readonly property var activeReminders: reminders.filter(function(r) { return r.active; })
 
     /** The toast actually shown is the newest popup; critical flags whether it must never be covered. */
     readonly property bool toastCritical: {

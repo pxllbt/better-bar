@@ -5,6 +5,10 @@ ROOT="${1:-$(dirname "$(dirname "$0")")}"
 MEDIA="$ROOT/surfaces/Media.qml"
 CAVA="$ROOT/Singletons/Cava.qml"
 PILL="$ROOT/Pill.qml"
+STRIP_LAYOUT_FILE="$ROOT/Singletons/StripLayout.qml"
+LINK_FILE="$ROOT/surfaces/Link.qml"
+TOAST_FILE="$ROOT/surfaces/Toast.qml"
+NOTIFS_FILE="$ROOT/Singletons/Notifs.qml"
 
 failed=0
 ok() {
@@ -91,7 +95,6 @@ has_wheel_vol=$(grep -A20 'id: stripTitleMouse\b' "$PILL" | grep -c 'onWheel:' |
 ok "stripTitleMouse handles wheel volume adjustment" "$has_wheel_vol" "1"
 
 # 12. Workspace wheel navigation
-WS_FILE="$ROOT/components/Workspaces.qml"
 [ -f "$WS_FILE" ] || { echo "no Workspaces.qml at $WS_FILE" >&2; exit 1; }
 has_ws_wheel=$(grep -A10 'onWheel:' "$WS_FILE" | grep -c 'workspace e+1' || true)
 ok "Workspaces handles wheel to cycle workspaces" "$has_ws_wheel" "1"
@@ -106,7 +109,6 @@ has_strip_lay_click=$(grep -A15 'id: stripLayMouse\b' "$PILL" | grep -c 'kbLayou
 ok "stripLay connects to kbLayout.cycle()" "$has_strip_lay_click" "1"
 
 # 14. Notification snooze feature
-NOTIFS_FILE="$ROOT/Singletons/Notifs.qml"
 has_snooze_fn=$(grep -c 'function snoozeNotification' "$NOTIFS_FILE" || true)
 ok "Notifs provides snoozeNotification function" "$has_snooze_fn" "1"
 
@@ -120,17 +122,25 @@ has_snoozed_prop_live=$(grep -c 'readonly property var snoozedNotifications' "$N
 ok "Notifs exposes live snoozed notifications list" "$has_snoozed_prop_live" "1"
 
 # 15. Toast surface has snooze controls
-TOAST_FILE="$ROOT/surfaces/Toast.qml"
 has_toast_snooze=$(grep -c 'Notifs.snoozeNotification' "$TOAST_FILE" || true)
 ok "Toast surface triggers snooze on click" "$has_toast_snooze" "1"
 
 # 16. Link surface shows snoozed section
-LINK_FILE="$ROOT/surfaces/Link.qml"
 has_link_snoozed=$(grep -c 'SNOOZED' "$LINK_FILE" || true)
 ok "Link surface displays snoozed notifications section" "$has_link_snoozed" "1"
 
 has_link_unsnooze=$(grep -c 'Notifs.unsnooze' "$LINK_FILE" || true)
 ok "Link surface can unsnooze notifications" "$has_link_unsnooze" "1"
+
+# 17. Ghost strip shows disabled plugins
+has_disabled_prop=$(grep -c 'disabledBarWidgets' "$STRIP_LAYOUT_FILE" || true)
+ok "StripLayout exposes disabled plugin list for ghost strip" "$has_disabled_prop" "1"
+
+has_ghost_strip=$(grep -c 'ghostStripHover' "$PILL" || true)
+ok "Pill renders ghost strip for disabled plugins" "$has_ghost_strip" "3"
+
+has_ghost_click=$(grep -c 'Plugins.openOrEnable.*modelData' "$PILL" || true)
+ok "Ghost strip icons enable plugins on click" "$has_ghost_click" "1"
 
 if [ "$failed" -gt 0 ]; then
     printf '\n%d media-pill checks failed\n' "$failed" >&2

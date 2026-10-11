@@ -39,6 +39,9 @@ Singleton {
     ]
 
     readonly property var plugins: Plugins.pillWidgetsGeneric
+    readonly property var disabledBarWidgets: Plugins.barWidgets.filter(function(p) {
+        return p.enabled !== true && root.hostsInStrip(p);
+    })
 
     property var resolved: []
 

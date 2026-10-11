@@ -367,6 +367,7 @@ Item {
     readonly property real stripPad: 20 * pill.s
     readonly property real stripGap: 16 * s
     readonly property bool stripHover: stripFaceMouse.containsMouse
+    property bool ghostStripHover: false
     readonly property real stripCap: Math.max(320 * s, Math.min(600 * s, (barWindow ? barWindow.width : 1920 * s) - 60 * s))
 
     // No strip-face zoom property lives here any more. The width slider used to
@@ -2376,6 +2377,74 @@ Item {
                         hoverLive: hover.live
                         barHeightOverride: pill.height
                         barWidthOverride: pill.width
+                    }
+                }
+
+                // Ghost strip: dimmed icons for disabled-but-compatible plugins,
+                // revealed on hover at the end of the strip for one-tap enabling.
+                Item {
+                    visible: pill.stripBar
+                    width: pill.ghostStripHover ? ghostRow.implicitWidth + 12 * pill.s : 0
+                    height: 17 * pill.s
+                    anchors.verticalCenter: statusRow.verticalCenter
+
+                    Behavior on width { NumberAnimation { duration: Motion.fast, easing.type: Easing.OutCubic } }
+
+                    Row {
+                        id: ghostRow
+                        anchors.left: parent.left
+                        spacing: 6 * pill.s
+
+                         Repeater {
+                            model: StripLayout.disabledBarWidgets
+
+                            delegate: Item {
+                                required property var modelData
+                                required property int index
+
+                                width: 17 * pill.s
+                                height: 17 * pill.s
+
+                                GlyphIcon {
+                                    id: ghostIcon
+                                    anchors.centerIn: parent
+                                    width: 11 * pill.s
+                                    height: 11 * pill.s
+                                    name: Plugins.iconFor(modelData.id)
+                                    color: Theme.iconDim
+                                    stroke: 1.5 * pill.s
+                                    opacity: 0.5
+                                    Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        Plugins.openOrEnable(modelData.id);
+                                    }
+                                    onContainsMouseChanged: {
+                                        ghostIcon.opacity = containsMouse ? 0.8 : 0.5;
+                                    }
+                                }
+
+                                Tooltip {
+                                    s: pill.s
+                                    placement: "below"
+                                    title: modelData.name || modelData.id
+                                    desc: "Click to enable"
+                                }
+                            }
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -8 * pill.s
+                        hoverEnabled: true
+                        z: -1
+                        onContainsMouseChanged: pill.ghostStripHover = containsMouse
                     }
                 }
             }
