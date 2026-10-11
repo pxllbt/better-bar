@@ -6,7 +6,7 @@
 
 ![Better Bar](preview.png)
 
-[![Omarchy](https://img.shields.io/badge/Omarchy-Quattro-4.x-1e66f5?style=flat-square)](https://omarchy.org)
+[![Omarchy](https://img.shields.io/badge/Omarchy-Quattro-4.x-1e66f5?style=flat-square)]([https://omarchy.org](https://plugins.omarchy.org/plugin.html?id=pix.bar))
 [![Quickshell](https://img.shields.io/badge/Quickshell-0.3%2B-1e66f5?style=flat-square)](https://quickshell.outfoxxed.me)
 [![License](https://img.shields.io/badge/License-MIT-1e66f5?style=flat-square)](LICENSE)
 
