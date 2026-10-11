@@ -78,8 +78,15 @@ Singleton {
                  * sub-epsilon movement is treated as no movement at all.
                  */
                 const flat = peak <= 0.001 && !root.active;
-                let moved = flat;
-                if (!moved) {
+                let moved = false;
+                if (flat) {
+                    for (let i = 0; i < root.bars; i++) {
+                        if ((root.levels[i] || 0) > 0.001) {
+                            moved = true;
+                            break;
+                        }
+                    }
+                } else {
                     for (let i = 0; i < root.bars; i++) {
                         if (Math.abs(out[i] - (root.levels[i] || 0)) > 0.015) {
                             moved = true;

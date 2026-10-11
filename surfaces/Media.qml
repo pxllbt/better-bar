@@ -28,23 +28,29 @@ PillSurface {
     /**
      * With expandTo "media" the card is hover-driven in every auto-hide mode:
      * leaving it (past a small margin + grace window) closes the surface again
-     * so the pill shrinks back to rest (or hides).
+     * so the pill shrinks back to rest (or hides). Only arms once the card has
+     * actually been hovered, so keyboard / IPC summon does not immediately drop.
      */
+    property bool wasHovered: false
+    onOpenChanged: if (!open) wasHovered = false
+
     Timer {
         id: leaveGuardT
-        interval: 120
+        interval: 250
         onTriggered: root.requestClose()
     }
 
     HoverHandler {
         id: leaveGuard
-         enabled: root.open && Flags.expandTo === "media"
+        enabled: root.open && Flags.expandTo === "media"
         margin: 10 * root.s
         onHoveredChanged: {
-            if (enabled && !hovered)
-                leaveGuardT.start();
-            else if (enabled)
+            if (hovered) {
+                root.wasHovered = true;
                 leaveGuardT.stop();
+            } else if (enabled && root.wasHovered) {
+                leaveGuardT.start();
+            }
         }
     }
 
@@ -66,9 +72,9 @@ PillSurface {
     }
 
     /** Loop toggle. MprisLoopState walks None -> Track -> Playlist -> None. */
-    readonly property bool loopOk: hasPlayer && root.player.loopSupported && root.player.canControl
-    readonly property bool loopNone: !hasPlayer || !root.loopOk || root.player.loopState === MprisLoopState.None
-    readonly property bool loopTrack: hasPlayer && root.loopOk && root.player.loopState === MprisLoopState.Track
+    readonly property bool loopOk: Boolean(hasPlayer && root.player && root.player.loopSupported && root.player.canControl)
+    readonly property bool loopNone: Boolean(!hasPlayer || !root.loopOk || (root.player && root.player.loopState === MprisLoopState.None))
+    readonly property bool loopTrack: Boolean(hasPlayer && root.loopOk && root.player && root.player.loopState === MprisLoopState.Track)
     function nextLoop() {
         if (!root.player)
             return;
@@ -280,7 +286,7 @@ PillSurface {
     }
 
     Timer {
-        interval: 500
+        interval: 1000
         running: root.active
         repeat: true
         onTriggered: if (!netProc.running) netProc.running = true
@@ -641,9 +647,8 @@ PillSurface {
              * without a sibling fighting over anchors. */
             Item {
                 id: expandCtl
-                anchors.left: parent.left
                 width: 52 * root.s
-                height: parent.height
+                height: 15 * root.s
 
                 Row {
                     anchors.verticalCenter: parent.verticalCenter
@@ -654,19 +659,22 @@ PillSurface {
                         width: 12 * root.s
                         height: 12 * root.s
                         name: "layers"
-                        color: Theme.iconDim
+                        color: expandMouse.containsMouse ? Theme.cream : Theme.iconDim
+                        Behavior on color { ColorAnimation { duration: Motion.fast } }
                     }
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         text: "Expand"
-                        color: Theme.dim
+                        color: expandMouse.containsMouse ? Theme.cream : Theme.dim
                         font.family: Theme.font
                         font.pixelSize: 10 * root.s
+                        Behavior on color { ColorAnimation { duration: Motion.fast } }
                     }
                 }
 
                 MouseArea {
+                    id: expandMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
@@ -1034,7 +1042,7 @@ PillSurface {
                     id: seekArea
                     anchors.fill: parent
                     anchors.margins: -8 * root.s
-                    enabled: root.hasPlayer && root.player.canSeek && root.player.positionSupported && root.lengthSec > 0 && !root.live
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.player.positionSupported && root.lengthSec > 0 && !root.live)
                     cursorShape: Qt.PointingHandCursor
                     function fracAt(mx) {
                         return Math.max(0, Math.min(1, (mx - 8 * root.s - stroke.inset) / stroke.usable));
@@ -1061,7 +1069,7 @@ PillSurface {
 
             KanjiSkip {
                 icon: "prev"
-                can: root.hasPlayer && root.player.canGoPrevious
+                can: Boolean(root.hasPlayer && root.player && root.player.canGoPrevious)
                 onActivated: if (root.player) root.player.previous()
             }
 
@@ -1101,7 +1109,7 @@ PillSurface {
                     anchors.fill: parent
                     anchors.margins: -4 * root.s
                     hoverEnabled: true
-                    enabled: root.hasPlayer && root.player.canTogglePlaying
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canTogglePlaying)
                     cursorShape: Qt.PointingHandCursor
                     onClicked: if (root.player) root.player.togglePlaying()
                 }
@@ -1109,7 +1117,7 @@ PillSurface {
 
             KanjiSkip {
                 icon: "next"
-                can: root.hasPlayer && root.player.canGoNext
+                can: Boolean(root.hasPlayer && root.player && root.player.canGoNext)
                 onActivated: if (root.player) root.player.next()
             }
         }

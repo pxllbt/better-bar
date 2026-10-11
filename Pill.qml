@@ -391,10 +391,12 @@ Item {
 
     readonly property real stripTitleW: stripMedia ? Math.min(stripMaxTitle, stripRoomForTitle, Math.max(stripMinTitle, stripTitleMetrics.advanceWidth)) : 0
     readonly property real stripFixedW: stripDay.implicitWidth + stripTime.implicitWidth
-        + stripWs.implicitWidth + stripLay.implicitWidth + stripBat.implicitWidth
+        + stripWs.implicitWidth + stripLay.implicitWidth + (Battery.present ? stripBat.implicitWidth : 0)
 
     readonly property real stripFaceW: {
-        let w = 2 * stripPad + stripFixedW + 4 * stripGap;
+        let fixedCount = 4 + (Battery.present ? 1 : 0);
+        let gaps = Math.max(0, fixedCount - 1);
+        let w = 2 * stripPad + stripFixedW + gaps * stripGap;
         if (stripMedia) {
             w += stripArtW + stripGap + stripTitleW;
             if (Cava.active) w += stripVizW + stripGap;
