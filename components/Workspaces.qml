@@ -304,7 +304,6 @@ Item {
 
     DragHandler {
         id: drag
-        anchors.fill: parent
         acceptedButtons: Qt.AllButtons
         enabled: workspaces.enabled && workspaces.watch
         onActiveChanged: {
