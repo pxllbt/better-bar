@@ -379,13 +379,14 @@ Item {
     readonly property real stripMinTitle: 55 * s
     readonly property real stripMaxTitle: 220 * s
 
-    readonly property real stripVizW: (Cava.bars * 1.8 + (Cava.bars - 1) * 1.2) * s
+    readonly property real stripVizW: (Cava.bars * 1.8 + (Cava.bars - 1) * 1.5) * s
+    readonly property real stripControlsW: 38 * s
 
     /** Media-side gaps depend only on the visualizer. */
-    readonly property int stripMediaGaps: 1 + (Cava.active ? 1 : 0)
+    readonly property int stripMediaGaps: 2 + (Cava.active ? 1 : 0)
 
     readonly property bool stripMedia: Players.has && stripRoomForTitle >= stripMinTitle
-    readonly property real stripRoomForTitle: stripCap - 2 * stripPad - stripArtW - stripFixedW
+    readonly property real stripRoomForTitle: stripCap - 2 * stripPad - stripArtW - stripFixedW - stripControlsW
         - 4 * stripGap - stripMediaGaps * stripGap
         - (Cava.active ? stripVizW : 0)
 
@@ -398,7 +399,7 @@ Item {
         let gaps = Math.max(0, fixedCount - 1);
         let w = 2 * stripPad + stripFixedW + gaps * stripGap;
         if (stripMedia) {
-            w += stripArtW + stripGap + stripTitleW;
+            w += stripArtW + stripGap + stripTitleW + stripGap + stripControlsW;
             if (Cava.active) w += stripVizW + stripGap;
             w += stripGap;
         }
@@ -1932,9 +1933,16 @@ Item {
                         }
                     }
                     onWheel: (wheel) => {
-                        if (Players.active && Players.active.volume !== undefined) {
-                            var delta = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
-                            Players.active.volume = Math.max(0.0, Math.min(1.0, Players.active.volume + delta));
+                        if (wheel.modifiers & Qt.ShiftModifier) {
+                            if (Players.active && Players.active.canSeek && Players.lengthSec > 0) {
+                                var step = wheel.angleDelta.y > 0 ? 5 : -5;
+                                Players.active.position = Math.max(0, Math.min(Players.lengthSec, (Players.active.position || 0) + step));
+                            }
+                        } else {
+                            if (Players.active && Players.active.volume !== undefined) {
+                                var delta = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                                Players.active.volume = Math.max(0.0, Math.min(1.0, Players.active.volume + delta));
+                            }
                         }
                     }
                 }
@@ -1965,9 +1973,16 @@ Item {
                         }
                     }
                     onWheel: (wheel) => {
-                        if (Players.active && Players.active.volume !== undefined) {
-                            var delta = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
-                            Players.active.volume = Math.max(0.0, Math.min(1.0, Players.active.volume + delta));
+                        if (wheel.modifiers & Qt.ShiftModifier) {
+                            if (Players.active && Players.active.canSeek && Players.lengthSec > 0) {
+                                var step = wheel.angleDelta.y > 0 ? 5 : -5;
+                                Players.active.position = Math.max(0, Math.min(Players.lengthSec, (Players.active.position || 0) + step));
+                            }
+                        } else {
+                            if (Players.active && Players.active.volume !== undefined) {
+                                var delta = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                                Players.active.volume = Math.max(0.0, Math.min(1.0, Players.active.volume + delta));
+                            }
                         }
                     }
                 }
@@ -1976,8 +1991,75 @@ Item {
                     s: pill.s
                     placement: "below"
                     title: Players.title || "Media"
-                    desc: (Players.artist.length > 0 ? Players.artist + (Players.serviceLabel.length > 0 ? " · " + Players.serviceLabel : "") : (Players.serviceLabel || "Scroll: volume · Middle: pause"))
+                    desc: (Players.artist.length > 0 ? Players.artist + (Players.serviceLabel.length > 0 ? " · " + Players.serviceLabel : "") : (Players.serviceLabel || "Media"))
                     show: stripTitleMouse.containsMouse || stripArtMouse.containsMouse
+                }
+            }
+
+            Row {
+                id: stripControls
+                anchors.verticalCenter: parent.verticalCenter
+                visible: pill.stripMedia
+                spacing: 5 * pill.s
+
+                GlyphIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 10 * pill.s
+                    height: 10 * pill.s
+                    name: "prev"
+                    color: prevArea.containsMouse ? Theme.cream : Theme.dim
+                    opacity: Boolean(Players.active && Players.active.canGoPrevious) ? 1.0 : 0.4
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                    MouseArea {
+                        id: prevArea
+                        anchors.fill: parent
+                        anchors.margins: -4 * pill.s
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: Boolean(Players.active && Players.active.canGoPrevious)
+                        onClicked: if (Players.active) Players.active.previous()
+                    }
+                }
+
+                GlyphIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 11 * pill.s
+                    height: 11 * pill.s
+                    name: Players.playing ? "pause" : "play"
+                    color: playArea.containsMouse ? Theme.vermLit : Theme.cream
+                    opacity: Boolean(Players.active && Players.active.canTogglePlaying) ? 1.0 : 0.4
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                    MouseArea {
+                        id: playArea
+                        anchors.fill: parent
+                        anchors.margins: -4 * pill.s
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: Boolean(Players.active && Players.active.canTogglePlaying)
+                        onClicked: if (Players.active) Players.active.togglePlaying()
+                    }
+                }
+
+                GlyphIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 10 * pill.s
+                    height: 10 * pill.s
+                    name: "next"
+                    color: nextArea.containsMouse ? Theme.cream : Theme.dim
+                    opacity: Boolean(Players.active && Players.active.canGoNext) ? 1.0 : 0.4
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                    MouseArea {
+                        id: nextArea
+                        anchors.fill: parent
+                        anchors.margins: -4 * pill.s
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: Boolean(Players.active && Players.active.canGoNext)
+                        onClicked: if (Players.active) Players.active.next()
+                    }
                 }
             }
 

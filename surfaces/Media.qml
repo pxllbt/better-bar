@@ -576,7 +576,7 @@ PillSurface {
             id: infoCol
             anchors.left: parent.left
             anchors.right: parent.right
-            spacing: 14 * root.s
+            spacing: 7 * root.s
 
             Row {
                 width: infoStack.width
@@ -643,42 +643,177 @@ PillSurface {
                 }
             }
 
-            /* Expand sits on its own row so a Column can position it
-             * without a sibling fighting over anchors. */
-            Item {
-                id: expandCtl
-                width: 52 * root.s
+            Row {
+                width: infoStack.width
                 height: 15 * root.s
+                spacing: 5 * root.s
 
-                Row {
+                GlyphIcon {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 6 * root.s
+                    width: 12 * root.s
+                    height: 12 * root.s
+                    name: "speaker"
+                    color: volMouse.containsMouse ? Theme.cream : Theme.iconDim
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
 
-                    GlyphIcon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 12 * root.s
-                        height: 12 * root.s
-                        name: "layers"
-                        color: expandMouse.containsMouse ? Theme.cream : Theme.iconDim
-                        Behavior on color { ColorAnimation { duration: Motion.fast } }
-                    }
-
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: "Expand"
-                        color: expandMouse.containsMouse ? Theme.cream : Theme.dim
-                        font.family: Theme.font
-                        font.pixelSize: 10 * root.s
-                        Behavior on color { ColorAnimation { duration: Motion.fast } }
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -4 * root.s
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (root.player && root.player.volume !== undefined)
+                                root.player.volume = root.player.volume > 0 ? 0 : 0.5;
+                        }
                     }
                 }
 
-                MouseArea {
-                    id: expandMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.requestExpand()
+                Rectangle {
+                    id: volTrack
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(0, parent.width - 12 * root.s - 5 * root.s - 26 * root.s - 5 * root.s)
+                    height: 3 * root.s
+                    radius: height / 2
+                    color: Qt.alpha(Theme.cream, 0.12)
+
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: parent.width * Math.max(0, Math.min(1, (root.player && root.player.volume !== undefined) ? root.player.volume : 0))
+                        radius: parent.radius
+                        color: volMouse.containsMouse ? Theme.vermLit : Theme.accent
+                        Behavior on color { ColorAnimation { duration: Motion.fast } }
+                    }
+
+                    MouseArea {
+                        id: volMouse
+                        anchors.fill: parent
+                        anchors.margins: -6 * root.s
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onPositionChanged: (e) => {
+                            if (pressed && root.player && root.player.volume !== undefined) {
+                                var frac = Math.max(0, Math.min(1, (e.x - 6 * root.s) / volTrack.width));
+                                root.player.volume = frac;
+                            }
+                        }
+                        onPressed: (e) => {
+                            if (root.player && root.player.volume !== undefined) {
+                                var frac = Math.max(0, Math.min(1, (e.x - 6 * root.s) / volTrack.width));
+                                root.player.volume = frac;
+                            }
+                        }
+                        onWheel: (wheel) => {
+                            if (root.player && root.player.volume !== undefined) {
+                                var delta = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                                root.player.volume = Math.max(0.0, Math.min(1.0, root.player.volume + delta));
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 26 * root.s
+                    horizontalAlignment: Text.AlignRight
+                    text: Math.round(((root.player && root.player.volume !== undefined) ? root.player.volume : 0) * 100) + "%"
+                    color: Theme.dim
+                    font.family: Theme.font
+                    font.pixelSize: 9.5 * root.s
+                    font.features: { "tnum": 1 }
+                }
+            }
+
+            /* Expand and Copy controls */
+            Row {
+                width: infoStack.width
+                height: 15 * root.s
+                spacing: 10 * root.s
+
+                Item {
+                    id: expandCtl
+                    width: 48 * root.s
+                    height: 15 * root.s
+
+                    Row {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 5 * root.s
+
+                        GlyphIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 11 * root.s
+                            height: 11 * root.s
+                            name: "layers"
+                            color: expandMouse.containsMouse ? Theme.cream : Theme.iconDim
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "Expand"
+                            color: expandMouse.containsMouse ? Theme.cream : Theme.dim
+                            font.family: Theme.font
+                            font.pixelSize: 9.5 * root.s
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                        }
+                    }
+
+                    MouseArea {
+                        id: expandMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.requestExpand()
+                    }
+                }
+
+                Item {
+                    id: copyCtl
+                    width: 42 * root.s
+                    height: 15 * root.s
+
+                    Row {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 4 * root.s
+
+                        GlyphIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 10 * root.s
+                            height: 10 * root.s
+                            name: "clipboard"
+                            color: copyMouse.containsMouse ? Theme.cream : Theme.iconDim
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: copiedT.running ? "Done" : "Copy"
+                            color: copiedT.running ? Theme.vermLit : (copyMouse.containsMouse ? Theme.cream : Theme.dim)
+                            font.family: Theme.font
+                            font.pixelSize: 9.5 * root.s
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                        }
+                    }
+
+                    Timer {
+                        id: copiedT
+                        interval: 1500
+                    }
+
+                    MouseArea {
+                        id: copyMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            var textToCopy = root.trackUrl || (root.title + (root.artist.length > 0 ? " - " + root.artist : ""));
+                            if (textToCopy && textToCopy.length > 0) {
+                                Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | wl-copy", "_", textToCopy]);
+                                copiedT.restart();
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1061,11 +1196,32 @@ PillSurface {
             }
         }
 
-        /** Transport: kanji-skip, the play/pause seal, kanji-next. */
+        /** Transport: -10s, kanji-skip, the play/pause seal, kanji-next, +10s. */
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 12 * root.s
+            spacing: 10 * root.s
             height: 20 * root.s
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "-10s"
+                font.family: Theme.font
+                font.pixelSize: 8.5 * root.s
+                font.weight: Font.DemiBold
+                color: r10Mouse.containsMouse ? Theme.cream : Theme.dim
+                opacity: (root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live) ? 1.0 : 0.35
+                Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                MouseArea {
+                    id: r10Mouse
+                    anchors.fill: parent
+                    anchors.margins: -4 * root.s
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live)
+                    onClicked: if (root.player) root.player.position = Math.max(0, (root.player.position || 0) - 10)
+                }
+            }
 
             KanjiSkip {
                 icon: "prev"
@@ -1119,6 +1275,27 @@ PillSurface {
                 icon: "next"
                 can: Boolean(root.hasPlayer && root.player && root.player.canGoNext)
                 onActivated: if (root.player) root.player.next()
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "+10s"
+                font.family: Theme.font
+                font.pixelSize: 8.5 * root.s
+                font.weight: Font.DemiBold
+                color: f10Mouse.containsMouse ? Theme.cream : Theme.dim
+                opacity: (root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live) ? 1.0 : 0.35
+                Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                MouseArea {
+                    id: f10Mouse
+                    anchors.fill: parent
+                    anchors.margins: -4 * root.s
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live)
+                    onClicked: if (root.player) root.player.position = Math.min(root.lengthSec, (root.player.position || 0) + 10)
+                }
             }
         }
     }

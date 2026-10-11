@@ -88,6 +88,32 @@ ok "KbLayout provides cycle function" "$has_kb_cycle" "1"
 has_strip_lay_click=$(grep -A15 'id: stripLayMouse\b' "$PILL" | grep -c 'kbLayout\.cycle()' || true)
 ok "stripLay connects to kbLayout.cycle()" "$has_strip_lay_click" "1"
 
+# 14. Unique visualizer (liquid waveform with zero Behavior on height CPU loops)
+VIZ_FILE="$ROOT/components/MusicBars.qml"
+[ -f "$VIZ_FILE" ] || { echo "no MusicBars.qml at $VIZ_FILE" >&2; exit 1; }
+has_anim_loop=$(grep -c 'Behavior on height' "$VIZ_FILE" || true)
+ok "MusicBars eliminates CPU-heavy Behavior on height loops" "$has_anim_loop" "0"
+
+has_viz_click=$(grep -A15 'id: vizMouse\b' "$VIZ_FILE" | grep -c 'togglePlaying' || true)
+ok "MusicBars is interactive to toggle playback on click" "$has_viz_click" "1"
+
+# 15. Strip mini transport controls
+has_strip_controls=$(grep -A5 'id: stripControls\b' "$PILL" | grep -c 'visible: pill\.stripMedia' || true)
+ok "Pill provides inline strip transport controls" "$has_strip_controls" "1"
+
+has_shift_seek=$(grep -A15 'id: stripTitleMouse\b' "$PILL" | grep -c 'Qt\.ShiftModifier' || true)
+ok "stripTitleMouse handles Shift+Wheel seek" "$has_shift_seek" "1"
+
+# 16. Media card volume slider, 10s skip, and copy link
+has_vol_slider=$(grep -c 'id: volTrack\b' "$MEDIA" || true)
+ok "Media card provides inline volume control" "$has_vol_slider" "1"
+
+has_skip_10s=$(grep -c 'text: "-10s"' "$MEDIA" || true)
+ok "Media card provides quick 10s seek buttons" "$has_skip_10s" "1"
+
+has_copy_ctl=$(grep -A45 'id: copyCtl\b' "$MEDIA" | grep -c 'wl-copy' || true)
+ok "Media card provides copy track action" "$has_copy_ctl" "1"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%d media-pill checks failed\n' "$failed" >&2
     exit 1
