@@ -2,7 +2,7 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Gestures
+import QtQuick.Handlers
 import Quickshell.Io
 import Quickshell.Hyprland
 import "../Singletons"
