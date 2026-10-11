@@ -109,6 +109,15 @@ ok "MusicBars has no NumberAnimation on height (near-zero CPU)" "$has_no_height_
 has_no_timers=$(grep -c 'Timer\s*{' "$VIZ_FILE" || true)
 ok "MusicBars has no JS timers" "$has_no_timers" "0"
 
+has_band_colors=$(grep -c 'bandColors' "$VIZ_FILE" || true)
+ok "MusicBars spectral color mapping per band" "$has_band_colors" "8"
+
+has_drag_seek=$(grep -c 'position = Players.active.length' "$VIZ_FILE" || true)
+ok "MusicBars click-drag seek on waveform" "$has_drag_seek" "1"
+
+has_watermark=$(grep -c 'id: watermark' "$VIZ_FILE" || true)
+ok "MusicBars spectral watermark in full surface mode" "$has_watermark" "1"
+
 # 15. Strip mini transport controls
 has_strip_controls=$(grep -A5 'id: stripControls\b' "$PILL" | grep -c 'visible: pill\.stripMedia' || true)
 ok "Pill provides inline strip transport controls" "$has_strip_controls" "1"

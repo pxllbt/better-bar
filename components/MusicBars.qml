@@ -44,6 +44,14 @@ Item {
         return Math.min(1, sum / 3.5);
     }
 
+    readonly property var bandColors: [
+        Qt.rgba(1.00, 0.55, 0.30, 1),  
+        Qt.rgba(1.00, 0.65, 0.35, 1), 
+        Qt.rgba(1.00, 0.80, 0.40, 1), 
+        Qt.rgba(0.75, 0.90, 0.60, 1), 
+        Qt.rgba(0.45, 0.85, 0.90, 1)  
+    ]
+
     Rectangle {
         id: breath
         anchors.centerIn: parent
@@ -55,8 +63,12 @@ Item {
 
         readonly property real phase: root.inStrip ? root.centerLevel : root.summedLevel
 
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.vermLit }
+        gradient: inStrip ? Gradient {
+            GradientStop { position: 0.0; color: root.bandColors[1] }
+            GradientStop { position: 0.5; color: root.bandColors[2] }
+            GradientStop { position: 1.0; color: root.bandColors[3] }
+        } : Gradient {
+            GradientStop { position: 0.0; color: Theme.verm }
             GradientStop { position: 0.5; color: Theme.accent }
             GradientStop { position: 1.0; color: Theme.vermLit }
         }
@@ -77,24 +89,18 @@ Item {
         clip: true
 
         gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.verm }
-            GradientStop { position: 0.5; color: Theme.accent }
-            GradientStop { position: 1.0; color: Theme.vermLit }
+            GradientStop { position: 0.0; color: root.bandColors[0] }
+            GradientStop { position: 0.5; color: root.bandColors[2] }
+            GradientStop { position: 1.0; color: root.bandColors[4] }
         }
         opacity: inCard && Cava.active ? Math.max(0.4, root.summedLevel) : 0
     }
 
-    Rectangle {
+    Item {
         id: watermark
         anchors.fill: parent
-        anchors.margins: {
-            if (!root.inStrip && !root.inCard)
-                return 4 * root.s;
-            return 0;
-        }
-        width: 0
-        height: 0
-        visible: false
+        visible: !root.inStrip && !root.inCard && Cava.active
+        clip: true
 
         Repeater {
             model: Cava.bars
@@ -105,11 +111,8 @@ Item {
                 anchors.left: parent.left
                 width: parent.width / Cava.bars
                 height: (Cava.levels[index] || 0) * parent.height
-                opacity: (Cava.levels[index] || 0) * 0.5
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.vermLit }
-                    GradientStop { position: 1.0; color: Theme.accent }
-                }
+                color: Cava.active ? root.bandColors[index] : Qt.rgba(1,1,1,0)
+                opacity: Cava.active ? Math.max(0.25, Cava.levels[index] || 0) : 0
             }
         }
     }
@@ -119,11 +122,31 @@ Item {
         anchors.fill: parent
         anchors.margins: -4 * root.s
         hoverEnabled: true
-        acceptedButtons: Qt.LeftButton | Qt.MiddleButton
+        acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
         cursorShape: Qt.PointingHandCursor
+
+        property real pressX: -1
+        property bool seeking: false
+
         onClicked: {
             if (Players.active && Players.active.canTogglePlaying)
                 Players.active.togglePlaying();
+        }
+        onPressed: (e) => {
+            if (Players.active && Players.active.length > 0) {
+                vizMouse.pressX = e.x;
+                vizMouse.seeking = Players.active.canSeek;
+            }
+        }
+        onReleased: {
+            vizMouse.seeking = false;
+            vizMouse.pressX = -1;
+        }
+        onPositionChanged: (e) => {
+            if (vizMouse.seeking && Players.active && Players.active.canSeek && Players.active.length > 0) {
+                var frac = Math.max(0, Math.min(1, (e.x - vizMouse.pressX) / vizMouse.width));
+                Players.active.position = Players.active.length * frac;
+            }
         }
         onWheel: (wheel) => {
             if (Players.active && Players.active.volume !== undefined) {
