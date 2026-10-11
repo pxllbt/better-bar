@@ -358,14 +358,13 @@ Item {
      */
     readonly property real iconCell: 17 * s
 
-    /**
-     * Strip-face geometry: a compact top-centre notch pill. Its width is
+     /* Strip-face geometry: a compact top-centre notch pill. Its width is
      * computed explicitly (not from the row's implicit width) so the media
      * title can be elided to exactly what the budget allows; on a 1920px
      * screen the content lands around 500-600px wide. Lower-priority sections
      * (visualizer, then media) fold away first when the budget tightens.
      */
-    readonly property real stripPad: 20 * s
+    readonly property real stripPad: 20 * pill.s
     readonly property real stripGap: 16 * s
     readonly property bool stripHover: stripFaceMouse.containsMouse
     readonly property real stripCap: Math.max(320 * s, Math.min(600 * s, (barWindow ? barWindow.width : 1920 * s) - 60 * s))
@@ -1863,20 +1862,31 @@ Item {
         Behavior on opacity { NumberAnimation { duration: pill.mode === "rest" ? Motion.fast : Math.round(260 * Motion.mult) } }
 
         /**
-         * Strip face: one compact pill of media + status hanging from the top
-         * edge. Media art and title lead, then a live cava spark, the red
-         * recording chip, and finally weekday, time, workspace, layout and
-         * battery. Sections fold (visualizer, then media) as the width budget
-         * tightens; the row is centred so the pill hugs the screen top like a
-         * notch. Width is pill.stripFaceW, not the row's implicit width, so the
-         * elided title never inflates the pill.
-         *
-         * The active-workspace number is served by the hover `ws` instance
-         * (Phase 4 dedupe): it is always alive, so the number is current the
-         * moment this mode is shown, and its `enabled: hover.live` only gates
-         * the dot MouseAreas, never its hyprctl watcher.
-         */
-    Row {
+          * Strip face: one compact pill of media + status hanging from the top
+          * edge. Media art and title lead, then a live cava spark, the red
+          * recording chip, and finally weekday, time, workspace, layout and
+          * battery. Sections fold (visualizer, then media) as the width budget
+          * tightens; the row is centred so the pill hugs the screen top like a
+          * notch. Width is pill.stripFaceW, not the row's implicit width, so the
+          * elided title never inflates the pill.
+          *
+          * The active-workspace number is served by the hover `ws` instance
+          * (Phase 4 dedupe): it is always alive, so the number is current the
+          * moment this mode is shown, and its `enabled: hover.live` only gates
+          * the dot MouseAreas, never its hyprctl watcher.
+          */
+
+        // Invisible hover overlay for the strip face — triggers pulse effects
+        MouseArea {
+            id: stripFaceMouse
+            anchors.fill: parent
+            anchors.margins: -8 * pill.s
+            hoverEnabled: true
+            z: -1
+            onContainsMouseChanged: ws && (ws.pulseMode = containsMouse)
+        }
+
+        Row {
             id: stripFace
             // Hides while a surface is open: this is the resting bar, and in
             // strip mode it is far wider than the card-sized body a surface
@@ -1885,15 +1895,6 @@ Item {
             visible: pill.specialView === "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
             anchors.centerIn: parent
             spacing: pill.stripGap
-
-            MouseArea {
-                id: stripFaceMouse
-                anchors.fill: parent
-                anchors.margins: -8 * pill.s
-                hoverEnabled: true
-                // Propagate hover to workspace dots in hover row
-                onContainsMouseChanged: ws && (ws.pulseMode = containsMouse)
-            }
 
             Rectangle {
                 id: stripArt
