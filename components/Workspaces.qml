@@ -304,9 +304,9 @@ Item {
 
     DragHandler {
         id: drag
-        anchors.fill: parent
         enabled: workspaces.enabled && workspaces.watch
         acceptedButtons: Qt.AllButtons
+        target: workspaces
         onActiveChanged: {
             if (!drag.active) {
                 var dx = drag.translation.x;
