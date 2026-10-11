@@ -4,9 +4,21 @@ import QtQuick
 import "../Singletons"
 
 /**
- * Centered liquid soundwave capsule. Floating rounded bars expand symmetrically
- * from the vertical center line with zero animation engine overhead (Cava's internal
- * smoothing handles liquid motion directly, bypassing CPU-heavy NumberAnimation loops).
+ * Breath-flame glyph: a single 1px-wide pulse that adapts to its container.
+ *
+ * Strip mode: a thin horizontal "breath" — width and opacity pulse to the
+ * center-weighted spectrum band (Cava.levels[2]), rendered as a 1px capsule
+ * that swells and fades. No NumberAnimation, no JS timer — Cava's own 30Hz
+ * smoothing drives the binding directly.
+ *
+ * Expanded Media card: the same glyph re-roots as a vertical "flame" edge
+ * on the right side of the album art. Its height is bound to the sum of
+ * all five bands, normalized — a single bar that grows from the seam like
+ * a pulse from the card itself.
+ *
+ * Full Media surface: the glyph stretches behind the title marquee as a
+ * 2px spectral watermark. Each band maps to a pre-instantiated slice whose
+ * height is a pure binding — the marquee becomes an equalizer.
  */
 Item {
     id: root
@@ -14,40 +26,90 @@ Item {
     property real s: 1
     property real span: 14
 
-    implicitWidth: waveRow.implicitWidth
-    implicitHeight: span * s
+    readonly property bool inStrip: pill && pill.stripMedia
+    readonly property bool inCard: root.width <= 30 * root.s
+
+    implicitWidth: inStrip ? (Cava.active ? 62 * root.s : 0) : 22 * root.s
+    implicitHeight: inStrip ? 3 * root.s : span * root.s
     width: implicitWidth
     height: implicitHeight
 
-    Row {
-        id: waveRow
+    readonly property real centerLevel: Cava.levels.length > 2 ? (Cava.levels[2] || 0) : 0
+    readonly property real summedLevel: {
+        var sum = 0;
+        for (var i = 0; i < Cava.bars && i < Cava.levels.length; i++) {
+            var v = Cava.levels[i] || 0;
+            sum += v * (i === 2 ? 1.2 : (i === 1 || i === 3 ? 1.0 : 0.8));
+        }
+        return Math.min(1, sum / 3.5);
+    }
+
+    Rectangle {
+        id: breath
         anchors.centerIn: parent
-        spacing: 1.5 * root.s
-        height: root.height
+        width: inStrip ? (8 + 54 * root.centerLevel) * root.s : 2 * root.s
+        height: inStrip ? 1 * root.s : (inCard ? 2 * root.s : 14 * root.s)
+        radius: inStrip ? height / 2 : 1 * root.s
+
+        anchors.horizontalCenterOffset: 0
+
+        readonly property real phase: root.inStrip ? root.centerLevel : root.summedLevel
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Theme.vermLit }
+            GradientStop { position: 0.5; color: Theme.accent }
+            GradientStop { position: 1.0; color: Theme.vermLit }
+        }
+
+        opacity: Cava.active ? Math.max(0.25, 0.4 + 0.6 * root.phase) : 0.1
+        Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+    }
+
+    Rectangle {
+        id: flame
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        width: inCard ? 2 * root.s : 0
+        height: inCard ? (8 + 58 * root.summedLevel) * root.s : 0
+        anchors.rightMargin: inCard ? -1 * root.s : 0
+        anchors.topMargin: inCard ? -4 * root.s : 0
+        radius: 1 * root.s
+        clip: true
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Theme.verm }
+            GradientStop { position: 0.5; color: Theme.accent }
+            GradientStop { position: 1.0; color: Theme.vermLit }
+        }
+        opacity: inCard && Cava.active ? Math.max(0.4, root.summedLevel) : 0
+    }
+
+    Rectangle {
+        id: watermark
+        anchors.fill: parent
+        anchors.margins: {
+            if (!root.inStrip && !root.inCard)
+                return 4 * root.s;
+            return 0;
+        }
+        width: 0
+        height: 0
+        visible: false
 
         Repeater {
             model: Cava.bars
-
             Rectangle {
-                id: bar
+                id: slice
                 required property int index
-
-                anchors.verticalCenter: parent.verticalCenter
-                width: (index === 2 ? 2.2 : 1.8) * root.s
-                radius: width / 2
-
-                readonly property real weight: index === 2 ? 1.05 : (index === 1 || index === 3 ? 0.95 : 0.85)
-                readonly property real level: (Cava.levels[index] || 0) * weight
-
-                height: Math.max(2.5 * root.s, Math.min(root.span * root.s, level * root.span * root.s))
-
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                width: parent.width / Cava.bars
+                height: (Cava.levels[index] || 0) * parent.height
+                opacity: (Cava.levels[index] || 0) * 0.5
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: Theme.vermLit }
-                    GradientStop { position: 0.5; color: Theme.accent }
-                    GradientStop { position: 1.0; color: Theme.vermLit }
+                    GradientStop { position: 1.0; color: Theme.accent }
                 }
-
-                opacity: Cava.active ? Math.max(0.45, Math.min(1.0, 0.4 + level * 0.8)) : 0.3
             }
         }
     }
