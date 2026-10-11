@@ -2067,15 +2067,12 @@ Item {
                     name: "bolt"
                     color: Battery.low ? Theme.vermLit : Theme.dim
                     stroke: 1.6
-                    scale: Battery.charging ? 1.15 : 1
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: 1200
-                            easing.type: Easing.InOutSine
-                            loops: Battery.charging ? Animation.Infinite : 1
-                            property from: 1
-                            property to: 1.15
-                        }
+                    scale: 1
+                    SequentialAnimation on scale {
+                        running: Battery.charging
+                        loops: Animation.Infinite
+                        NumberAnimation { to: 1.15; duration: 600; easing.type: Easing.InOutSine }
+                        NumberAnimation { to: 1; duration: 600; easing.type: Easing.InOutSine }
                     }
                 }
                 AltText {

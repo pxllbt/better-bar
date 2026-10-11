@@ -54,7 +54,7 @@ has_pulse_mode=$(grep -c 'pulseMode' "$WS_FILE" || true)
 ok "Workspaces supports pulseMode for strip-hover effect" "$has_pulse_mode" "4"
 
 # 6c. Battery bolt has charging pulse animation
-has_charge_pulse=$(grep -A20 'id: stripBat' "$PILL" | grep -c 'Battery.charging.*Animation' || true)
+has_charge_pulse=$(grep -A20 'id: stripBat' "$PILL" | grep -c 'SequentialAnimation on scale' || true)
 ok "Battery charging icon pulses with infinite animation" "$has_charge_pulse" "1"
 
 # 6d. Strip clock elements scale on hover
