@@ -444,8 +444,8 @@ DockPanel {
                                 // its focus back, so the keyboard never gets
                                 // stranded inside a section it cannot leave.
                                 root.setAppsOpen(false);
-                                root.kbIndex = root.nav.rowIndexOf(dockAppsRow);
-                                root.focusRowItem = dockAppsRow;
+                                root.nav.kbIndex = root.nav.rowIndexOf(dockAppsRow);
+                                root.nav.focusRowItem = dockAppsRow;
                                 e.accepted = true;
                             }
                         }
