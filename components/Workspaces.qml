@@ -302,13 +302,26 @@ Item {
          }
     }
 
-    DragHandler {
+    MouseArea {
         id: drag
-        acceptedButtons: Qt.AllButtons
+        anchors.fill: parent
+        z: -1
         enabled: workspaces.enabled && workspaces.watch
-        onActiveChanged: {
-            if (!drag.active) {
-                var dx = drag.translation.x;
+        hoverEnabled: false
+        pressAccepted: false
+        propagateComposedEvents: true
+        property real startX: 0
+        property bool tracking: false
+
+        onPressed: {
+            drag.startX = mouseX;
+            drag.tracking = true;
+            mouse.accepted = false;
+        }
+
+        onReleased: {
+            if (drag.tracking) {
+                var dx = mouseX - drag.startX;
                 if (Math.abs(dx) > 80 * workspaces.s) {
                     if (dx < 0)
                         Hyprland.dispatch("workspace e+1");
@@ -316,7 +329,17 @@ Item {
                         Hyprland.dispatch("workspace e-1");
                 }
             }
+            drag.tracking = false;
         }
+
+        onPositionChanged: {
+            if (!drag.tracking) {
+                drag.startX = mouseX;
+                drag.tracking = true;
+            }
+        }
+
+        onCanceled: drag.tracking = false
     }
 }
     }
