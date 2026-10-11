@@ -60,11 +60,33 @@ has_strip_guard=$(grep -A5 'onHoveredChanged:' "$PILL" | grep -c '!pill.stripBar
 ok "Pill onHoveredChanged ignores stripBar mode from auto-opening media" "$has_strip_guard" "1"
 
 # 10. Strip media art and title are clickable to open media
-strip_art_click=$(grep -A40 'id: stripArt\b' "$PILL" | grep -c 'onClicked: pill\.requestSurface("media")' || true)
+strip_art_click=$(grep -A20 'id: stripArtMouse\b' "$PILL" | grep -c 'pill\.requestSurface("media")' || true)
 ok "stripArt is clickable to request media surface" "$strip_art_click" "1"
 
-strip_title_click=$(grep -A15 'id: stripTitle\b' "$PILL" | grep -c 'onClicked: pill\.requestSurface("media")' || true)
+strip_title_click=$(grep -A20 'id: stripTitleMouse\b' "$PILL" | grep -c 'pill\.requestSurface("media")' || true)
 ok "stripTitle is clickable to request media surface" "$strip_title_click" "1"
+
+# 11. Media quick controls (middle click play/pause and wheel volume)
+has_middle_play=$(grep -A20 'id: stripArtMouse\b' "$PILL" | grep -c 'togglePlaying' || true)
+ok "stripArtMouse handles middle click togglePlaying" "$has_middle_play" "1"
+
+has_wheel_vol=$(grep -A20 'id: stripTitleMouse\b' "$PILL" | grep -c 'onWheel:' || true)
+ok "stripTitleMouse handles wheel volume adjustment" "$has_wheel_vol" "1"
+
+# 12. Workspace wheel navigation
+WS_FILE="$ROOT/components/Workspaces.qml"
+[ -f "$WS_FILE" ] || { echo "no Workspaces.qml at $WS_FILE" >&2; exit 1; }
+has_ws_wheel=$(grep -A10 'onWheel:' "$WS_FILE" | grep -c 'workspace e+1' || true)
+ok "Workspaces handles wheel to cycle workspaces" "$has_ws_wheel" "1"
+
+# 13. Keyboard layout badge cycle action
+KB_FILE="$ROOT/components/KbLayout.qml"
+[ -f "$KB_FILE" ] || { echo "no KbLayout.qml at $KB_FILE" >&2; exit 1; }
+has_kb_cycle=$(grep -A5 'function cycle()' "$KB_FILE" | grep -c 'switchxkblayout' || true)
+ok "KbLayout provides cycle function" "$has_kb_cycle" "1"
+
+has_strip_lay_click=$(grep -A15 'id: stripLayMouse\b' "$PILL" | grep -c 'kbLayout\.cycle()' || true)
+ok "stripLay connects to kbLayout.cycle()" "$has_strip_lay_click" "1"
 
 if [ "$failed" -gt 0 ]; then
     printf '\n%d media-pill checks failed\n' "$failed" >&2

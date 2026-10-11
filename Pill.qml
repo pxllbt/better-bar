@@ -1918,10 +1918,25 @@ Item {
                 }
 
                 MouseArea {
+                    id: stripArtMouse
                     anchors.fill: parent
                     hoverEnabled: true
+                    acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: pill.requestSurface("media")
+                    onClicked: (mouse) => {
+                        if (mouse.button === Qt.MiddleButton) {
+                            if (Players.active && Players.active.canTogglePlaying)
+                                Players.active.togglePlaying();
+                        } else {
+                            pill.requestSurface("media");
+                        }
+                    }
+                    onWheel: (wheel) => {
+                        if (Players.active && Players.active.volume !== undefined) {
+                            var delta = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                            Players.active.volume = Math.max(0.0, Math.min(1.0, Players.active.volume + delta));
+                        }
+                    }
                 }
             }
 
@@ -1936,10 +1951,33 @@ Item {
                 font.weight: Font.Medium
 
                 MouseArea {
+                    id: stripTitleMouse
                     anchors.fill: parent
                     hoverEnabled: true
+                    acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: pill.requestSurface("media")
+                    onClicked: (mouse) => {
+                        if (mouse.button === Qt.MiddleButton) {
+                            if (Players.active && Players.active.canTogglePlaying)
+                                Players.active.togglePlaying();
+                        } else {
+                            pill.requestSurface("media");
+                        }
+                    }
+                    onWheel: (wheel) => {
+                        if (Players.active && Players.active.volume !== undefined) {
+                            var delta = wheel.angleDelta.y > 0 ? 0.05 : -0.05;
+                            Players.active.volume = Math.max(0.0, Math.min(1.0, Players.active.volume + delta));
+                        }
+                    }
+                }
+
+                Tooltip {
+                    s: pill.s
+                    placement: "below"
+                    title: Players.title || "Media"
+                    desc: (Players.artist.length > 0 ? Players.artist + (Players.serviceLabel.length > 0 ? " · " + Players.serviceLabel : "") : (Players.serviceLabel || "Scroll: volume · Middle: pause"))
+                    show: stripTitleMouse.containsMouse || stripArtMouse.containsMouse
                 }
             }
 
@@ -1984,6 +2022,23 @@ Item {
                 font.family: Theme.font
                 font.pixelSize: 12 * pill.s
                 font.weight: Font.DemiBold
+
+                MouseArea {
+                    id: stripLayMouse
+                    anchors.fill: parent
+                    anchors.margins: -4 * pill.s
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: kbLayout.cycle()
+                }
+
+                Tooltip {
+                    s: pill.s
+                    placement: "below"
+                    title: "Keyboard layout"
+                    desc: "Click to cycle layout (" + kbLayout.code + ")"
+                    show: stripLayMouse.containsMouse
+                }
             }
             Row {
                 id: stripBat
@@ -2129,6 +2184,23 @@ Item {
                 font.family: Theme.font
                 font.pixelSize: 11 * pill.s
                 font.weight: Font.DemiBold
+
+                MouseArea {
+                    id: sysLayMouse
+                    anchors.fill: parent
+                    anchors.margins: -4 * pill.s
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: kbLayout.cycle()
+                }
+
+                Tooltip {
+                    s: pill.s
+                    placement: "below"
+                    title: "Keyboard layout"
+                    desc: "Click to cycle layout (" + kbLayout.code + ")"
+                    show: sysLayMouse.containsMouse
+                }
             }
             Row {
                 visible: pill.specialView === "" && Flags.mainDisplay === "system"

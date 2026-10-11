@@ -87,6 +87,10 @@ Item {
         }
     }
 
+    function cycle() {
+        Hyprland.dispatch("switchxkblayout current next");
+    }
+
     Connections {
         target: Hyprland
         function onRawEvent(event) {

@@ -260,6 +260,12 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Hyprland.dispatch("hl.dsp.focus({ workspace = " + slot.wsName + " })")
+                    onWheel: (wheel) => {
+                        if (wheel.angleDelta.y < 0)
+                            Hyprland.dispatch("workspace e+1");
+                        else if (wheel.angleDelta.y > 0)
+                            Hyprland.dispatch("workspace e-1");
+                    }
                     onContainsMouseChanged: {
                         if (containsMouse)
                             workspaces.hoverIndex = slot.index;
