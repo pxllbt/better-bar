@@ -135,7 +135,7 @@ Item {
 
     readonly property real clockHoverPhase: {
         if (workspaces.pulseMode) {
-            return Math.sin(workspaces.pulsePhase * 2 * Math.PI);
+            return Math.sin(workspaces.pulseTick * 0.5);
         }
         return 0;
     }
