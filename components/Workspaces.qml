@@ -308,8 +308,6 @@ Item {
         z: -1
         enabled: workspaces.enabled && workspaces.watch
         hoverEnabled: false
-        pressAccepted: false
-        propagateComposedEvents: true
         property real startX: 0
         property bool tracking: false
 
