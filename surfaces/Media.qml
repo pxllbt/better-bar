@@ -36,7 +36,7 @@ PillSurface {
 
     Timer {
         id: leaveGuardT
-        interval: 250
+        interval: 500
         onTriggered: root.requestClose()
     }
 

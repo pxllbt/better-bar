@@ -48,6 +48,24 @@ ok "Cava levels update does not have silence churn bug" "$cava_silence_bug" "0"
 has_bat_guard=$(grep -c 'Battery.present ? stripBat.implicitWidth : 0' "$PILL" || true)
 ok "Pill stripFixedW guards Battery.present" "$has_bat_guard" "1"
 
+# 8. Pill has surfaceDismissLatch to prevent immediate re-trigger on dismiss
+has_dismiss_latch=$(grep -c 'property bool surfaceDismissLatch' "$PILL" || true)
+ok "Pill declares surfaceDismissLatch" "$has_dismiss_latch" "1"
+
+# 9. Pill onHoveredChanged checks !pill.stripBar and !surfaceDismissLatch
+has_hover_guard=$(grep -A5 'onHoveredChanged:' "$PILL" | grep -c '!surfaceDismissLatch' || true)
+ok "Pill onHoveredChanged respects surfaceDismissLatch" "$has_hover_guard" "1"
+
+has_strip_guard=$(grep -A5 'onHoveredChanged:' "$PILL" | grep -c '!pill.stripBar' || true)
+ok "Pill onHoveredChanged ignores stripBar mode from auto-opening media" "$has_strip_guard" "1"
+
+# 10. Strip media art and title are clickable to open media
+strip_art_click=$(grep -A40 'id: stripArt\b' "$PILL" | grep -c 'onClicked: pill\.requestSurface("media")' || true)
+ok "stripArt is clickable to request media surface" "$strip_art_click" "1"
+
+strip_title_click=$(grep -A15 'id: stripTitle\b' "$PILL" | grep -c 'onClicked: pill\.requestSurface("media")' || true)
+ok "stripTitle is clickable to request media surface" "$strip_title_click" "1"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%d media-pill checks failed\n' "$failed" >&2
     exit 1

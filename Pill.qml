@@ -903,11 +903,17 @@ Item {
             ldPower.item.releaseFocused();
     }
 
-    onSurfaceOpenChanged: if (surfaceOpen) {
-        pinned = false;
-        revealSession = false;
-        hoverLatch = false;
-        expandLatch = false;
+    property bool surfaceDismissLatch: false
+
+    onSurfaceOpenChanged: {
+        if (surfaceOpen) {
+            pinned = false;
+            revealSession = false;
+            hoverLatch = false;
+            expandLatch = false;
+        } else {
+            surfaceDismissLatch = true;
+        }
     }
 
     QtObject {
@@ -1271,8 +1277,11 @@ Item {
     readonly property real inputPadRight: bud.shown ? bud.budR + 2 * s : 0
 
     onHoveredChanged: {
-        if (hovered && pill.mode !== "game") {
-            if (!Flags.autoHide && Flags.expandTo === "media" && pill.hasMedia
+        if (!hovered) {
+            surfaceDismissLatch = false;
+        }
+        if (hovered && pill.mode !== "game" && !surfaceDismissLatch) {
+            if (!Flags.autoHide && !pill.stripBar && Flags.expandTo === "media" && pill.hasMedia
                 && !pill.surfaceOpen && !pill.dragActive
                 && bootSettled && !toastActive) {
                 /* expandTo "media" with auto-hide off: a hover grows the pill
@@ -1907,6 +1916,13 @@ Item {
                     smooth: true
                     visible: stripArtImg.status !== Image.Ready && status === Image.Ready
                 }
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: pill.requestSurface("media")
+                }
             }
 
             AltText {
@@ -1918,6 +1934,13 @@ Item {
                 font.family: Theme.font
                 font.pixelSize: 12.5 * pill.s
                 font.weight: Font.Medium
+
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: pill.requestSurface("media")
+                }
             }
 
             MusicBars {
