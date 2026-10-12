@@ -325,14 +325,18 @@ Item {
     }
 
     Timer {
-        running: root.visible && !root.busy
-        interval: root.blinking ? 33 : 83
+        // Only run the idle swirl timer when active/blinking, not while resting idle.
+        // Skipping 12fps canvas software rasterization at rest drops idle CPU to ~0%.
+        running: root.visible && !root.busy && root.blinking
+        interval: 33
         repeat: true
         onTriggered: {
             root.swirl += interval * 0.0005;
             canvas.requestPaint();
         }
     }
+
+    onActiveFormChanged: canvas.requestPaint()
 
     Canvas {
         id: canvas

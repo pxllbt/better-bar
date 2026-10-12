@@ -681,7 +681,7 @@ Item {
      * which meant an always-hidden dock still paid 8 refreshes a second per
      * monitor forever.
      */
-    readonly property int pollMs: root.down ? 2000 : 120
+    readonly property int pollMs: root.down ? 3000 : 1000
 
     Timer {
         id: itemsTimer
@@ -689,6 +689,21 @@ Item {
         repeat: true
         running: Flags.dockEnabled && !root.reclaimed
         onTriggered: root.refreshItems()
+    }
+
+    Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            if (!event || !event.name) return;
+            var n = event.name;
+            if (n === "activewindow" || n === "activewindowv2" ||
+                n === "openwindow" || n === "closewindow" ||
+                n === "movewindow" || n === "movewindowv2" ||
+                n === "workspace" || n === "workspacev2" ||
+                n === "focusedmon" || n === "fullscreen") {
+                root.refreshItems();
+            }
+        }
     }
 
     /**

@@ -441,7 +441,7 @@ PillSurface {
                     anchors.fill: parent
                     source: root.coverSource
                     sourceSize: Qt.size(Math.ceil(width * 2), Math.ceil(height * 2))
-                    fillMode: Image.PreserveAspectFit
+                    fillMode: Image.PreserveAspectCrop
                     asynchronous: true
                     retainWhileLoading: true
                     cache: String(source).indexOf("file:") !== 0
@@ -454,22 +454,22 @@ PillSurface {
                 }
 
                 /**
-                 * Grooves. Concentric rings rather than a flat overlay, because
-                 * the artwork has to stay readable underneath: thin, low-opacity
-                 * rings read as vinyl and leave the art alone.
+                 * Micro-grooves along the outer rim so it reads as physical media
+                 * without hazing or washing out the album picture.
                  */
                 Canvas {
                     anchors.fill: parent
-                    opacity: 0.16
+                    opacity: 0.06
                     onPaint: {
                         const ctx = getContext("2d");
                         ctx.reset();
                         const cx = width / 2;
                         const cy = height / 2;
-                        const step = Math.max(3, width * 0.045);
+                        const step = Math.max(3, width * 0.05);
                         ctx.strokeStyle = "#ffffff";
-                        ctx.lineWidth = Math.max(1, width * 0.008);
-                        for (let r = step; r < width / 2; r += step) {
+                        ctx.lineWidth = Math.max(1, width * 0.006);
+                        // Confine grooves primarily to outer area to keep art center clear
+                        for (let r = width * 0.25; r < width / 2; r += step) {
                             ctx.beginPath();
                             ctx.arc(cx, cy, r, 0, Math.PI * 2);
                             ctx.stroke();
@@ -478,38 +478,36 @@ PillSurface {
                 }
             }
 
-            /** Spindle hole: the anchor that makes the rotation legible. */
+            /** Spindle hole: compact CD hub ring so the art is not obscured. */
             Rectangle {
                 anchors.centerIn: parent
-                width: parent.width * 0.13
+                width: parent.width * 0.10
                 height: width
                 radius: width / 2
-                color: Qt.rgba(0, 0, 0, 0.85)
+                color: Qt.rgba(0, 0, 0, 0.9)
                 border.width: Math.max(1, 1 * root.s)
-                border.color: Qt.rgba(1, 1, 1, 0.22)
+                border.color: Qt.rgba(1, 1, 1, 0.3)
 
-                /** Highlight, so the hole does not read as a flat dot. */
+                /** Transparent inner hub ring */
                 Rectangle {
                     anchors.centerIn: parent
-                    width: parent.width * 0.42
+                    width: parent.width * 0.4
                     height: width
                     radius: width / 2
-                    color: Qt.rgba(1, 1, 1, 0.10)
+                    color: Qt.rgba(1, 1, 1, 0.15)
                 }
             }
 
             /**
-             * Specular sweep. Static on purpose: a highlight bolted to the
-             * record would rotate with it and look wrong, whereas a fixed one
-             * reads as light in the room.
+             * Subtle CD sheen sweep, kept faint so album art colors stay rich and true.
              */
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
-                opacity: 0.10
+                opacity: 0.04
                 gradient: Gradient {
                     GradientStop { position: 0.0; color: "#ffffff" }
-                    GradientStop { position: 0.42; color: "#00000000" }
+                    GradientStop { position: 0.35; color: "#00000000" }
                 }
             }
         }
@@ -726,11 +724,10 @@ PillSurface {
                 }
             }
 
-            /* Expand and Copy controls */
+            /* Expand control */
             Row {
                 width: infoStack.width
                 height: 15 * root.s
-                spacing: 10 * root.s
 
                 Item {
                     id: expandCtl
@@ -766,54 +763,6 @@ PillSurface {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: root.requestExpand()
-                    }
-                }
-
-                Item {
-                    id: copyCtl
-                    width: 42 * root.s
-                    height: 15 * root.s
-
-                    Row {
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 4 * root.s
-
-                        GlyphIcon {
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 10 * root.s
-                            height: 10 * root.s
-                            name: "clipboard"
-                            color: copyMouse.containsMouse ? Theme.cream : Theme.iconDim
-                            Behavior on color { ColorAnimation { duration: Motion.fast } }
-                        }
-
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: copiedT.running ? "Done" : "Copy"
-                            color: copiedT.running ? Theme.vermLit : (copyMouse.containsMouse ? Theme.cream : Theme.dim)
-                            font.family: Theme.font
-                            font.pixelSize: 9.5 * root.s
-                            Behavior on color { ColorAnimation { duration: Motion.fast } }
-                        }
-                    }
-
-                    Timer {
-                        id: copiedT
-                        interval: 1500
-                    }
-
-                    MouseArea {
-                        id: copyMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            var textToCopy = root.trackUrl || (root.title + (root.artist.length > 0 ? " - " + root.artist : ""));
-                            if (textToCopy && textToCopy.length > 0) {
-                                Quickshell.execDetached(["sh", "-c", "printf '%s' \"$1\" | wl-copy", "_", textToCopy]);
-                                copiedT.restart();
-                            }
-                        }
                     }
                 }
             }

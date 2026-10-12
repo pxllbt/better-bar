@@ -301,7 +301,45 @@ Item {
      * in place of the clock so it is obvious you are looking at the minimized stash
      * or the private space rather than your real desktop. Empty in the normal case.
      */
+    property string activeSpecial: ""
+
+    Connections {
+        target: Hyprland
+        function onRawEvent(event) {
+            if (!event || !event.name) return;
+            if (event.name === "activespecial") {
+                var d = String(event.data || "");
+                var comma = d.indexOf(",");
+                var spName = comma >= 0 ? d.substring(0, comma) : d;
+                var monName = comma >= 0 ? d.substring(comma + 1) : "";
+                if (monName === "" || monName === pill.screenName) {
+                    if (spName.indexOf("special:") === 0) {
+                        var id = spName.slice("special:".length);
+                        pill.activeSpecial = id === "scratchpad" ? "Scratchpad" : (id.charAt(0).toUpperCase() + id.slice(1));
+                    } else {
+                        pill.activeSpecial = "";
+                    }
+                }
+            } else if (event.name === "activespecialv2") {
+                var d2 = String(event.data || "");
+                var parts = d2.split(",");
+                var name2 = parts.length > 1 ? parts[1] : "";
+                var mon2 = parts.length > 2 ? parts[2] : "";
+                if (mon2 === "" || mon2 === pill.screenName) {
+                    if (name2.indexOf("special:") === 0) {
+                        var id2 = name2.slice("special:".length);
+                        pill.activeSpecial = id2 === "scratchpad" ? "Scratchpad" : (id2.charAt(0).toUpperCase() + id2.slice(1));
+                    } else if (name2 === "") {
+                        pill.activeSpecial = "";
+                    }
+                }
+            }
+        }
+    }
+
     readonly property string specialView: {
+        if (pill.activeSpecial.length > 0)
+            return pill.activeSpecial;
         var ms = Hyprland.monitors.values;
         for (var i = 0; i < ms.length; i++) {
             if (ms[i] && ms[i].name === pill.screenName) {
@@ -316,6 +354,7 @@ Item {
                     if (id === "minimized") return "Minimized";
                     if (id === "private") return "Private";
                     if (id === "stash") return "Stash";
+                    if (id === "scratchpad") return "Scratchpad";
                     return id.charAt(0).toUpperCase() + id.slice(1);
                 }
                 return "";
@@ -395,6 +434,8 @@ Item {
         + stripWs.implicitWidth + stripLay.implicitWidth + (Battery.present ? stripBat.implicitWidth : 0)
 
     readonly property real stripFaceW: {
+        if (pill.specialView !== "")
+            return 144 * s;
         let fixedCount = 4 + (Battery.present ? 1 : 0);
         let gaps = Math.max(0, fixedCount - 1);
         let w = 2 * stripPad + stripFixedW + gaps * stripGap;
@@ -2141,6 +2182,49 @@ Item {
             font.family: Theme.font
             font.pixelSize: 12.5 * pill.s
             font.weight: Font.Medium
+        }
+
+        Row {
+            id: stripSpecialFace
+            visible: pill.specialView !== "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+            anchors.centerIn: parent
+            spacing: 8 * pill.s
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 18 * pill.s
+                height: 18 * pill.s
+                radius: 5 * pill.s
+                color: Qt.alpha(Theme.accent, 0.18)
+                border.width: 1
+                border.color: Qt.alpha(Theme.accent, 0.45)
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    width: 11 * pill.s
+                    height: 11 * pill.s
+                    name: "bookmark"
+                    color: Theme.accent
+                    stroke: 1.8
+                }
+            }
+
+            AltText {
+                id: stripSpecialLabel
+                anchors.verticalCenter: parent.verticalCenter
+                text: pill.specialView
+                font.family: Theme.font
+                font.pixelSize: 13 * pill.s
+                font.weight: Font.Bold
+            }
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 5 * pill.s
+                height: 5 * pill.s
+                radius: 2.5 * pill.s
+                color: Theme.accent
+            }
         }
 
         Row {

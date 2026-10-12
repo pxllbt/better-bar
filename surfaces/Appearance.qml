@@ -55,7 +55,7 @@ Item { width: 1; height: 10 * root.s }
             id: themeTile
             surface: root
             name: "Theme"
-            sub: "Light, dark, dynamic or manual"
+            sub: "Theme gallery · 27 themes"
 
             GlyphIcon {
                 width: 16 * root.s

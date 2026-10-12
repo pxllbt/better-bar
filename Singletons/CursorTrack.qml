@@ -124,9 +124,11 @@ Singleton {
         }
     }
 
+    readonly property bool multiMonitor: Object.keys(rects).length > 1
+
     Timer {
-        interval: 750
-        running: Flags.cursorFollow
+        interval: 1000
+        running: Flags.cursorFollow && root.multiMonitor
         repeat: true
         onTriggered: { if (!cursorProc.running) cursorProc.running = true }
     }

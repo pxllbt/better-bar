@@ -41,6 +41,8 @@ Singleton {
     property string paletteText: ""
     /** Resolved, existence-checked path of the desktop background, or "". */
     property string backgroundPath: ""
+    /** Current active theme name from theme.name file. */
+    readonly property string activeThemeName: themeName.text() ? themeName.text().trim() : ""
     /** Bumped on every change to either value above. */
     property int revision: 0
 
@@ -56,8 +58,8 @@ Singleton {
     readonly property string backgroundLink: root.stateDir + "/background"
     readonly property string colorsPath: root.stateDir + "/theme/colors.toml"
 
-    /** How often the poll asks. See `probe` for why this cannot go slower. */
-    readonly property int pollMs: 4000
+    /** How often the fallback background poll asks. Inotify watches handle theme changes immediately. */
+    readonly property int pollMs: 30000
 
     Component.onCompleted: {
         themeName.reload();
@@ -133,7 +135,7 @@ Singleton {
      */
     Timer {
         id: settle
-        interval: 400
+        interval: 50
         onTriggered: { root.probe(); Color.reloadTheme(); }
     }
 
@@ -147,6 +149,7 @@ Singleton {
         printErrors: false
         onFileChanged: {
             reload();
+            root.probe();
             settle.restart();
         }
     }

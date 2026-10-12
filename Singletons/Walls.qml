@@ -372,7 +372,7 @@ Singleton {
      */
     Timer {
         id: watchTimer
-        interval: 4000
+        interval: 60000
         repeat: true
         running: true
         triggeredOnStart: false

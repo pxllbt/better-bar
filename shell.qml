@@ -434,6 +434,7 @@ ShellRoot {
         }
         function peek(mon: string): void { root.peek(mon); }
         function hide(): void { root.close(); }
+        function reloadTheme(): void { ThemeSync.probe(); Color.reloadTheme(); }
 
         /**
          * Memory saver door: drop every closed surface on every monitor right

@@ -141,8 +141,7 @@ Rectangle {
 
     /**
      * The theme's active-window border as a gradient edge. Shared with the dock
-     * so the pill and the dock carry the same rim the active window does;
-     * `clip` on this Rectangle trims the strips at the rounded silhouette.
+     * so the pill and the dock carry the same rim the active window does.
      */
     ActiveBorderRing {
         id: activeRing
@@ -150,6 +149,11 @@ Rectangle {
         // The root is the Rectangle being outlined, so its own radius is the
         // one the rim must trace.
         radius: glass.radius
+        topLeftRadius: glass.topLeftRadius
+        topRightRadius: glass.topRightRadius
+        bottomLeftRadius: glass.bottomLeftRadius
+        bottomRightRadius: glass.bottomRightRadius
+        z: 1
     }
 
     readonly property color ringTop: activeRing.topColor

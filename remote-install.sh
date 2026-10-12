@@ -71,6 +71,11 @@ else
   warn "Omarchy not found in PATH — hide the stock bar with: omarchy toggle bar off"
 fi
 
+# Run Better Bar zero-CPU optimization and Omarchy theme/wallpaper sync setup
+if [ -f "$INSTALL_ROOT/scripts/optimize-setup.sh" ]; then
+  bash "$INSTALL_ROOT/scripts/optimize-setup.sh" || true
+fi
+
 IPC_PREFIX="qs -p $INSTALL_ROOT"
 
 printf '

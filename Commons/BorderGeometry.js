@@ -277,7 +277,6 @@ function radiiFit(w, h, r) {
 function borderPaths(w, h, radius, widths) {
   w = Math.max(0, Number(w) || 0)
   h = Math.max(0, Number(h) || 0)
-  radius = Math.max(0, Number(radius) || 0)
   widths = widths || { top: 0, right: 0, bottom: 0, left: 0 }
   if (w <= 0 || h <= 0) return []
 
@@ -288,12 +287,29 @@ function borderPaths(w, h, radius, widths) {
   var enabled = [top > 0, right > 0, bottom > 0, left > 0]
   if (!enabled[0] && !enabled[1] && !enabled[2] && !enabled[3]) return []
 
-  var outerRadii = normalizeRadii(w, h, {
-    tlrx: radius, tlry: radius,
-    trrx: radius, trry: radius,
-    brrx: radius, brry: radius,
-    blrx: radius, blry: radius,
-  })
+  var radiiObj
+  if (typeof radius === "object" && radius !== null) {
+    var tl = radius.topLeft !== undefined ? radius.topLeft : (radius.tl !== undefined ? radius.tl : (radius.tlrx !== undefined ? radius.tlrx : 0))
+    var tr = radius.topRight !== undefined ? radius.topRight : (radius.tr !== undefined ? radius.tr : (radius.trrx !== undefined ? radius.trrx : 0))
+    var br = radius.bottomRight !== undefined ? radius.bottomRight : (radius.br !== undefined ? radius.br : (radius.brrx !== undefined ? radius.brrx : 0))
+    var bl = radius.bottomLeft !== undefined ? radius.bottomLeft : (radius.bl !== undefined ? radius.bl : (radius.blrx !== undefined ? radius.blrx : 0))
+    radiiObj = {
+      tlrx: Math.max(0, Number(tl) || 0), tlry: Math.max(0, Number(tl) || 0),
+      trrx: Math.max(0, Number(tr) || 0), trry: Math.max(0, Number(tr) || 0),
+      brrx: Math.max(0, Number(br) || 0), brry: Math.max(0, Number(br) || 0),
+      blrx: Math.max(0, Number(bl) || 0), blry: Math.max(0, Number(bl) || 0),
+    }
+  } else {
+    var r = Math.max(0, Number(radius) || 0)
+    radiiObj = {
+      tlrx: r, tlry: r,
+      trrx: r, trry: r,
+      brrx: r, brry: r,
+      blrx: r, blry: r,
+    }
+  }
+
+  var outerRadii = normalizeRadii(w, h, radiiObj)
   var outerPath = roundedRectPath(0, 0, w, h, {
     tlrx: outerRadii.tl.rx, tlry: outerRadii.tl.ry,
     trrx: outerRadii.tr.rx, trry: outerRadii.tr.ry,

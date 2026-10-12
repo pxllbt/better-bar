@@ -52,6 +52,42 @@ SettingsSurface {
         return Theme.hexUpper(c);
     }
 
+    function blendHex(c1, c2, t) {
+        var r1 = c1.r, g1 = c1.g, b1 = c1.b;
+        var r2 = c2.r, g2 = c2.g, b2 = c2.b;
+        return Theme.hexUpper(Qt.rgba(r1 * (1 - t) + r2 * t, g1 * (1 - t) + g2 * t, b1 * (1 - t) + b2 * t, 1));
+    }
+
+    readonly property color themeBaseColor: Theme.omarchyAccent ? Qt.color(Theme.omarchyAccent) : Qt.color(Theme.accent)
+    readonly property color wallBaseColor: (Dyn.primary && Dyn.primary.length > 0) ? Qt.color(Dyn.primary) : Qt.color("#ff9a64")
+
+    readonly property string hexTheme: Theme.hexUpper(themeBaseColor)
+    readonly property string hexWall: Theme.hexUpper(wallBaseColor)
+    readonly property string hexFusion50: blendHex(themeBaseColor, wallBaseColor, 0.5)
+    readonly property string hexFusionTheme: blendHex(themeBaseColor, wallBaseColor, 0.28)
+    readonly property string hexFusionWall: blendHex(themeBaseColor, wallBaseColor, 0.72)
+
+    readonly property var harmonySwatches: [
+        { label: "Theme", hex: hexTheme, isTheme: true, desc: "Theme accent" },
+        { label: "Harmonic", hex: hexFusionTheme, isTheme: false, desc: "Theme + wallpaper tint" },
+        { label: "Fusion", hex: hexFusion50, isTheme: false, desc: "50/50 Theme × Wallpaper" },
+        { label: "Adaptive", hex: hexFusionWall, isTheme: false, desc: "Wallpaper + theme sync" },
+        { label: "Wallpaper", hex: hexWall, isTheme: false, desc: "Wallpaper primary extract" }
+    ]
+
+    function pickSwatch(hex, isTheme) {
+        if (isTheme) {
+            setAccentCustom(false);
+        } else {
+            Flags.accentOverride = hex.toUpperCase();
+            var col = Qt.color(hex);
+            if (col && col.hslHue >= 0) {
+                accentHueSlider.value = Math.min(1, col.hslHue);
+                accentSatSlider.value = Math.max(0.3, Math.min(1, col.hslSaturation));
+            }
+        }
+    }
+
     /** Row caption: custom state, plus the scheme accent when following it. */
     readonly property string accentSub: root.accentCustom
         ? "Custom · " + Flags.accentOverride.toUpperCase()
@@ -126,7 +162,7 @@ Item { width: 1; height: 10 * root.s }
                     Behavior on color { ColorAnimation { duration: Motion.fast } }
                 }
 
-                LinkToggle {
+                    LinkToggle {
                     id: accentToggle
                     anchors.left: accentChip.right
                     anchors.leftMargin: 10 * root.s
@@ -134,6 +170,104 @@ Item { width: 1; height: 10 * root.s }
                     s: root.s
                     on: root.accentCustom
                     onToggled: root.setAccentCustom(!root.accentCustom)
+                }
+            }
+        }
+
+        Item { width: 1; height: 10 * root.s }
+
+        // Harmonic Wallpaper & Theme Swatches
+        Item {
+            width: parent.width
+            height: 62 * root.s
+
+            Column {
+                anchors.fill: parent
+                anchors.leftMargin: 12 * root.s
+                anchors.rightMargin: 12 * root.s
+                spacing: 6 * root.s
+
+                Row {
+                    spacing: 6 * root.s
+                    GlyphIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 12 * root.s
+                        height: 12 * root.s
+                        name: "palette"
+                        color: Theme.faint
+                        stroke: 1.6
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: "ADAPTIVE HARMONY (WALLPAPER × THEME)"
+                        color: Theme.faint
+                        font.family: Theme.font
+                        font.pixelSize: 10 * root.s
+                        font.weight: Font.DemiBold
+                        font.letterSpacing: 0.5
+                    }
+                }
+
+                Row {
+                    width: parent.width
+                    spacing: 6 * root.s
+
+                    Repeater {
+                        model: root.harmonySwatches
+
+                        delegate: Rectangle {
+                            id: swatchCard
+                            required property var modelData
+
+                            readonly property bool isCurrent: {
+                                if (modelData.isTheme)
+                                    return !root.accentCustom || (Flags.accentOverride.toUpperCase() === modelData.hex.toUpperCase());
+                                return root.accentCustom && (Flags.accentOverride.toUpperCase() === modelData.hex.toUpperCase());
+                            }
+
+                            width: (parent.width - 24 * root.s) / 5
+                            height: 38 * root.s
+                            radius: 8 * root.s
+                            color: modelData.hex
+                            border.width: isCurrent ? 2.5 : 1
+                            border.color: isCurrent ? Theme.cream : (swatchMouse.containsMouse ? Qt.alpha(Theme.cream, 0.4) : Qt.rgba(0, 0, 0, 0.35))
+
+                            Behavior on border.color { ColorAnimation { duration: Motion.fast } }
+
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 2 * root.s
+
+                                GlyphIcon {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    visible: swatchCard.isCurrent
+                                    width: 10 * root.s
+                                    height: 10 * root.s
+                                    name: "check"
+                                    color: Qt.color(modelData.hex).hslLightness > 0.5 ? "#000000" : "#ffffff"
+                                    stroke: 2.2
+                                }
+
+                                Text {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    text: modelData.label
+                                    color: Qt.color(modelData.hex).hslLightness > 0.5 ? "#000000" : "#ffffff"
+                                    font.family: Theme.font
+                                    font.pixelSize: 9 * root.s
+                                    font.weight: swatchCard.isCurrent ? Font.Bold : Font.DemiBold
+                                    opacity: 0.95
+                                }
+                            }
+
+                            MouseArea {
+                                id: swatchMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.pickSwatch(modelData.hex, modelData.isTheme)
+                            }
+                        }
+                    }
                 }
             }
         }

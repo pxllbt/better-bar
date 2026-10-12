@@ -26,7 +26,28 @@ Singleton {
     property bool active: false
 
     property bool available: false
-    readonly property bool wanted: Flags.musicViz && available
+
+    /**
+     * Only spawn and feed cava when audio is actually playing, with a short
+     * holdover after pausing so track skips don't restart the pipewire stream.
+     * When silent or paused, shutting cava down drops CPU usage to zero.
+     */
+    readonly property bool musicPlaying: Players.playing
+    onMusicPlayingChanged: {
+        if (musicPlaying) {
+            idleHold.stop();
+        } else {
+            idleHold.restart();
+        }
+    }
+
+    Timer {
+        id: idleHold
+        interval: 3500
+        repeat: false
+    }
+
+    readonly property bool wanted: Flags.musicViz && available && (musicPlaying || idleHold.running || root.active)
 
     /**
      * autosens is off so a silent browser holding the sink stays at zero bars
