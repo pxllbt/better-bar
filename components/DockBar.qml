@@ -681,13 +681,18 @@ Item {
      * which meant an always-hidden dock still paid 8 refreshes a second per
      * monitor forever.
      */
-    readonly property int pollMs: root.down ? 3000 : 1000
+    /**
+     * Safety fallback poll: only runs while the dock is actively UP and visible.
+     * When auto-hidden or retracted (`root.down`), timer pauses completely (0% CPU).
+     * All window opens/closes/focuses are already dispatched at 0ms latency by Hyprland IPC.
+     */
+    readonly property int pollMs: 8000
 
     Timer {
         id: itemsTimer
         interval: root.pollMs
         repeat: true
-        running: Flags.dockEnabled && !root.reclaimed
+        running: Flags.dockEnabled && !root.reclaimed && !root.down
         onTriggered: root.refreshItems()
     }
 
@@ -1541,18 +1546,21 @@ Item {
                 }
 
                 Rectangle {
-                    // Uniform indicator: same size for every running app, the
-                    // active one distinguished purely by color. No size tween —
-                    // an app switch used to make one dot swell while the other
-                    // deflated (5.5s vs 4s), which read as growing/shrinking.
+                    // Active app morphs into a sleek 12px indicator pill, while
+                    // background running apps rest as a compact 4px pip.
                     visible: !chip.divider && chip.modelData.running
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 8 * s
-                    width: 4 * s
-                    height: 4 * s
-                    radius: width / 2
+                    anchors.bottomMargin: 7 * s
+                    width: chip.modelData.active ? 12 * s : 4 * s
+                    height: 3.5 * s
+                    radius: height / 2
                     color: chip.modelData.active ? root.dockActive : root.dockDotIdle
+                    opacity: chip.modelData.active ? 1.0 : 0.65
+
+                    Behavior on width { NumberAnimation { duration: Motion.fast } }
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+                    Behavior on opacity { NumberAnimation { duration: Motion.fast } }
                 }
 
                 MouseArea {

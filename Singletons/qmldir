@@ -29,3 +29,4 @@ singleton OmarchyMenu OmarchyMenu.qml
 singleton ThemeSync ThemeSync.qml
 singleton CursorTrack CursorTrack.qml
 singleton StripLayout StripLayout.qml
+singleton Recast Recast.qml

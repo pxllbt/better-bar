@@ -27,17 +27,21 @@ Item {
     property string text: ""
     /**
      * The palette the characters cycle through — one colour per
-     * character, wrapping around. A function rather than a list
-     * property: the theme values are read on every call, so a
-     * palette that moves (a wallpaper switch on a dynamic theme)
-     * re-colours the text with it, where a var property would
-     * have snapshotted the colours at creation and kept the old
-     * sweep.
+     * character, wrapping around. Kept as a reactive QML property binding
+     * so that whenever Theme values update (on a theme switch or dynamic
+     * wallpaper change), root.palette emits paletteChanged and forces
+     * every delegate's color binding to re-evaluate immediately.
      */
+    readonly property var palette: [
+        Theme.accent,
+        Theme.cream,
+        Theme.vermLit,
+        Theme.bright,
+        Theme.verm
+    ]
+
     function colorAt(index) {
-        var palette = [Theme.accent, Theme.cream, Theme.vermLit,
-                       Theme.bright, Theme.verm];
-        return palette[index % palette.length];
+        return root.palette.length > 0 ? root.palette[index % root.palette.length] : Theme.accent;
     }
     property font font: Qt.font({})
     property real letterSpacing: 0
@@ -75,7 +79,7 @@ Item {
             delegate: Text {
                 required property int index
                 text: root.shown.charAt(index)
-                color: root.colorAt(index)
+                color: root.palette.length > 0 ? root.palette[index % root.palette.length] : Theme.accent
                 font.family: root.font.family
                 font.pixelSize: root.font.pixelSize
                 font.weight: root.font.weight

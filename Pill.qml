@@ -362,6 +362,7 @@ Item {
         }
         return "";
     }
+    readonly property bool recastRecording: typeof Recast !== "undefined" && Recast.recording
     readonly property bool toastActive: Notifs.popups.length > 0
     readonly property bool osdActive: osd.flashing
 
@@ -434,6 +435,8 @@ Item {
         + stripWs.implicitWidth + stripLay.implicitWidth + (Battery.present ? stripBat.implicitWidth : 0)
 
     readonly property real stripFaceW: {
+        if (pill.recastRecording)
+            return 156 * s;
         if (pill.specialView !== "")
             return 144 * s;
         let fixedCount = 4 + (Battery.present ? 1 : 0);
@@ -1981,7 +1984,7 @@ Item {
             // strip mode it is far wider than the card-sized body a surface
             // morphs the pill into, so leaving it up overflows the pill and
             // covers the surface.
-            visible: pill.specialView === "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+            visible: pill.specialView === "" && !pill.recastRecording && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
             anchors.centerIn: parent
             spacing: pill.stripGap
 
@@ -2186,7 +2189,7 @@ Item {
 
         Row {
             id: stripSpecialFace
-            visible: pill.specialView !== "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+            visible: !pill.recastRecording && pill.specialView !== "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
             anchors.centerIn: parent
             spacing: 8 * pill.s
 
@@ -2228,6 +2231,63 @@ Item {
         }
 
         Row {
+            id: stripRecordingFace
+            visible: pill.recastRecording && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+            anchors.centerIn: parent
+            spacing: 8 * pill.s
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 18 * pill.s
+                height: 18 * pill.s
+                radius: 9 * pill.s
+                color: Qt.rgba(0.95, 0.18, 0.22, 0.22)
+                border.width: 1
+                border.color: Qt.rgba(0.95, 0.22, 0.28, 0.6)
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 7 * pill.s
+                    height: 7 * pill.s
+                    radius: 3.5 * pill.s
+                    color: "#ff3b30"
+
+                    SequentialAnimation on opacity {
+                        running: Recast.recording && !Recast.paused
+                        loops: Animation.Infinite
+                        NumberAnimation { to: 0.35; duration: 600 }
+                        NumberAnimation { to: 1.0; duration: 600 }
+                    }
+                }
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: "REC"
+                font.family: Theme.font
+                font.pixelSize: 11 * pill.s
+                font.weight: Font.Black
+                color: "#ff453a"
+            }
+
+            Text {
+                id: stripRecordingTimer
+                anchors.verticalCenter: parent.verticalCenter
+                text: Recast.formattedTime
+                font.family: Theme.font
+                font.pixelSize: 12.5 * pill.s
+                font.weight: Font.Bold
+                color: Theme.cream
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: Recast.toggleRecording()
+            }
+        }
+
+        Row {
             id: restRow
             visible: !pill.stripBar
             anchors.centerIn: parent
@@ -2243,7 +2303,7 @@ Item {
                  * time sitting a few pixels right of centre.
                  */
                 readonly property bool slotUsed: barsOn || Flags.clockIcon
-                visible: pill.specialView === "" && Flags.mainDisplay === "minimal" && slotUsed
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "minimal" && slotUsed
                 anchors.verticalCenter: parent.verticalCenter
                 width: clockGlyph.width
                 height: clockGlyph.height
@@ -2279,7 +2339,7 @@ Item {
                 }
             }
             AltText {
-                visible: pill.specialView === "" && Flags.mainDisplay === "minimal"
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "minimal"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.hhmm
                 font.family: Theme.font
@@ -2288,7 +2348,7 @@ Item {
                 font.features: { "tnum": 1 }
             }
             AltText {
-                visible: pill.specialView === "" && Flags.mainDisplay === "classic"
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "classic"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.date
                 font.family: Theme.font
@@ -2296,7 +2356,7 @@ Item {
                 font.weight: Font.DemiBold
             }
             AltText {
-                visible: pill.specialView === "" && Flags.mainDisplay === "classic"
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "classic"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.hhmm
                 font.family: Theme.font
@@ -2305,7 +2365,7 @@ Item {
                 font.features: { "tnum": 1 }
             }
             AltText {
-                visible: pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.weekday
                 font.family: Theme.font
@@ -2313,7 +2373,7 @@ Item {
                 font.weight: Font.DemiBold
             }
             AltText {
-                visible: pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.hhmm
                 font.family: Theme.font
@@ -2322,7 +2382,7 @@ Item {
                 font.features: { "tnum": 1 }
             }
             AltText {
-                visible: pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
                     && ws.activeWs !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 text: ws.activeWs
@@ -2332,7 +2392,7 @@ Item {
                 font.features: { "tnum": 1 }
             }
             AltText {
-                visible: pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
                 anchors.verticalCenter: parent.verticalCenter
                 text: kbLayout.code
                 font.family: Theme.font
@@ -2357,7 +2417,7 @@ Item {
                 }
             }
             Row {
-                visible: pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
                     && Battery.present
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 3 * pill.s
@@ -2380,12 +2440,48 @@ Item {
                 }
             }
             AltText {
-                visible: pill.specialView !== ""
+                visible: !pill.recastRecording && pill.specialView !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 text: pill.specialView
                 font.family: Theme.font
                 font.pixelSize: 16 * pill.s
                 font.weight: Font.DemiBold
+            }
+
+            Row {
+                visible: pill.recastRecording
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6 * pill.s
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 7 * pill.s
+                    height: 7 * pill.s
+                    radius: 3.5 * pill.s
+                    color: "#ff3b30"
+
+                    SequentialAnimation on opacity {
+                        running: Recast.recording && !Recast.paused
+                        loops: Animation.Infinite
+                        NumberAnimation { to: 0.35; duration: 600 }
+                        NumberAnimation { to: 1.0; duration: 600 }
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "REC " + Recast.formattedTime
+                    font.family: Theme.font
+                    font.pixelSize: 13 * pill.s
+                    font.weight: Font.Bold
+                    color: Theme.cream
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Recast.toggleRecording()
+                }
             }
         }
     }
