@@ -131,9 +131,9 @@ bind = SUPER, SHIFT+V, exec, qs -p ~/.local/share/quickshell/better ipc call bet
 bind = SUPER, L,       exec, ~/.local/share/quickshell/better/scripts/lock.sh
 ```
 
-*(If installed via the Omarchy plugin, replace `qs -p ... ipc call better` with `omarchy-shell better`).*
+*(If installed via the Omarchy plugin, replace `qs -p ... ipc call better` with `omarchy-shell better`.)*
 
-Available IPC surface targets: `launcher`, `wallpaper`, `clipboard`, `mixer`, `calendar`, `media`, `power`, `battery`, `sysmon`, `link`, `theme`.
+Available IPC surface targets: `launcher`, `wallpaper`, `clipboard`, `mixer`, `calendar`, `media`, `power`, `battery`, `sysmon`, `link`, `theme`, `weather`, `wifi`, `bt`, `accent`, `glass`, `interface`, `fontpicker`, `plugins`, `update`, `appearance`, `display`, `fontcolor`, `appcat`.
 
 ---
 

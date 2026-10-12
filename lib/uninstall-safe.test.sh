@@ -65,7 +65,7 @@ run() {
         XDG_STATE_HOME="$h/.local/state" \
         XDG_DATA_HOME="$h/.local/share" \
         XDG_CACHE_HOME="$h/.cache" \
-        sh "$script" "$@" </dev/null 2>&1
+        bash "$script" "$@" </dev/null 2>&1
 }
 
 state_present() {
