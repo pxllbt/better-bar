@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    name: Run Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate Python scripts syntax
+        run: |
+          python3 -m py_compile scripts/themes.py
+          python3 -m py_compile scripts/wallcolors.py
+
+      - name: Run Border Geometry Unit Tests
+        run: node lib/border-geometry.test.mjs
+
+      - name: Run Monitors Unit Tests
+        run: node lib/monitors.test.mjs
+
+      - name: Run Media Pill Tests
+        run: bash lib/media-pill.test.sh .
+
+      - name: Run Strip Layout Tests
+        run: bash lib/strip-layout.test.sh .
+
+      - name: Run Uninstall Safe Tests
+        run: bash lib/uninstall-safe.test.sh .
