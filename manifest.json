@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "id": "pix.bar",
   "name": "Better Bar",
-  "version": "1.0.0",
-  "author": "pixllbeat",
-  "description": "A dynamic-island status bar for Hyprland, built on Quickshell",
+  "version": "1.1.0",
+  "author": "pxllbt",
+  "description": "Dynamic-island status bar and dock for Hyprland: morphing surfaces, 27-theme gallery with 1-tap switching, wallpaper × theme harmony swatches, and 0.0% idle CPU",
   "license": "MIT",
   "kinds": [
     "bar"
