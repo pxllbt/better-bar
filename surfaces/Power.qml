@@ -49,14 +49,16 @@ PillSurface {
     amePoint: Qt.point(heatX, heatY)
 
     readonly property var actions: [
-        { key: "lock",     glyph: "lock",     label: "Lock",     confirm: false, dispatch: "",             argv: [Config.hyprPath("scripts", "lock.sh")] },
-        { key: "logout",   glyph: "logout",   label: "Logout",   confirm: true,  dispatch: "hl.dsp.exit()", argv: [] },
-        { key: "suspend",  glyph: "suspend",  label: "Sleep",    confirm: false, dispatch: "",             argv: ["systemctl", "suspend"] },
-        { key: "reboot",   glyph: "reboot",   label: "Restart",  confirm: true,  dispatch: "",             argv: ["systemctl", "reboot"] },
-        { key: "shutdown", glyph: "shutdown", label: "Shutdown", confirm: true,  dispatch: "",             argv: ["systemctl", "poweroff"] }
+        { key: "lock",        glyph: "lock",     label: "Lock",        confirm: false, dispatch: "",             argv: [Config.hyprPath("scripts", "lock.sh")] },
+        { key: "screensaver", glyph: "sparkles", label: "Screensaver", confirm: false, dispatch: "",             argv: ["omarchy-launch-screensaver", "force"] },
+        { key: "suspend",     glyph: "suspend",  label: "Sleep",       confirm: false, dispatch: "",             argv: ["systemctl", "suspend"] },
+        { key: "hibernate",   glyph: "moon",     label: "Hibernate",   confirm: true,  dispatch: "",             argv: ["systemctl", "hibernate"] },
+        { key: "logout",      glyph: "logout",   label: "Logout",      confirm: true,  dispatch: "hl.dsp.exit()", argv: [] },
+        { key: "reboot",      glyph: "reboot",   label: "Restart",     confirm: true,  dispatch: "",             argv: ["systemctl", "reboot"] },
+        { key: "shutdown",    glyph: "shutdown", label: "Shutdown",    confirm: true,  dispatch: "",             argv: ["systemctl", "poweroff"] }
     ]
 
-    readonly property int splitAfter: 2
+    readonly property int splitAfter: 3
 
     function run(a) {
         if (a.dispatch && a.dispatch.length)

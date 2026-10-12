@@ -46,6 +46,15 @@ Singleton {
     /** Bumped on every change to either value above. */
     property int revision: 0
 
+    onActiveThemeNameChanged: {
+        if (root.activeThemeName.length > 0) {
+            Flags.accentOverride = "";
+            Flags.textOverride = "";
+            if (Flags.paletteMode === "manual")
+                Flags.paletteMode = "dark";
+        }
+    }
+
     readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME")
         || (Quickshell.env("HOME") + "/.local/state")) + "/omarchy/current"
 

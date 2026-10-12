@@ -53,11 +53,12 @@ Singleton {
     readonly property var omarchy: ThemeColors.palette
 
     function omarchyColor(key, fallback) {
-        var value = omarchy[String(key || "")]
-        return value ? String(value) : fallback
+        var p = ThemeColors.palette;
+        var value = p ? p[String(key || "")] : null;
+        return (value !== undefined && value !== null && String(value).length > 0) ? String(value) : (fallback || "");
     }
 
-    readonly property string omarchyBackground: omarchyColor("background", "")
+    readonly property string omarchyBackground: (ThemeColors.palette && ThemeColors.palette["background"]) ? String(ThemeColors.palette["background"]) : ""
     /**
      * Animated form of `omarchyBackground`.
      *
@@ -86,14 +87,14 @@ Singleton {
             easing.type: Easing.InOutQuad
         }
     }
-    readonly property string omarchyForeground: omarchyColor("foreground", "")
-    readonly property string omarchyDarker: omarchyColor("darker_background", "")
-    readonly property string omarchyMuted: omarchyColor("muted", "")
+    readonly property string omarchyForeground: (ThemeColors.palette && ThemeColors.palette["foreground"]) ? String(ThemeColors.palette["foreground"]) : ""
+    readonly property string omarchyDarker: (ThemeColors.palette && ThemeColors.palette["darker_background"]) ? String(ThemeColors.palette["darker_background"]) : ""
+    readonly property string omarchyMuted: (ThemeColors.palette && ThemeColors.palette["muted"]) ? String(ThemeColors.palette["muted"]) : ""
     /** Omarchy's accent, when the active theme names one. */
-    readonly property string omarchyAccent: omarchyColor("accent", "")
-    readonly property string omarchyLight: omarchyColor("lighter_background", "")
-    readonly property string omarchyLightFg: omarchyColor("light_foreground", "")
-    readonly property string omarchyBrightFg: omarchyColor("bright_foreground", "")
+    readonly property string omarchyAccent: (ThemeColors.palette && ThemeColors.palette["accent"]) ? String(ThemeColors.palette["accent"]) : ""
+    readonly property string omarchyLight: (ThemeColors.palette && ThemeColors.palette["lighter_background"]) ? String(ThemeColors.palette["lighter_background"]) : ""
+    readonly property string omarchyLightFg: (ThemeColors.palette && ThemeColors.palette["light_foreground"]) ? String(ThemeColors.palette["light_foreground"]) : ""
+    readonly property string omarchyBrightFg: (ThemeColors.palette && ThemeColors.palette["bright_foreground"]) ? String(ThemeColors.palette["bright_foreground"]) : ""
 
     readonly property string customHex: Flags.accentOverride
 
@@ -123,9 +124,9 @@ Singleton {
         && omarchyAccent.length > 0
         && customHex.toLowerCase() !== omarchyAccent.toLowerCase()
     /** Effective accent base — the override, else the wallpaper/hue accent, else the warm default. */
-    readonly property color accent: customAccent ? customHex : (omarchyAccent ? omarchyAccent : (manual ? manualPal.primary : (dynamic ? Dyn.primary : "#ff9a64")))
+    readonly property color accent: customAccent ? customHex : (omarchyAccent.length > 0 ? omarchyAccent : (manual ? manualPal.primary : (dynamic ? Dyn.primary : "#ff9a64")))
     /** Deep pair, standing in where the scheme has a matugen container colour. */
-    readonly property color accentDeep: customAccent ? Qt.darker(accent, 1.45) : (manual ? manualPal.primary_container : (dynamic ? Dyn.primaryContainer : (omarchyAccent ? Qt.darker(accent, 1.45) : "#a3371f")))
+    readonly property color accentDeep: customAccent ? Qt.darker(accent, 1.45) : (manual ? manualPal.primary_container : (dynamic ? Dyn.primaryContainer : (omarchyAccent.length > 0 ? Qt.darker(accent, 1.45) : "#a3371f")))
 
     /**
      * User text-colour override: a "#rrggbb" hex, empty to follow the scheme.
@@ -193,8 +194,8 @@ Singleton {
     readonly property color verm:     (customAccent || omarchyAccent.length > 0) ? Qt.darker(accent, 1.18) : (manual ? Qt.darker(manualPal.primary, 1.18) : (dynamic ? Qt.darker(Dyn.primary, 1.18) : "#c0442b"))
     readonly property color vermLit:  (customAccent || omarchyAccent.length > 0) ? accent : (manual ? manualPal.primary : (dynamic ? Dyn.primary : "#e0563b"))
     readonly property color vermDeep: (customAccent || omarchyAccent.length > 0) ? accentDeep : (manual ? manualPal.primary_container : (dynamic ? Dyn.primaryContainer : "#a3371f"))
-    readonly property color cream:    omarchyForeground ? omarchyForeground : (customText ? customTextHex : (manual ? manualPal.cream : (dynamic ? Dyn.cream : (light ? "#2a241f" : "#ececec"))))
-    readonly property color bright:   (omarchyBrightFg ? omarchyBrightFg : (customText ? customTextHex : (manual ? manualPal.bright : (dynamic ? Dyn.bright : (light ? "#1d1814" : "#ffffff")))))
+    readonly property color cream:    (omarchyForeground.length > 0) ? omarchyForeground : (customText ? customTextHex : (manual ? manualPal.cream : (dynamic ? Dyn.cream : (light ? "#2a241f" : "#ececec"))))
+    readonly property color bright:   (omarchyBrightFg.length > 0) ? omarchyBrightFg : ((omarchyForeground.length > 0) ? omarchyForeground : (customText ? customTextHex : (manual ? manualPal.bright : (dynamic ? Dyn.bright : (light ? "#1d1814" : "#ffffff")))))
     readonly property color dim:      manual ? manualPal.dim : (dynamic ? Dyn.dim : (light ? "#6b635c" : "#8c8c8c"))
     readonly property color cardTop:  (omarchyLight ? omarchyLight : (manual ? manualPal.surface_container_high : (dynamic ? Dyn.surfaceContainerHigh : (light ? "#f6f2ec" : "#171717"))))
     readonly property color cardBot:  (omarchyDarker ? omarchyDarker : (manual ? manualPal.surface_container_low : (dynamic ? Dyn.surfaceContainerLow : (light ? "#ece6df" : "#0c0c0c"))))

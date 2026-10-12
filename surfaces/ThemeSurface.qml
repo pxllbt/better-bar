@@ -86,6 +86,10 @@ SettingsSurface {
         if (!themeId || themeId.length === 0)
             return;
         optimisticTheme = themeId.toLowerCase();
+        Flags.accentOverride = "";
+        Flags.textOverride = "";
+        if (Flags.paletteMode === "manual")
+            Flags.paletteMode = "dark";
         Quickshell.execDetached(["omarchy-theme-set", themeId]);
         fastSyncTimer.restart();
     }
