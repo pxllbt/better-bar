@@ -35,9 +35,9 @@ Item {
     readonly property var palette: [
         Theme.accent,
         Theme.cream,
-        Theme.vermLit,
+        Qt.lighter(Theme.accent, 1.25),
         Theme.bright,
-        Theme.verm
+        Qt.darker(Theme.accent, 1.22)
     ]
 
     function colorAt(index) {
