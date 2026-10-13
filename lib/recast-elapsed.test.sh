@@ -98,8 +98,16 @@ ok "the ratchet field is declared" \
 
 # The ratchet must be cleared wherever the session ends, or the next take would
 # inherit the previous one's count.
-ok "the ratchet is cleared on every session reset" \
-    "$(grep -c 'root\._lastShownElapsed = 0' "$RECAST")" "3"
+# Two mechanisms, not one magic count. The field has been named both ways and
+# the reset sites have moved between them, so each is asserted directly.
+#   -- applyState's idle branch, for a session that ends on a real read
+#   -- refreshElapsed's `projected === 0` branch, for the change handler
+# Note an empty/truncated read must reset NOTHING: see recast-truncated-state.
+ok "applyState clears the ratchet on the idle branch" \
+    "$(sed -n '/function applyState(raw)/,/^    }$/p' "$RECAST" | grep -cE '_(elapsedFloor\.v|lastShownElapsed) = 0')" "1"
+
+ok "refreshElapsed clears the ratchet when the session is over" \
+    "$(printf '%s' "$ratchet_block" | grep -c 'projected === 0')" "1"
 
 # A finished session must reset rather than hold: `projected === 0` is the reset
 # branch, and without it the next take opens on the previous take's count.

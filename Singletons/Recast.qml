@@ -164,14 +164,11 @@ Item {
         onLoaded: root.updateState()
         onFileChanged: root.updateState()
         onLoadFailed: {
-            root.recording = false;
-            root.paused = false;
-            root.serviceElapsed = 0;
-            root.serviceElapsedAtMs = 0;
-            root._lastShownElapsed = 0;
-            root.countdownPending = false;
-            root.serviceCountdownRemaining = 0;
-            root.serviceCountdownAtMs = 0;
+            // Same truncation window as an empty read. Resetting here blanked the
+            // chip mid-recording for exactly the same reason, and a read that
+            // fails because the writer was halfway through is not evidence that
+            // the recorder stopped.
+            root.updateState();
         }
     }
 
@@ -183,14 +180,19 @@ Item {
     // share one code path.
     function applyState(raw) {
         if (!raw || raw.trim().length === 0) {
-            root.recording = false;
-            root.paused = false;
-            root.serviceElapsed = 0;
-            root.serviceElapsedAtMs = 0;
-            root._lastShownElapsed = 0;
-            root.countdownPending = false;
-            root.serviceCountdownRemaining = 0;
-            root.serviceCountdownAtMs = 0;
+            // Keep the last good state.
+            //
+            // The service writes this file with atomicWrites:false so its
+            // inotify watchers see the change, which means the file is briefly
+            // truncated while it is rewritten. Blanking the chip on that window
+            // made recastActive flicker false for a frame: the REC face vanished
+            // and stripSpecialFace -- gated on `!recastActive` -- took its
+            // place, so the pill swapped faces mid-recording and read as two
+            // pills. The catch block below has always kept the last good state
+            // for a truncated read; an empty read is the same event.
+            //
+            // Safe to retain: a session that ends writes a real `idle`, so the
+            // next successful read carries the truth.
             return;
         }
 

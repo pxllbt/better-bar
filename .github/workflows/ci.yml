@@ -39,6 +39,9 @@ jobs:
       - name: Run Text Entry Unit Tests
         run: node --test lib/text-entry.test.mjs
 
+      - name: Run Search Editing Tests
+        run: node --test lib/search-editing.test.mjs
+
       - name: Run Media Pill Tests
         run: bash lib/media-pill.test.sh .
 
@@ -53,6 +56,9 @@ jobs:
 
       - name: Run Recast Pill Exclusivity Tests
         run: bash lib/recast-pill-exclusive.test.sh .
+
+      - name: Run Recast Truncated State Tests
+        run: bash lib/recast-truncated-state.test.sh .
 
       - name: Run Search Field Input Tests
         run: bash lib/search-field-input.test.sh .

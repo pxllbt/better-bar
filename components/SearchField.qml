@@ -136,27 +136,46 @@ Item {
             onTriggered: parent.on = !parent.on
         }
 
+        // The caret is captured before the buffer is touched and written after it,
+        // and both values are derived from the pre-mutation caret.
+        //
+        // Deriving it from the caret as it was BEFORE the edit is what makes
+        // onBufferChanged's clamp harmless. The clamp runs synchronously when the
+        // buffer is assigned, and it trims the caret to the new length -- which,
+        // for a backspace at the end of the text, is already the correct answer.
+        // Assigning `caret -= 1` after that decremented it a SECOND time: typing
+        // "hello" and deleting left "hell", then "hel", then "hl", "l", and then a
+        // caret of 0 that made every further backspace return early. One character
+        // was left behind, and the buffer was corrupted on the way because each
+        // step skipped a character.
+        //
+        // Every target below is <= the buffer's new length, so the clamp is a
+        // no-op and the two no longer disagree.
         function insertString(str) {
             if (!str.length || inputProxy.buffer.length + str.length > root.maxChars)
                 return;
-            inputProxy.buffer = inputProxy.buffer.substring(0, inputProxy.caret)
-                + str + inputProxy.buffer.substring(inputProxy.caret);
-            inputProxy.caret += str.length;
+            var at = inputProxy.caret;
+            inputProxy.buffer = inputProxy.buffer.substring(0, at)
+                + str + inputProxy.buffer.substring(at);
+            inputProxy.caret = at + str.length;
         }
 
         function deleteBackward() {
             if (inputProxy.caret <= 0)
                 return;
-            inputProxy.buffer = inputProxy.buffer.substring(0, inputProxy.caret - 1)
-                + inputProxy.buffer.substring(inputProxy.caret);
-            inputProxy.caret -= 1;
+            var p = inputProxy.caret;
+            inputProxy.buffer = inputProxy.buffer.substring(0, p - 1)
+                + inputProxy.buffer.substring(p);
+            inputProxy.caret = p - 1;
         }
 
         function deleteForward() {
-            if (inputProxy.caret >= inputProxy.buffer.length)
+            var p = inputProxy.caret;
+            if (p >= inputProxy.buffer.length)
                 return;
-            inputProxy.buffer = inputProxy.buffer.substring(0, inputProxy.caret)
-                + inputProxy.buffer.substring(inputProxy.caret + 1);
+            inputProxy.buffer = inputProxy.buffer.substring(0, p)
+                + inputProxy.buffer.substring(p + 1);
+            inputProxy.caret = p;
         }
 
         /** A caret move out of sync with the text is always clamped down. */
