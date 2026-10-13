@@ -15,7 +15,7 @@
 # not in the cell that holds it.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PILL="$ROOT/Pill.qml"
 BUTTON="$ROOT/components/PluginButton.qml"
 

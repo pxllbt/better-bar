@@ -14,7 +14,7 @@
 # on demand: it needs an app that misbehaves on the bus.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 TRAY="$ROOT/components/Tray.qml"
 
 failed=0

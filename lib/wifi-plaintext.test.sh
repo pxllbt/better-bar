@@ -21,7 +21,7 @@
 # surfaces/WifiSurface.qml directly.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 WIFI="$ROOT/surfaces/WifiSurface.qml"
 
 [ -f "$WIFI" ] || { echo "no WifiSurface.qml at $WIFI" >&2; exit 1; }

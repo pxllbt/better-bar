@@ -20,7 +20,7 @@
 # not colors.toml.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 COLOR="$ROOT/Commons/Color.qml"
 
 failed=0

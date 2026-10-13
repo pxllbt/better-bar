@@ -16,7 +16,7 @@
 # This test is repo-only and reads surfaces/BtSurface.qml directly.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 BT="$ROOT/surfaces/BtSurface.qml"
 
 [ -f "$BT" ] || { echo "no BtSurface.qml at $BT" >&2; exit 1; }

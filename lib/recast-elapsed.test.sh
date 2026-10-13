@@ -27,7 +27,7 @@
 # now lives in an explicit slot and `elapsed` is a pure read of it.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 RECAST="$ROOT/Singletons/Recast.qml"
 
 failed=0

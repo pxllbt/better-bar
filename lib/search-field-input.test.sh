@@ -33,7 +33,7 @@
 # only report it as an exception in whatever happened to touch it next.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
 failed=0
 ok() {

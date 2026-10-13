@@ -10,7 +10,7 @@
 # text shows the gap directly, without needing a pointer on screen.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PILL="$ROOT/Pill.qml"
 STRIP_LAYOUT="$ROOT/Singletons/StripLayout.qml"
 STRIP_CELL="$ROOT/components/StripCell.qml"

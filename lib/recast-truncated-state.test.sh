@@ -26,7 +26,7 @@
 # including a real `idle` when a session really ends.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 RECAST="$ROOT/Singletons/Recast.qml"
 
 failed=0

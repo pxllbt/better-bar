@@ -17,7 +17,7 @@
 # every combination of the two flags.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PILL="$ROOT/Pill.qml"
 
 failed=0

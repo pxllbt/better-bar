@@ -18,7 +18,7 @@
 # why that is not redundant.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 UNINSTALL="$ROOT/uninstall.sh"
 
 failed=0

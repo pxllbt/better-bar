@@ -19,7 +19,7 @@
 # a worktree is not a test anybody runs twice.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SURFACE="$ROOT/surfaces/UpdateSurface.qml"
 
 failed=0

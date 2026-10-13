@@ -18,7 +18,7 @@
 # touch it next, which is the same invisibility in a new place.
 set -uo pipefail
 
-ROOT="${1:-$HOME/.local/share/quickshell/better}"
+ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 PILL="$ROOT/Pill.qml"
 APPEARANCE="$ROOT/surfaces/Appearance.qml"
 QMLDIR="$ROOT/surfaces/qmldir"
