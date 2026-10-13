@@ -871,25 +871,6 @@ ShellRoot {
                     anchors.top: parent.top
                     anchors.topMargin: (pill.stripBar || pill.mode === "game") ? 0 : overlay.topGap
                     anchors.horizontalCenter: parent.horizontalCenter
-                    // The pill gets out of the way while a flash is up.
-                    //
-                    // It and the OSD popup share an anchor but not a size: the
-                    // pill's shell is content-driven and the OSD is its own
-                    // surface, so even with the pill shrunk back to rest size the
-                    // two boxes did not coincide -- the reading was still two
-                    // pills one atop the other.
-                    //
-                    // Hiding the pill's own surface is what makes it one: the
-                    // OSD box is then the only thing drawn. The pill comes
-                    // straight back when the flash ends, and the REC inside it
-                    // already yields via recastFaceVisible, so nothing is left
-                    // showing behind the OSD.
-                    //
-                    // Scoped to a live recording: outside one, the pill and the
-                    // OSD already coincide at rest size and read as a single box,
-                    // which is the behaviour that works today.
-                    opacity: pill.recastActive && osdPopup.active ? 0 : 1
-                    enabled: opacity > 0.01
 
                     Behavior on anchors.topMargin {
                         NumberAnimation {
@@ -904,7 +885,7 @@ ShellRoot {
                     surface: overlay.surface
                     forcePinned: root.peekMon === overlay.modelData.name
 
-                    opacity: (overlay.monFullscreen && !pill.transientLive && !pill.recastActive) ? 0 : ((osdPopup.active && !pill.recastActive) ? 0 : 1)
+                    opacity: (overlay.monFullscreen && !pill.transientLive && !pill.recastActive) ? 0 : (osdPopup.active ? 0 : 1)
                     Behavior on opacity {
                         NumberAnimation {
                             duration: Motion.morph

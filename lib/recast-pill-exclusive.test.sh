@@ -135,19 +135,22 @@ ok "the yield is conditional, not unconditional" \
 ok "the REC face still yields to the flash" \
     "$(grep -c 'recastFaceVisible: recastActive' "$PILL")" "1"
 
-# And the pill's own shell hides for the duration of a flash, so the OSD box is
-# the only thing drawn. Yielding the geometry was not enough: the two share an
-# anchor but not a size, so an empty shell still showed beside the OSD.
-pill_decl="$(sed -n '/^                Pill {/,/^                    {/p' "$SHELL")"
-[ -n "$pill_decl" ] || { echo "could not locate the Pill declaration" >&2; exit 1; }
-ok "the pill hides while a flash is up" \
-    "$(printf '%s' "$pill_decl" | grep -c 'opacity: pill\.recastActive && osdPopup\.active ? 0 : 1')" "1"
-# The conditional must resolve to visible, not be pinned to hidden: the pill
-# returns as soon as the flash ends.
-ok "the pill returns when the flash ends" \
-    "$(printf '%s' "$pill_decl" | grep -cE 'opacity: .*\\? 0 : 1$')" "1"
-ok "hiding the pill does not disable it permanently" \
-    "$(printf '%s' "$pill_decl" | grep -c 'enabled: opacity > 0\.01')" "1"
+# And the pill's own shell yields to the flash.
+#
+# The Pill declaration in shell.qml already carries an opacity that hides it for
+# an OSD, but it had a `!recastActive` exception in that clause: the pill stayed
+# visible during a flash precisely when recording -- the one case where a second
+# box was visible. Sharing an anchor with the OSD is not enough; the two are
+# different sizes, so both have to not draw at once.
+pill_opacity="$(grep -A1 'id: pill' "$SHELL" >/dev/null; sed -n '/id: pill/,/Behavior on opacity/p' "$SHELL" | grep 'opacity:')"
+[ -n "$pill_opacity" ] || { echo "could not locate the pill opacity" >&2; exit 1; }
+
+ok "the pill yields to the OSD" \
+    "$(printf '%s' "$pill_opacity" | grep -c 'osdPopup\.active ? 0 : 1')" "1"
+no "the yield has no recording exception" \
+    "$(printf '%s' "$pill_opacity" | grep -c 'osdPopup\.active && !pill\.recastActive')"
+ok "exactly one opacity is set on the pill" \
+    "$(printf '%s' "$pill_opacity" | grep -c 'opacity:')" "1"
 
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
