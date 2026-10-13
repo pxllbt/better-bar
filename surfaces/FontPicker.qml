@@ -134,13 +134,16 @@ SettingsSurface {
                 font.pixelSize: 13 * root.s
                 placeholderText: "search fonts"
                 placeholderTextColor: Theme.faint
-                selectByMouse: true
+                selectByMouse: false
+                readOnly: true
+                onActiveFocusChanged: cursorVisible = activeFocus
                 selectionColor: Theme.verm
                 onTextChanged: {
                     root.query = text;
                     root.focusIndex = 0;
                 }
                 Keys.onPressed: (e) => {
+                    TextEntry.handle(searchField, e);
                     if (e.key === Qt.Key_Down) {
                         root.move(1);
                         e.accepted = true;

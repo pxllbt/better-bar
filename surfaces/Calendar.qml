@@ -730,9 +730,14 @@ PillSurface {
                         font.pixelSize: 13 * root.s
                         placeholderText: "what's on"
                         placeholderTextColor: Theme.faint
-                        selectByMouse: true
+                        selectByMouse: false
+                        readOnly: true
+                        onActiveFocusChanged: cursorVisible = activeFocus
                         selectionColor: Theme.verm
                         onTextChanged: { editor.titleVal = text; editor.autoRecur(); }
+                        Keys.onPressed: (e) => {
+                            TextEntry.handle(titleField, e);
+                        }
                         Keys.onReturnPressed: editor.commit()
                     }
                     Rectangle {
@@ -811,9 +816,15 @@ PillSurface {
                         placeholderText: "09:00"
                         placeholderTextColor: Theme.faint
                         inputMethodHints: Qt.ImhPreferNumbers
-                        selectByMouse: true
+                        selectByMouse: false
+                        property string entryChars: "[0-9:]"
+                        readOnly: true
+                        onActiveFocusChanged: cursorVisible = activeFocus
                         selectionColor: Theme.verm
                         onTextChanged: editor.startVal = text
+                        Keys.onPressed: (e) => {
+                            TextEntry.handle(startField, e);
+                        }
                         Keys.onReturnPressed: editor.commit()
                     }
                     Rectangle {
@@ -845,9 +856,15 @@ PillSurface {
                         placeholderText: "until"
                         placeholderTextColor: Theme.faint
                         inputMethodHints: Qt.ImhPreferNumbers
-                        selectByMouse: true
+                        selectByMouse: false
+                        property string entryChars: "[0-9:]"
+                        readOnly: true
+                        onActiveFocusChanged: cursorVisible = activeFocus
                         selectionColor: Theme.verm
                         onTextChanged: editor.endVal = text
+                        Keys.onPressed: (e) => {
+                            TextEntry.handle(endField, e);
+                        }
                         Keys.onReturnPressed: editor.commit()
                     }
                     Rectangle {

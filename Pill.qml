@@ -484,14 +484,27 @@ Item {
     /**
      * Latch-once lazy load. Every surface sleeps in an inactive Loader until its
      * first open; the size and ame thunks below resolve items through here by
-     * surface name. The ordering is the trick: flip `active` before any read of
-     * the loader, so the calling binding never has the loader registered as a
-     * dep when the flip fires mid-evaluation (that read-then-write would be a
-     * binding loop). The write is idempotent and the Loader loads synchronously,
-     * so a first open reads the real implicitHeight in the same evaluation and
-     * the morph target is exact. When a surface leaves, scheduleUnload starts
-     * its own tail; opening it again before the tail fires cancels the drop, so
-     * only surfaces that stay closed actually unload.
+     * surface name.
+     *
+     * Activation is DEFERRED, and that is load-bearing. Every caller of this
+     * function is a thunk inside `targetSize`'s (or `ameSurface`'s) binding, and
+     * those bindings read `ld.item` -- which is a dependency of them, because it
+     * goes from null to non-null when the loader turns on. Assigning
+     * `ld.active = true` here therefore wrote a property the very same binding
+     * read, and Qt logged "Binding loop detected for property targetSize" on
+     * every first open of a surface.
+     *
+     * So the flip is queued with Qt.callLater and this call returns whatever is
+     * there right now -- null on a first open. The binding completes without
+     * writing anything, and re-evaluates on its own once the item appears,
+     * because `ld.item` legitimately changed *after* the binding finished. That
+     * is a dependency, not a loop. The cost is one extra layout pass on a first
+     * open, which is invisible against the morph itself.
+     *
+     * The write is idempotent and the Loader loads synchronously, so a second
+     * open within the same tick reads the real item. When a surface leaves,
+     * scheduleUnload starts its own tail; opening it again before the tail fires
+     * cancels the drop, so only surfaces that stay closed actually unload.
      */
     function surfaceItem(name) {
         if (!pill.loaders[name])
@@ -499,8 +512,14 @@ Item {
         const ld = pill.loaders[name]();
         if (!ld)
             return null;
-        ld.active = true;
-        pill.cancelUnload(name);
+        if (!ld.active) {
+            Qt.callLater(function () {
+                if (!ld.active) {
+                    ld.active = true;
+                    pill.cancelUnload(name);
+                }
+            });
+        }
         return ld.item;
     }
 

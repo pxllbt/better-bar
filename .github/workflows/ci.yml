@@ -36,6 +36,9 @@ jobs:
       - name: Run Monitors Unit Tests
         run: node lib/monitors.test.mjs
 
+      - name: Run Text Entry Unit Tests
+        run: node --test lib/text-entry.test.mjs
+
       - name: Run Media Pill Tests
         run: bash lib/media-pill.test.sh .
 
@@ -47,3 +50,6 @@ jobs:
 
       - name: Run Recast Elapsed Tests
         run: bash lib/recast-elapsed.test.sh .
+
+      - name: Run Search Field Input Tests
+        run: bash lib/search-field-input.test.sh .

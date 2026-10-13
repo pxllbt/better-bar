@@ -295,11 +295,18 @@ Item { width: 1; height: 10 * root.s }
                         font.family: Theme.font
                         font.pixelSize: 13 * root.s
                         font.features: { "tnum": 1 }
-                        selectByMouse: true
+                        selectByMouse: false
+                        property string entryChars: "[0-9a-fA-F#]"
+                        readOnly: true
                         selectionColor: Theme.verm
                         maximumLength: 6
 
-                        onActiveFocusChanged: if (!activeFocus) text = "";
+                        onActiveFocusChanged: {
+                            cursorVisible = activeFocus;
+                            if (!activeFocus) text = "";
+
+                        }
+
 
                         function commit() {
                             var raw = text.trim();
@@ -321,6 +328,7 @@ Item { width: 1; height: 10 * root.s }
                          * the hex). Accepting the key at the field stops it before
                          * the shell's settings-activate handler sees it. */
                         Keys.onPressed: (e) => {
+                            TextEntry.handle(fontHexField, e);
                             if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
                                 commit();
                                 e.accepted = true;

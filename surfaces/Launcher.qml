@@ -782,7 +782,12 @@ PillSurface {
                             color: Theme.bright
                             font.family: Theme.font
                             font.pixelSize: 13 * root.s
-                            selectByMouse: true
+                            Keys.onPressed: (e) => {
+                                TextEntry.handle(nameEdit, e);
+                            }
+                            selectByMouse: false
+                            readOnly: true
+                            onActiveFocusChanged: cursorVisible = activeFocus
                             clip: true
                             onVisibleChanged: if (visible) {
                                 selectAll();

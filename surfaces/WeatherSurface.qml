@@ -111,14 +111,22 @@ PillSurface {
                     font.letterSpacing: 0.8 * root.s
                     placeholderText: "town"
                     placeholderTextColor: Theme.faint
-                    selectByMouse: true
+                    selectByMouse: false
+                    readOnly: true
                     selectionColor: Theme.verm
                     onAccepted: {
                         Flags.weatherCity = text.trim();
                         cityBox.editing = false;
                     }
+                    Keys.onPressed: (e) => {
+                        TextEntry.handle(cityField, e);
+                    }
                     Keys.onEscapePressed: cityBox.editing = false
-                    onActiveFocusChanged: if (!activeFocus) cityBox.editing = false
+                    onActiveFocusChanged: {
+                        cursorVisible = activeFocus;
+                        if (!activeFocus) cityBox.editing = false
+                    }
+
                 }
             }
         }

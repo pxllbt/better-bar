@@ -852,7 +852,13 @@ text: "· " + root.statusText
                                 anchors.verticalCenter: parent.verticalCenter
                                 horizontalAlignment: TextEdit.AlignRight
                                 readOnly: true
-                                selectByMouse: true
+                                // Display-only, and not selectable: a left
+                                // release on a selectByMouse field writes the
+                                // selection to the PRIMARY clipboard, which is
+                                // an unintended copy-out of a secret. A field
+                                // that is only ever read on screen does not need
+                                // the path at all, so it takes none of it.
+                                selectByMouse: false
                                 selectionColor: Theme.verm
                                 wrapMode: TextEdit.NoWrap
                                 clip: true
@@ -884,9 +890,17 @@ text: "· " + root.statusText
                                 echoMode: TextInput.Password
                                 placeholderText: "Password"
                                 placeholderTextColor: Theme.faint
-                                selectByMouse: true
+                                Keys.onPressed: (e) => {
+                                    TextEntry.handle(pwField, e);
+                                }
+                                selectByMouse: false
+                                readOnly: true
+                                onActiveFocusChanged: cursorVisible = activeFocus
                                 selectionColor: Theme.verm
-                                onTextEdited: root.pwDraft = text
+                                // textChanged rather than textEdited: the field is
+                                // readOnly and edited through TextEntry, which writes
+                                // `text` directly, and textEdited never fires for that.
+                                onTextChanged: root.pwDraft = text
                                 onAccepted: root.connectWithPassword(netItem.ssid, text)
                             }
 

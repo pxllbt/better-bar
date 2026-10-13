@@ -1787,9 +1787,12 @@ PillSurface {
             color: Theme.cream
             font.family: Theme.font
             font.pixelSize: 11 * root.s
-            selectByMouse: true
+            selectByMouse: false
+            readOnly: true
+            onActiveFocusChanged: cursorVisible = activeFocus
             selectionColor: Theme.verm
             Keys.onPressed: (e) => {
+                TextEntry.handle(dirField, e);
                 if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
                     Flags.wallpaperDir = dirField.text.trim();
                     Walls.refresh();

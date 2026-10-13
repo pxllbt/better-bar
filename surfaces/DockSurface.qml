@@ -423,13 +423,16 @@ DockPanel {
                         font.pixelSize: 13 * root.s
                         placeholderText: "search applications"
                         placeholderTextColor: root.faint
-                        selectByMouse: true
+                        selectByMouse: false
+                        readOnly: true
+                        onActiveFocusChanged: cursorVisible = activeFocus
                         selectionColor: root.accent
                         onTextChanged: {
                             root.query = text;
                             root.focusIndex = 0;
                         }
                         Keys.onPressed: (e) => {
+                            TextEntry.handle(appSearch, e);
                             if (e.key === Qt.Key_Down) {
                                 root.moveAppFocus(1);
                                 e.accepted = true;
@@ -839,11 +842,18 @@ DockPanel {
                         font.features: { "tnum": 1 }
                         placeholderText: root.currentHex
                         placeholderTextColor: root.pal ? root.pal.faint : "gray"
-                        selectByMouse: true
+                        selectByMouse: false
+                        property string entryChars: "[0-9a-fA-F#]"
+                        readOnly: true
                         selectionColor: root.pal ? root.pal.accent : "gray"
                         maximumLength: 7
 
-                        onActiveFocusChanged: if (!activeFocus) text = "";
+                        onActiveFocusChanged: {
+                            cursorVisible = activeFocus;
+                            if (!activeFocus) text = "";
+
+                        }
+
 
                         function commit() {
                             var raw = text.trim();
@@ -871,6 +881,7 @@ DockPanel {
                          * revert the hex). Accepting the key at the field stops it
                          * before the shell's settings-activate handler sees it. */
                         Keys.onPressed: (e) => {
+                            TextEntry.handle(hexField, e);
                             if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
                                 commit();
                                 e.accepted = true;

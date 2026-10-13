@@ -20,7 +20,9 @@
 #
 # Usage: omshell-load.test.sh <checkout>
 # Requires a running Wayland session and the omarchy-shell checkout at
-# $SHELL_SRC (default /tmp/opencode/fo2/shell).
+# $SHELL_SRC (default /tmp/opencode/fo2/shell; the shipped one is
+# /usr/share/omarchy/shell, so SHELL_SRC=/usr/share/omarchy/shell and
+# OMARCHY_PATH=/usr/share/omarchy are the usual invocation on a live box).
 set -uo pipefail
 
 SRC="${1:?usage: omshell-load.test.sh <path to a pix.bar checkout>}"
@@ -61,11 +63,25 @@ CONN=(env -i
 
 LOG="$ROOT/shell.log"
 
-cleanup() { pkill -f "quickshell -p $SHELL_SRC" 2>/dev/null; }
+cleanup() { [ -n "$SHELL_PID" ] && kill "$SHELL_PID" 2>/dev/null; return 0; }
 trap cleanup EXIT
 
 setsid "${CONN[@]}" quickshell -p "$SHELL_SRC" > "$LOG" 2>&1 &
 sleep 12
+
+# The IPC calls below must reach the instance this script just launched, not
+# whichever one `qs` happens to pick. `qs -p <path>` selects by config path and
+# resolves to the OLDEST match — on a real desktop that is the user's own
+# omarchy-shell, which has no `better` target at all, so every call came back
+# "Target not found." and the test failed for a reason that had nothing to do
+# with the bar. Pid selection names the process just started, whatever else is
+# running, so it is exact.
+SHELL_PID="$(pgrep -n -f "quickshell -p $SHELL_SRC" || true)"
+if [ -z "$SHELL_PID" ]; then
+    printf 'FAIL the launched shell is running\n  expected: a pid\n  got:      none\n'
+    exit 1
+fi
+ok "the launched shell is running" "$(kill -0 "$SHELL_PID" 2>/dev/null && echo yes || echo no)" "yes"
 
 ok "the bar's configuration loads" \
     "$(grep -c 'Configuration Loaded' "$LOG")" "1"
@@ -80,8 +96,11 @@ ok "no type fails to resolve" \
 # so what has to be checked is the absence of an error string, not the presence
 # of output. The old harness printed ${out:-ok}, which turned empty into "ok" by
 # accident and would equally have passed a call that failed silently.
+#
+# --pid, not -p: see the note beside SHELL_PID above. The instance this script
+# owns is the only one whose targets mean anything here.
 for fn in launcher wallpaper clipboard mixer; do
-    out=$("${CONN[@]}" qs -p "$SHELL_SRC" ipc call better "$fn" "" 2>&1)
+    out=$(qs ipc --pid "$SHELL_PID" call better "$fn" "" 2>&1)
     ok "ipc $fn answers without error" \
         "$(printf '%s' "$out" | grep -qiE 'no such|not found|unknown ipc|error' && echo errored || echo ok)" "ok"
 done

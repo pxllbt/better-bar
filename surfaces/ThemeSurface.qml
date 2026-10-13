@@ -230,7 +230,12 @@ SettingsSurface {
                     font.pixelSize: 12 * root.s
                     placeholderText: "Search " + (root.allThemes.length > 0 ? root.allThemes.length : 27) + " Omarchy themes..."
                     placeholderTextColor: Theme.faint
-                    selectByMouse: true
+                    Keys.onPressed: (e) => {
+                        TextEntry.handle(searchField, e);
+                    }
+                    selectByMouse: false
+                    readOnly: true
+                    onActiveFocusChanged: cursorVisible = activeFocus
                     selectionColor: Theme.verm
                     onTextChanged: root.query = text
                 }
@@ -605,10 +610,13 @@ SettingsSurface {
                             color: Theme.cream
                             font.family: Theme.font
                             font.pixelSize: 11 * root.s
-                            selectByMouse: true
+                            selectByMouse: false
+                            readOnly: true
+                            onActiveFocusChanged: cursorVisible = activeFocus
                             selectionColor: Theme.verm
 
                             Keys.onPressed: (e) => {
+                            TextEntry.handle(wpDirField, e);
                                 if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
                                     Flags.wallpaperDir = text.trim();
                                     Walls.refresh();
