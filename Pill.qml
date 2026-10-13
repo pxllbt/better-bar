@@ -270,7 +270,7 @@ Item {
      * the game bar. Anything here wins over both hide rules below.
      */
     readonly property bool heldOpen: revealSession || expanded || dragActive || transientLive
-        || mode === "game"
+        || mode === "game" || pill.recastActive
 
     /**
      * Cursor-follow: the pointer is on another monitor, so this bar is not where
@@ -363,6 +363,9 @@ Item {
         return "";
     }
     readonly property bool recastRecording: typeof Recast !== "undefined" && Recast.recording
+    // The chip stays visible across the paused state and countdown too: a paused
+    // recording is still an active capture, and dropping the chip made it look stopped.
+    readonly property bool recastActive: typeof Recast !== "undefined" && (Recast.recording || Recast.paused || Recast.countdownPending)
     readonly property bool toastActive: Notifs.popups.length > 0
     readonly property bool osdActive: osd.flashing
 
@@ -435,7 +438,7 @@ Item {
         + stripWs.implicitWidth + stripLay.implicitWidth + (Battery.present ? stripBat.implicitWidth : 0)
 
     readonly property real stripFaceW: {
-        if (pill.recastRecording)
+        if (pill.recastActive)
             return 156 * s;
         if (pill.specialView !== "")
             return 144 * s;
@@ -1989,7 +1992,7 @@ Item {
             // strip mode it is far wider than the card-sized body a surface
             // morphs the pill into, so leaving it up overflows the pill and
             // covers the surface.
-            visible: pill.specialView === "" && !pill.recastRecording && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+            visible: pill.specialView === "" && !pill.recastActive && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
             anchors.centerIn: parent
             spacing: pill.stripGap
 
@@ -2194,7 +2197,7 @@ Item {
 
         Row {
             id: stripSpecialFace
-            visible: !pill.recastRecording && pill.specialView !== "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+            visible: !pill.recastActive && pill.specialView !== "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
             anchors.centerIn: parent
             spacing: 8 * pill.s
 
@@ -2235,60 +2238,80 @@ Item {
             }
         }
 
-        Row {
-            id: stripRecordingFace
-            visible: pill.recastRecording && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+        // Wrapped in an Item because a Row cannot take centerIn/fill anchors on
+        // its children — doing so makes QML drop the Row's layout entirely
+        // ("Row will not function"), which scattered the chip's contents.
+        Item {
+            id: stripRecordingBox
+            // No surface/popup gate: a live recording is the one state that must
+            // always be readable, including while a surface is open or the pill
+            // is morphing between faces.
+            visible: pill.recastActive && pill.stripBar
             anchors.centerIn: parent
-            spacing: 8 * pill.s
+            width: stripRecordingFace.implicitWidth
+            height: stripRecordingFace.implicitHeight
 
-            Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
-                width: 18 * pill.s
-                height: 18 * pill.s
-                radius: 9 * pill.s
-                color: Qt.rgba(0.95, 0.18, 0.22, 0.22)
-                border.width: 1
-                border.color: Qt.rgba(0.95, 0.22, 0.28, 0.6)
+            Row {
+                id: stripRecordingFace
+                anchors.centerIn: parent
+                spacing: 8 * pill.s
 
                 Rectangle {
-                    anchors.centerIn: parent
-                    width: 7 * pill.s
-                    height: 7 * pill.s
-                    radius: 3.5 * pill.s
-                    color: "#ff3b30"
+                    width: 18 * pill.s
+                    height: 18 * pill.s
+                    radius: 9 * pill.s
+                    color: Qt.rgba(0.95, 0.18, 0.22, 0.22)
+                    border.width: 1
+                    border.color: Qt.rgba(0.95, 0.22, 0.28, 0.6)
 
-                    SequentialAnimation on opacity {
-                        running: Recast.recording && !Recast.paused
-                        loops: Animation.Infinite
-                        NumberAnimation { to: 0.35; duration: 600 }
-                        NumberAnimation { to: 1.0; duration: 600 }
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 7 * pill.s
+                        height: 7 * pill.s
+                        radius: 3.5 * pill.s
+                        color: Recast.countdownPending ? Theme.accent : (Recast.paused ? "#ff9f0a" : "#ff3b30")
+
+                        opacity: (Recast.recording && !Recast.paused && (Recast._tick % 2 === 1)) ? 0.35 : 1.0
+                        Behavior on opacity {
+                            NumberAnimation { duration: 250 }
+                        }
                     }
                 }
-            }
 
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: "REC"
-                font.family: Theme.font
-                font.pixelSize: 11 * pill.s
-                font.weight: Font.Black
-                color: "#ff453a"
-            }
+                Text {
+                    text: Recast.countdownPending ? "STARTING" : (Recast.paused ? "PAUSED" : "REC")
+                    font.family: Theme.font
+                    font.pixelSize: 11 * pill.s
+                    font.weight: Font.Black
+                    color: Recast.countdownPending ? Theme.accent : (Recast.paused ? "#ff9f0a" : "#ff453a")
+                    height: 18 * pill.s
+                    verticalAlignment: Text.AlignVCenter
+                }
 
-            Text {
-                id: stripRecordingTimer
-                anchors.verticalCenter: parent.verticalCenter
-                text: Recast.formattedTime
-                font.family: Theme.font
-                font.pixelSize: 12.5 * pill.s
-                font.weight: Font.Bold
-                color: Theme.cream
+                Text {
+                    id: stripRecordingTimer
+                    text: Recast.countdownPending ? (Recast.countdownRemaining + "\u2026") : Recast.formattedTime
+                    font.family: Theme.font
+                    font.pixelSize: 12.5 * pill.s
+                    font.weight: Font.Bold
+                    color: Theme.cream
+                    height: 18 * pill.s
+                    verticalAlignment: Text.AlignVCenter
+                }
             }
 
             MouseArea {
                 anchors.fill: parent
+                anchors.margins: -4 * pill.s
                 cursorShape: Qt.PointingHandCursor
-                onClicked: Recast.toggleRecording()
+                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                onClicked: function (mouse) {
+                    if (mouse.button === Qt.RightButton) {
+                        Plugins.openOrEnable("pix.recast");
+                    } else {
+                        Recast.toggleRecording();
+                    }
+                }
             }
         }
 
@@ -2445,7 +2468,7 @@ Item {
                 }
             }
             AltText {
-                visible: !pill.recastRecording && pill.specialView !== ""
+                visible: !pill.recastActive && pill.specialView !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 text: pill.specialView
                 font.family: Theme.font
@@ -2453,39 +2476,54 @@ Item {
                 font.weight: Font.DemiBold
             }
 
-            Row {
-                visible: pill.recastRecording
+            Item {
+                visible: pill.recastActive
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 6 * pill.s
+                width: recastRestRow.implicitWidth
+                height: recastRestRow.implicitHeight
 
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 7 * pill.s
-                    height: 7 * pill.s
-                    radius: 3.5 * pill.s
-                    color: "#ff3b30"
+                Row {
+                    id: recastRestRow
+                    anchors.centerIn: parent
+                    spacing: 6 * pill.s
 
-                    SequentialAnimation on opacity {
-                        running: Recast.recording && !Recast.paused
-                        loops: Animation.Infinite
-                        NumberAnimation { to: 0.35; duration: 600 }
-                        NumberAnimation { to: 1.0; duration: 600 }
+                    Rectangle {
+                        width: 7 * pill.s
+                        height: 7 * pill.s
+                        radius: 3.5 * pill.s
+                        color: Recast.countdownPending ? Theme.accent : (Recast.paused ? "#ff9f0a" : "#ff3b30")
+
+                        opacity: (Recast.recording && !Recast.paused && (Recast._tick % 2 === 1)) ? 0.35 : 1.0
+                        Behavior on opacity {
+                            NumberAnimation { duration: 250 }
+                        }
                     }
-                }
 
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: "REC " + Recast.formattedTime
-                    font.family: Theme.font
-                    font.pixelSize: 13 * pill.s
-                    font.weight: Font.Bold
-                    color: Theme.cream
+                    Text {
+                        text: Recast.countdownPending
+                            ? ("STARTING " + Recast.countdownRemaining + "…")
+                            : ((Recast.paused ? "PAUSED " : "REC ") + Recast.formattedTime)
+                        font.family: Theme.font
+                        font.pixelSize: 13 * pill.s
+                        font.weight: Font.Bold
+                        color: Recast.countdownPending ? Theme.accent : (Recast.paused ? "#ff9f0a" : Theme.cream)
+                        height: 13 * pill.s
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
 
                 MouseArea {
                     anchors.fill: parent
+                    anchors.margins: -4 * pill.s
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: Recast.toggleRecording()
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: function (mouse) {
+                        if (mouse.button === Qt.RightButton) {
+                            Plugins.openOrEnable("pix.recast");
+                        } else {
+                            Recast.toggleRecording();
+                        }
+                    }
                 }
             }
         }

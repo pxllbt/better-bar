@@ -435,6 +435,7 @@ ShellRoot {
         function peek(mon: string): void { root.peek(mon); }
         function hide(): void { root.close(); }
         function reloadTheme(): void { ThemeSync.probe(); Color.reloadTheme(); }
+        function toggleRecast(): void { Recast.toggleRecording(); }
 
         /**
          * Memory saver door: drop every closed surface on every monitor right
@@ -620,7 +621,7 @@ ShellRoot {
 
             anchors { top: true; left: true; right: true; bottom: true }
 
-            mask: monFullscreen ? hiddenRegion : (modal ? fullRegion : (pill.mode === "game" ? pillRegion : (Flags.autoHide ? (pill.revealSession || pill.transientLive ? revealPillRegion : (pill.expanded ? pillRegion : revealRegion)) : (pill.hidden ? hiddenRegion : pillRegion))))
+            mask: (monFullscreen && !pill.recastActive) ? hiddenRegion : (monFullscreen ? pillRegion : (modal ? fullRegion : (pill.mode === "game" ? pillRegion : (Flags.autoHide ? (pill.revealSession || pill.transientLive ? revealPillRegion : (pill.expanded ? pillRegion : revealRegion)) : (pill.hidden ? hiddenRegion : pillRegion)))))
             Region { id: hiddenRegion }
 
             /**
@@ -884,7 +885,7 @@ ShellRoot {
                     surface: overlay.surface
                     forcePinned: root.peekMon === overlay.modelData.name
 
-                    opacity: (overlay.monFullscreen && !pill.transientLive) ? 0 : (osdPopup.active ? 0 : 1)
+                    opacity: (overlay.monFullscreen && !pill.transientLive && !pill.recastActive) ? 0 : ((osdPopup.active && !pill.recastActive) ? 0 : 1)
                     Behavior on opacity {
                         NumberAnimation {
                             duration: Motion.morph
@@ -893,7 +894,7 @@ ShellRoot {
                         }
                     }
                     transform: Translate {
-                        y: ((overlay.monFullscreen && !pill.transientLive) || pill.hidden) ? -(pill.height + overlay.topGap) : 0
+                        y: ((overlay.monFullscreen && !pill.transientLive && !pill.recastActive) || pill.hidden) ? -(pill.height + overlay.topGap) : 0
                         Behavior on y {
                             NumberAnimation {
                                 duration: Motion.morph

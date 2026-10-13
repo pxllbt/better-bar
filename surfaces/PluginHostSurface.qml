@@ -89,7 +89,7 @@ PillSurface {
         id: stateTimer
         interval: 1000
         repeat: true
-        running: root.serviceStateFile.length > 0
+        running: root.open && root.serviceStateFile.length > 0
         onTriggered: {
             var target = widget.item;
             if (!target || !("serviceState" in target))

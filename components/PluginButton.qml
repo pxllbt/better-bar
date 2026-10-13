@@ -194,6 +194,26 @@ Item {
     function handlePress(button) {
         if (!root.renderable)
             return;
+        // Better Recast: left-click toggles recording (start / stop), right-click toggles settings panel.
+        if (root.pluginId === "pix.recast") {
+            if (button === Qt.LeftButton) {
+                Recast.toggleRecording();
+                return;
+            }
+            if (button === Qt.RightButton) {
+                if (root.mounted && widget.item && typeof widget.item.togglePanel === "function") {
+                    widget.item.togglePanel();
+                    return;
+                }
+                if (root.mounted && widget.item && typeof widget.item.open === "function") {
+                    widget.item.open();
+                    return;
+                }
+                root.pendingPress = Qt.RightButton;
+                root.mountRequested = true;
+                return;
+            }
+        }
         if (!root.mounted) {
             // Mount before deciding, and replay the exact button once the widget
             // exists — otherwise the first press of any button could only ever
@@ -211,6 +231,10 @@ Item {
     }
 
     function activate() {
+        if (root.pluginId === "pix.recast") {
+            Recast.toggleRecording();
+            return;
+        }
         if (root.mounted) {
             root.openOwn();
             return;
