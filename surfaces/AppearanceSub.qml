@@ -27,7 +27,6 @@ SettingsSurface {
         { item: accentTile, kind: "nav", surface: "accent" },
         { item: glassTile, kind: "nav", surface: "glass" },
         { item: fontColorTile, kind: "nav", surface: "fontcolor" },
-        { item: wallTile, activate: () => root.requestSurface("wallpaper") },
         { item: hyprTile, activate: () => Quickshell.execDetached(["omarchy-launch-config-editor", (Quickshell.env("HOME") || "") + "/.config/hypr/looknfeel.lua"]) },
         { item: lockTile, activate: () => Quickshell.execDetached(["omarchy-plymouth-switcher"]) },
         { item: screensaverTile, activate: () => Quickshell.execDetached(["omarchy-branding-screensaver", "text"]) }
@@ -92,22 +91,6 @@ SettingsSurface {
                 height: 16 * root.s
                 name: "chevron-right"
                 color: root.focusRowItem === fontColorTile ? Theme.cream : Theme.iconDim
-                stroke: 1.9
-            }
-        }
-
-        SettingsRow {
-            id: wallTile
-            surface: root
-            glyph: "🖼"
-            name: "Wallpapers"
-            sub: "Browse desktop backgrounds & wallpapers"
-
-            GlyphIcon {
-                width: 16 * root.s
-                height: 16 * root.s
-                name: "chevron-right"
-                color: root.focusRowItem === wallTile ? Theme.cream : Theme.iconDim
                 stroke: 1.9
             }
         }

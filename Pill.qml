@@ -459,7 +459,7 @@ Item {
     readonly property real clipboardH: 332 * s
     readonly property real wallpaperW: 720 * s
     readonly property real wallpaperH: 172 * s
-    readonly property real powerW: 440 * s
+    readonly property real powerW: 414 * s
     readonly property real powerH: 150 * s
     readonly property real mediaW: 470 * s
     readonly property real mediaH: 132 * s

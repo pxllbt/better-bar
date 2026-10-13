@@ -23,10 +23,10 @@ import "../components"
 PillSurface {
     id: root
 
-    mTop: 15
-    mLeft: 17
-    mRight: 17
-    mBottom: 14
+    mTop: 14
+    mLeft: 20
+    mRight: 20
+    mBottom: 16
 
     property string hovered: ""
     property int focusIndex: -1
@@ -52,7 +52,6 @@ PillSurface {
         { key: "lock",        glyph: "lock",     label: "Lock",        confirm: false, dispatch: "",             argv: [Config.hyprPath("scripts", "lock.sh")] },
         { key: "screensaver", glyph: "sparkles", label: "Screensaver", confirm: false, dispatch: "",             argv: ["omarchy-launch-screensaver", "force"] },
         { key: "suspend",     glyph: "suspend",  label: "Sleep",       confirm: false, dispatch: "",             argv: ["systemctl", "suspend"] },
-        { key: "hibernate",   glyph: "moon",     label: "Hibernate",   confirm: true,  dispatch: "",             argv: ["systemctl", "hibernate"] },
         { key: "logout",      glyph: "logout",   label: "Logout",      confirm: true,  dispatch: "hl.dsp.exit()", argv: [] },
         { key: "reboot",      glyph: "reboot",   label: "Restart",     confirm: true,  dispatch: "",             argv: ["systemctl", "reboot"] },
         { key: "shutdown",    glyph: "shutdown", label: "Shutdown",    confirm: true,  dispatch: "",             argv: ["systemctl", "poweroff"] }
