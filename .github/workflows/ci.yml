@@ -44,3 +44,6 @@ jobs:
 
       - name: Run Uninstall Safe Tests
         run: bash lib/uninstall-safe.test.sh .
+
+      - name: Run Recast Elapsed Tests
+        run: bash lib/recast-elapsed.test.sh .

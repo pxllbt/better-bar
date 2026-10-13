@@ -53,20 +53,37 @@ Item {
      *
      * Derived, not stored: between polls it advances off a local clock, so the
      * chip ticks once a second even though the state file is only read every
-     * few seconds. Every read re-anchors the base, so any lag is corrected
-     * rather than accumulated — the count can never drift away from the
-     * service, and it can never alternate, because a stale read that arrives
-     * out of order is rejected (the session's count only moves forward).
+     * few seconds.
+     *
+     * Two rules make it exact rather than approximate:
+     *
+     *  - The anchor is the *service's* clock, taken from the file alongside the
+     *    count. The service stamps the pair together, so `now - anchor` is the
+     *    true age of the count instead of the age of this process's read of it.
+     *  - The count is monotonic within a session. A poll can land on a count
+     *    one lower than the last one seen (the service writes once a second, the
+     *    poll runs every five, so which second a read catches is luck), and
+     *    re-anchoring on it used to snap the display backwards by a second --
+     *    the freeze-then-carry-on stutter. `Math.max` with the last shown value
+     *    means a late or out-of-order snapshot can never rewind the chip.
      *
      * `_tick` exists purely to re-evaluate this binding once a second; no
      * process is spawned to do it.
      */
     readonly property int elapsed: {
         root._tick
-        if (root.recording && root.serviceElapsedAtMs > 0)
-            return root.serviceElapsed + Math.floor((Date.now() - root.serviceElapsedAtMs) / 1000);
-        return root.serviceElapsed;
+        if (root.recording || root.paused) {
+            var projected = root.serviceElapsed
+                + Math.max(0, Math.floor((Date.now() - root.serviceElapsedAtMs) / 1000));
+            // Ratchet: the chip only ever moves forward until the session ends.
+            if (projected > root._lastShownElapsed)
+                root._lastShownElapsed = projected;
+            return root._lastShownElapsed;
+        }
+        return 0;
     }
+
+    property int _lastShownElapsed: 0
 
     property int _tick: 0
     Timer {
@@ -111,6 +128,7 @@ Item {
             root.paused = false;
             root.serviceElapsed = 0;
             root.serviceElapsedAtMs = 0;
+            root._lastShownElapsed = 0;
             root.countdownPending = false;
             root.serviceCountdownRemaining = 0;
             root.serviceCountdownAtMs = 0;
@@ -129,6 +147,7 @@ Item {
             root.paused = false;
             root.serviceElapsed = 0;
             root.serviceElapsedAtMs = 0;
+            root._lastShownElapsed = 0;
             root.countdownPending = false;
             root.serviceCountdownRemaining = 0;
             root.serviceCountdownAtMs = 0;
@@ -141,6 +160,13 @@ Item {
             root.recording = (st === "recording");
             root.paused = (st === "paused");
             var readElapsed = typeof data.recordingElapsed === "number" ? data.recordingElapsed : 0;
+            // The service stamps the count with the clock it measured it on, so
+            // the anchor is the count's own age rather than this read's age.
+            // A file from an older plugin has no stamp; fall back to "now",
+            // which is what the old re-anchor assumed and loses at most a second.
+            var readAt = typeof data.recordingElapsedAtMs === "number" && data.recordingElapsedAtMs > 0
+                ? data.recordingElapsedAtMs
+                : Date.now();
             // Outside a live capture the service's elapsed is a leftover from
             // the previous take, so the anchor is dropped rather than stored —
             // otherwise the next take's 0 would look like a stale read and be
@@ -148,13 +174,13 @@ Item {
             if (!(root.recording || root.paused)) {
                 root.serviceElapsed = 0;
                 root.serviceElapsedAtMs = 0;
-            } else if (!(root.serviceElapsedAtMs > 0 && readElapsed < root.serviceElapsed)) {
-                // Within one session, an older count is a late snapshot (the
-                // re-armed poll's previous cat, or a lagging FileView cache).
-                // Re-anchoring on it would make the chip jump backwards; the
-                // session's count only moves forward, so keep the anchor.
+                root._lastShownElapsed = 0;
+            } else {
+                // No monotonic guard on the stored pair: `elapsed` ratchets off
+                // `_lastShownElapsed` instead, so a late snapshot is corrected
+                // by the clock without ever rewinding what is already on screen.
                 root.serviceElapsed = readElapsed;
-                root.serviceElapsedAtMs = Date.now();
+                root.serviceElapsedAtMs = readAt;
             }
             var prevCountdownPending = root.countdownPending;
             root.countdownPending = data.countdownPending === true;
