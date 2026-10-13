@@ -53,12 +53,32 @@ setup() {
     # fixture would fail the run before it ever recorded a wallpaper --
     # which reads as "the wallpaper never changed" rather than as a decode
     # error, and quietly makes the assertions below prove nothing.
+    # A fixture has to be a DECODABLE image, not merely a non-empty file. The
+    # fallback that used to live here wrote an eight-byte PNG header, which is
+    # not a valid PNG: vips is not installed in CI, so that is what every
+    # fixture was there, and every case that drove `wallpaper.sh set` failed at
+    # the awww/palette step instead. The two cases at the end then reported each
+    # other's answer, which reads as a broken guard rather than a broken image.
+    #
+    # python3 is a given in CI (the workflow provisions it), so that is the
+    # primary path; vips still wins when present; the base64 PNG below is the
+    # last resort and is a real, complete, decodable image.
     for f in "$THEME_BG" "$USER_BG" "$COLLECTION_BG"; do
         if command -v vips >/dev/null 2>&1; then
-            vips black "$f" 64 64 2>/dev/null || : > "$f"
-        else
-            printf '\x89PNG\r\n\x1a\n' > "$f"
+            vips black "$f" 64 64 2>/dev/null && continue
         fi
+        if command -v python3 >/dev/null 2>&1; then
+            python3 - "$f" <<'PYEOF' 2>/dev/null && continue
+import base64, sys
+# 1x1 opaque black PNG.
+png = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC"
+    "/x8AAwMCAO+/6f8AAAAASUVORK5CYII=")
+open(sys.argv[1], "wb").write(png)
+PYEOF
+        fi
+        printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC' \
+            | base64 -d > "$f" 2>/dev/null || : > "$f"
     done
 }
 
@@ -168,6 +188,19 @@ ok "owner: a marked pick inside the theme folder reads as the user's" \
     "$(bash "$WALLSH" mark-pick "$THEME_BG" >/dev/null 2>&1; bash "$WALLSH" owner "$THEME_BG" | tail -1)" "user"
 
 # --- the picked wallpaper must survive the swap ---------------------------
+#
+# The cases below drive `wallpaper.sh set`, which short-circuits at
+# `ensure_daemon || exit 0` long before the guard or either symlink repoint
+# runs. Without a compositor to paint to, a `set` here is a no-op by design, so
+# asserting on its effects would be asserting that the script did something it
+# deliberately did not. Skip them and say why, rather than letting them fail in
+# an environment that cannot run them.
+if ! command -v awww >/dev/null 2>&1; then
+    printf 'SKIP the swap cases: no awww daemon, so `set` cannot paint\n'
+    printf '\nall green (swap cases skipped)\n'
+    exit 0
+fi
+
 # The refusal is only useful if the wallpaper stays painted and the wallpaper
 # symlink stops advertising the theme's. Both are observable from outside.
 setup
