@@ -1,18 +1,18 @@
-name: "✨ Feature Request"
-description: "Suggest an idea or enhancement for Better Bar"
+name: "Feature Request"
+description: "Suggest an idea for Better Bar"
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Have an idea to make Better Bar even better? We love community feedback!
+        Have an idea? Let me know.
 
   - type: textarea
     id: problem
     attributes:
-      label: Problem or Motivation
-      description: Is your feature request related to a problem or limitation?
+      label: The problem
+      description: Is this about a limitation or frustration you hit?
       placeholder: "I'm always frustrated when..."
     validations:
       required: true
@@ -20,8 +20,8 @@ body:
   - type: textarea
     id: solution
     attributes:
-      label: Proposed Solution
-      description: Describe the solution you'd like to see.
+      label: What you want
+      description: Describe the feature.
       placeholder: "Add an option to..."
     validations:
       required: true
@@ -29,12 +29,13 @@ body:
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives Considered
-      description: Any alternative solutions or features you've considered.
+      label: Alternatives you've considered
+      description: Other approaches you looked at.
+      placeholder: "Built a custom surface, considered..."
 
   - type: textarea
     id: performance_impact
     attributes:
-      label: Performance Impact
-      description: Better Bar strictly prioritizes near-zero idle CPU. Will this feature impact idle performance?
-      placeholder: "Zero idle CPU — uses event listeners only."
+      label: Idle CPU impact
+      description: Better Bar is built for near-zero idle CPU. How does this feature affect that?
+      placeholder: "Zero idle CPU — event listeners only."

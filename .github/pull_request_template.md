@@ -1,17 +1,6 @@
-## Summary
+## What this PR changes
 
-<!-- Provide a brief overview of the changes in this PR. -->
-
-## Changes
-
-- 
-
-## Verification & Testing
-
+## Checklist
 - [ ] Automated tests pass (`node lib/border-geometry.test.mjs && node lib/monitors.test.mjs && bash lib/media-pill.test.sh && bash lib/strip-layout.test.sh && bash lib/surfaces-wired.test.sh && bash lib/theme-sync.test.sh`)
-- [ ] Idle CPU verified at ~0.0% (no unbounded timers, continuous canvas re-paints, or polling loops)
+- [ ] No new polling timers or continuous canvas repaints
 - [ ] Tested in Hyprland Wayland session
-
-## Related Issues
-
-<!-- Closes #123 -->
