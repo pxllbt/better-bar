@@ -366,6 +366,23 @@ Item {
     // The chip stays visible across the paused state and countdown too: a paused
     // recording is still an active capture, and dropping the chip made it look stopped.
     readonly property bool recastActive: typeof Recast !== "undefined" && (Recast.recording || Recast.paused || Recast.countdownPending)
+
+    /**
+     * Whether a REC face may draw at all.
+     *
+     * Nine slots already gate on `!Recast.recording`, so they all step aside for
+     * the recording chip. The chip had no reciprocal: it drew unconditionally
+     * whenever a recording was live, even while an OSD flash or a toast owned
+     * the pill face. Switching workspaces while recording fires exactly that --
+     * the workspace OSD takes the face and the REC face keeps drawing over it,
+     * which reads as a second pill offset from the first. They do not animate
+     * together because only one of them is part of the face the transient drives.
+     *
+     * Kept as one property so the strip copy and the rest-row copy cannot drift
+     * apart again -- they did once, and that is how the doubled face started.
+     */
+    readonly property bool recastFaceVisible: recastActive
+        && !osdActive && !toastActive && specialView === ""
     readonly property bool toastActive: Notifs.popups.length > 0
     readonly property bool osdActive: osd.flashing
 
@@ -2265,7 +2282,7 @@ Item {
             // No surface/popup gate: a live recording is the one state that must
             // always be readable, including while a surface is open or the pill
             // is morphing between faces.
-            visible: pill.recastActive && pill.stripBar
+            visible: pill.recastFaceVisible && pill.stripBar
             anchors.centerIn: parent
             width: stripRecordingFace.implicitWidth
             height: stripRecordingFace.implicitHeight
@@ -2501,7 +2518,7 @@ Item {
                 // here both render at once in strip mode and the pill draws a
                 // second REC face over the first -- the doubled, offset
                 // outline you see while recording.
-                visible: pill.recastActive && !pill.stripBar
+                visible: pill.recastFaceVisible && !pill.stripBar
                 anchors.verticalCenter: parent.verticalCenter
                 width: recastRestRow.implicitWidth
                 height: recastRestRow.implicitHeight
