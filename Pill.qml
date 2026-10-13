@@ -270,7 +270,7 @@ Item {
      * the game bar. Anything here wins over both hide rules below.
      */
     readonly property bool heldOpen: revealSession || expanded || dragActive || transientLive
-        || mode === "game" || pill.recastActive
+        || mode === "game" || (pill.recastActive && !osdActive)
 
     /**
      * Cursor-follow: the pointer is on another monitor, so this bar is not where

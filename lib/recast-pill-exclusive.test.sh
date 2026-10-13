@@ -94,14 +94,21 @@ ok "both faces gate on the shared predicate, not raw recastActive" \
 no "no face bypasses the shared predicate" \
     "$(grep -c 'visible: pill.recastActive' "$PILL")"
 
-# --- the OSD must not spawn a surface of its own while recording ----------
-# The OSD is its OWN layer surface (surfaces/OsdPopup.qml), anchored to the
-# pill's resting geometry. A recording holds the pill open via heldOpen --
-# recastActive is in that set -- so the pill is expanded while the popup lands
-# on the small resting position. A workspace switch therefore drew the OSD at
-# one size beside the REC face at another: two pills, unrelated animations.
+# --- one pill during a recording AND an OSD flash --------------------------
+# The OSD is its OWN layer surface (surfaces/OsdPopup.qml). Its anchor is
+# IDENTICAL to the pill's -- same parent, same top, same horizontal centre --
+# so the two only read as one pill when they are also the same SIZE.
 #
-# `held` is pinned || forcePinned only, so it is not sufficient here.
+# A recording holds the pill open through heldOpen, so it is expanded. A
+# workspace-switch flash then rendered the OSD at rest size beside the expanded
+# REC face: two coincident boxes, differently sized, animating independently.
+# (Not recording, the pill is at rest size, so the popup coincides with it --
+# which is why it only ever read as one when nothing was being recorded.)
+#
+# The fix is not to suppress the flash, which is what a first attempt did: the
+# workspace indicator vanished entirely during recording. Instead the recording
+# yields the pill back while a flash is up, so the pill returns to rest size and
+# the OSD fills exactly that box. Both stay visible, as one surface.
 SHELL="$ROOT/shell.qml"
 osd_gate="$(sed -n '/id: osdPopup/,/^                }$/p' "$SHELL" | grep 'suppressed:')"
 [ -n "$osd_gate" ] || { echo "could not locate the osdPopup suppressed gate" >&2; exit 1; }
@@ -111,8 +118,22 @@ ok "the osdPopup gate includes the existing suppressors" \
     "$(printf '%s' "$osd_gate" | grep -c 'overlay\.surfaceOpen')" "1"
 ok "the osdPopup gate suppresses on held" \
     "$(printf '%s' "$osd_gate" | grep -c 'pill\.held')" "1"
-ok "the osdPopup gate suppresses while a recording is live" \
-    "$(printf '%s' "$osd_gate" | grep -c 'pill\.recastActive')" "1"
+# The OSD must NOT be suppressed for a recording -- that was the fix that cost
+# the workspace indicator.
+no "the osdPopup is not blanket-suppressed while recording" \
+    "$(printf '%s' "$osd_gate" | grep -c 'pill\.recastActive')"
+
+# The recording yields the pill while a flash is up.
+held_block="$(sed -n '/readonly property bool heldOpen/,/^$/p' "$PILL")"
+[ -n "$held_block" ] || { echo "could not locate heldOpen" >&2; exit 1; }
+ok "the recording yields the pill while an OSD is up" \
+    "$(printf '%s' "$held_block" | grep -c 'pill\.recastActive && !osdActive')" "1"
+ok "the yield is conditional, not unconditional" \
+    "$(printf '%s' "$held_block" | grep -c 'recastActive && !osdActive')" "1"
+# ...and the REC face itself still steps aside for the flash, so the pill is not
+# left showing an empty expanded shell next to the OSD.
+ok "the REC face still yields to the flash" \
+    "$(grep -c 'recastFaceVisible: recastActive' "$PILL")" "1"
 
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
