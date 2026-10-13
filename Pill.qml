@@ -54,8 +54,8 @@ Item {
         // heaviest, evict first
         wallpaper:   unloadS * 1000,
         mixer:       unloadS * 1000,
-        // thirsty frequent fliers: one generous reset, then reclaim
-        clipboard:   unloadS * 2 * 1000,
+        // clipboard: immediate teardown on close so native input fields do not linger
+        clipboard:   0,
         media:       unloadS * 2 * 1000,
         calendar:    unloadS * 2 * 1000,
         // everything else: the base tier, so a settings sweep releases as it goes
@@ -599,12 +599,17 @@ Item {
     }
 
     function scheduleUnload(name) {
+        name = pill.normSurface(name);
+        if (name === "clipboard") {
+            // Reclaim clipboard surface immediately on close so native input fields do not linger
+            pill.dropClosed("clipboard");
+            return;
+        }
         // With the saver off the tier is effectively infinite, so nothing would
         // ever be swept on its own; keeping the sweep running would evict purely
         // on the residency cap, which is not what the cap is for.
         if (!Flags.memorySaver)
             return;
-        name = pill.normSurface(name);
         if (!name || !Object.prototype.hasOwnProperty.call(pill.loaders, name))
             return;
         const ld = pill.loaders[name]();

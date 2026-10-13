@@ -86,18 +86,23 @@ PillSurface {
 
     onActiveChanged: {
         Cliphist.surfaceOpen = active;
+        search.active = active;
         if (active) {
             query = "";
             search.text = "";
             selectedIndex = 0;
             Cliphist.refresh();
             Qt.callLater(root.focusField);
+        } else {
+            search.text = "";
+            search.input.focus = false;
         }
     }
     onResultsChanged: if (selectedIndex >= results.length) selectedIndex = Math.max(0, results.length - 1)
 
     SearchField {
         id: search
+        active: root.active
         z: 5
         anchors.top: parent.top
         anchors.left: parent.left

@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import "../Singletons"
 
 Item {
@@ -9,6 +8,7 @@ Item {
     property string kanji: ""
     property string placeholder: ""
     property string counterText: ""
+    property bool active: true
 
     /**
      * Map Left/Right to the moved() signal instead of text-cursor motion. For a
@@ -33,7 +33,7 @@ Item {
     readonly property real fieldLine: field.implicitHeight
     height: fieldLine + 2
 
-    TextField {
+    TextInput {
         id: field
         anchors.left: parent.left
         anchors.leftMargin: 0
@@ -41,15 +41,15 @@ Item {
         anchors.rightMargin: 10 * root.s
         anchors.verticalCenter: parent.verticalCenter
         height: fieldLine
-        background: null
         padding: 0
         verticalAlignment: TextInput.AlignVCenter
         color: Theme.cream
         font.family: Theme.font
         font.pixelSize: 12.5 * root.s
-        placeholderText: root.placeholder
-        placeholderTextColor: Theme.faint
-        selectByMouse: true
+        selectByMouse: false
+        maximumLength: 256
+        enabled: root.active && (!parent || parent.visible !== false)
+        inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
         selectionColor: Theme.verm
         cursorDelegate: Item {
             width: 2 * root.s
@@ -86,6 +86,16 @@ Item {
                 e.accepted = true;
             }
         }
+    }
+
+    Text {
+        anchors.left: field.left
+        anchors.verticalCenter: field.verticalCenter
+        visible: !field.text.length && root.placeholder.length > 0
+        text: root.placeholder
+        color: Theme.faint
+        font.family: Theme.font
+        font.pixelSize: 12.5 * root.s
     }
 
     Text {

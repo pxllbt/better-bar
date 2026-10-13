@@ -7,15 +7,21 @@ INSTALL_ROOT="${HOME}/.local/share/quickshell/better"
 
 if [ -d "$INSTALL_ROOT" ]; then
   printf '\033[1;33m%s is already installed at %s\033[0m\n' "$NAME" "$INSTALL_ROOT"
-  printf 'Pulling latest changes...\n'
-  git -C "$INSTALL_ROOT" pull --ff-only origin master || {
-    printf '\033[1;31mCould not pull latest code — keeping existing install.\033[0m\n'
-    printf 'Upstream: %s\n' "$REPO"
-    exit 1
-  }
+  printf 'Checking latest changes...\n'
+  TARGET_SHA=$(git -C "$INSTALL_ROOT" ls-remote origin refs/heads/master 2>/dev/null | awk '{print $1}')
+  if [ -n "$TARGET_SHA" ]; then
+    git -C "$INSTALL_ROOT" fetch --depth=1 origin "$TARGET_SHA" || true
+    git -C "$INSTALL_ROOT" checkout --detach "$TARGET_SHA" || true
+  fi
 else
   printf 'Cloning %s...\n' "$NAME"
-  git clone --depth 1 --branch master "$REPO" "$INSTALL_ROOT"
+  TARGET_SHA=$(git ls-remote "$REPO" refs/heads/master 2>/dev/null | awk '{print $1}')
+  if [ -n "$TARGET_SHA" ]; then
+    git clone --depth 1 "$REPO" "$INSTALL_ROOT"
+    git -C "$INSTALL_ROOT" checkout --detach "$TARGET_SHA" || true
+  else
+    git clone --depth 1 --branch master "$REPO" "$INSTALL_ROOT"
+  fi
 fi
 
 # The clone is checked before anything else, because everything below assumes

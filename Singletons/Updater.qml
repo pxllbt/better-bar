@@ -35,7 +35,7 @@ Singleton {
     Process {
         id: probeProc
         command: ["timeout", "15", "bash", "-c",
-            "set -eu; cd \"$1\"; git fetch --quiet origin \"+master:refs/remotes/origin/update-probe\"; count=$(git rev-list --count HEAD..refs/remotes/origin/update-probe); sha=$(git rev-parse --short refs/remotes/origin/update-probe); file=\"${XDG_STATE_HOME:-$HOME/.local/state}/better/update-notified\"; [ \"$count\" -gt 0 ] || { rm -f \"$file\"; echo uptodate; exit 0; }; old=\"$(cat \"$file\" 2>/dev/null || true)\"; [ \"$old\" = \"$sha\" ] && { echo same; exit 0; }; mkdir -p \"$(dirname \"$file\")\"; printf \"%s\" \"$sha\" > \"$file\"; echo \"notify $sha $count\"", "bash", Config.configDir]
+            "set -eu; cd \"$1\"; remote_sha=$(git ls-remote --heads origin refs/heads/master 2>/dev/null | awk '{print $1}'); current_sha=$(git rev-parse HEAD 2>/dev/null || true); file=\"${XDG_STATE_HOME:-$HOME/.local/state}/better/update-notified\"; if [ -n \"$remote_sha\" ] && [ -n \"$current_sha\" ] && [ \"$remote_sha\" != \"$current_sha\" ]; then sha=${remote_sha:0:7}; old=\"$(cat \"$file\" 2>/dev/null || true)\"; [ \"$old\" = \"$sha\" ] && { echo same; exit 0; }; mkdir -p \"$(dirname \"$file\")\"; printf \"%s\" \"$sha\" > \"$file\"; echo \"notify $sha 1\"; else rm -f \"$file\"; echo uptodate; fi", "bash", Config.configDir]
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
