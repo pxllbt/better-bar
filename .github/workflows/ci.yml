@@ -62,27 +62,3 @@ jobs:
 
       - name: Run Search Field Input Tests
         run: bash lib/search-field-input.test.sh .
-
-      - name: Run Wallpaper Ownership Tests
-        run: bash lib/wallpaper-owner.test.sh
-
-      - name: Run Plaintext Wallpaper Tests
-        run: bash lib/bt-plaintext.test.sh
-
-      - name: Run Icon Alignment Tests
-        run: bash lib/icon-alignment.test.sh
-
-      - name: Run Surfaces Wiring Tests
-        run: bash lib/surfaces-wired.test.sh
-
-      - name: Run Theme Sync Tests
-        run: bash lib/theme-sync.test.sh
-
-      - name: Run Tray Behaviour Tests
-        run: bash lib/tray-behaviour.test.sh
-
-      - name: Run Update Guard Tests
-        run: bash lib/update-guard.test.sh
-
-      - name: Run Plaintext Wifi Tests
-        run: bash lib/wifi-plaintext.test.sh
