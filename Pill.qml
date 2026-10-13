@@ -2496,7 +2496,12 @@ Item {
             }
 
             Item {
-                visible: pill.recastActive
+                // The mirror of stripRecordingBox's gate. That one is
+                // `recastActive && stripBar`; without the `!stripBar` half
+                // here both render at once in strip mode and the pill draws a
+                // second REC face over the first -- the doubled, offset
+                // outline you see while recording.
+                visible: pill.recastActive && !pill.stripBar
                 anchors.verticalCenter: parent.verticalCenter
                 width: recastRestRow.implicitWidth
                 height: recastRestRow.implicitHeight
