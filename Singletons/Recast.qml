@@ -48,57 +48,6 @@ Item {
         return root.serviceCountdownRemaining;
     }
 
-    /**
-     * The displayed elapsed count.
-     *
-     * Derived, not stored: between polls it advances off a local clock, so the
-     * chip ticks once a second even though the state file is only read every
-     * few seconds.
-     *
-     * Two rules make it exact rather than approximate:
-     *
-     *  - The anchor is the *service's* clock, taken from the file alongside the
-     *    count. The service stamps the pair together, so `now - anchor` is the
-     *    true age of the count instead of the age of this process's read of it.
-     *  - The count is monotonic within a session. A poll can land on a count
-     *    one lower than the last one seen (the service writes once a second, the
-     *    poll runs every five, so which second a read catches is luck), and
-     *    re-anchoring on it used to snap the display backwards by a second --
-     *    the freeze-then-carry-on stutter. `Math.max` with the last shown value
-     *    means a late or out-of-order snapshot can never rewind the chip.
-     *
-     * `_tick` exists purely to re-evaluate this binding once a second; no
-     * process is spawned to do it.
-     */
-    readonly property int elapsed: {
-        root._tick
-        if (root.recording || root.paused) {
-            var projected = root.serviceElapsed
-                + Math.max(0, Math.floor((Date.now() - root.serviceElapsedAtMs) / 1000));
-            // Ratchet: the chip only ever moves forward until the session ends.
-            if (projected > root._elapsedFloor.v)
-                root._elapsedFloor.v = projected;
-            return root._elapsedFloor.v;
-        }
-        return 0;
-    }
-
-    // Held in an object rather than a plain property on purpose. Reading and
-    // writing the same property inside one binding is a binding loop: QML warns
-    // "Binding loop detected for property \"elapsed\"" and re-evaluates on every
-    // pass. The floor is bookkeeping, not something the UI binds to, so it is
-    // stored in an object whose field is mutated without notifying anything --
-    // the binding above reads it without depending on it.
-    property var _elapsedFloor: ({ v: 0 })
-
-    property int _tick: 0
-    Timer {
-        interval: 1000
-        repeat: true
-        running: root.recording || root.countdownPending
-        onTriggered: root._tick++
-    }
-
     readonly property string formattedTime: {
         var s = root.elapsed % 60;
         var m = Math.floor(root.elapsed / 60) % 60;
@@ -108,6 +57,91 @@ Item {
         // Hours roll the minute field instead of running it past 59: a plain
         // mm:ss formatter printed "60:00" at the hour mark and kept counting.
         return h > 0 ? (h + ":" + mm + ":" + ss) : (mm + ":" + ss);
+    }
+
+    /**
+     * What the service's own clock says the count should be right now. Pure:
+     * it reads the anchored (count, stamp) pair and nothing else, so it can be
+     * called from any slot without re-entering itself.
+     */
+    function projectedElapsed() {
+        if (!(root.recording || root.paused))
+            return 0;
+        // Guard the anchor. Until the first stamped snapshot arrives
+        // `serviceElapsedAtMs` is 0, and projecting from it means dividing the
+        // current epoch by 1000 -- ~1.79e9 seconds, which formattedTime()
+        // rendered as "497743:59:21". The raw count is the honest answer until
+        // there is something to project from.
+        if (!(root.serviceElapsedAtMs > 0))
+            return root.serviceElapsed;
+        var projected = root.serviceElapsed
+            + Math.max(0, Math.floor((Date.now() - root.serviceElapsedAtMs) / 1000));
+        // Belt and braces. A take is minutes to hours; anything beyond this is a
+        // bad anchor rather than a long recording, and rendering it as a huge
+        // count is worse than showing the number we actually have.
+        if (projected > _maxPlausibleElapsed)
+            return root.serviceElapsed;
+        return projected;
+    }
+
+    /**
+     * The running maximum actually on screen.
+     *
+     * A poll can land on a count one lower than the last one seen (the service
+     * writes once a second, the poll runs every five), so re-anchoring on the
+     * raw projection used to snap the display backwards by a second — the
+     * freeze-then-carry-on stutter. Forward only, so a late or out-of-order
+     * snapshot can never rewind the chip.
+     *
+     * The one exception is a projection of 0, which means the session is over:
+     * the next take must not inherit the previous one's count.
+     *
+     * This value is written from here and from the reset paths ONLY — never from
+     * a binding. It used to be assigned inside `elapsed`'s own binding while
+     * that binding also read it, which is a binding loop: every tick re-ran the
+     * binding, and Quickshell logged "Binding loop detected for property
+     * "elapsed"" until the property settled by luck. Splitting the pure read
+     * (`elapsed`) from the ratchet (here) removes it: nothing in a binding
+     * writes anything a binding reads.
+     */
+    property int _lastShownElapsed: 0
+
+    // 24h. Long enough that no plausible take is clipped, short enough that a
+    // bad anchor is obvious rather than plausible. Guards the projection in
+    // projectedElapsed() -- a bad clock would otherwise render as a count in
+    // the centuries.
+    readonly property int _maxPlausibleElapsed: 86400
+
+    function refreshElapsed() {
+        var projected = root.projectedElapsed();
+        if (projected > root._lastShownElapsed || projected === 0)
+            root._lastShownElapsed = projected;
+    }
+
+    /**
+     * The displayed elapsed count: a pure read of the ratcheted value above.
+     * No clock arithmetic, no branch, no write — a binding that only reads can
+     * never loop, whatever else ticks underneath it.
+     */
+    readonly property int elapsed: root._lastShownElapsed
+
+    onRecordingChanged: root.refreshElapsed()
+    onPausedChanged: root.refreshElapsed()
+    onServiceElapsedChanged: root.refreshElapsed()
+
+    property int _tick: 0
+
+    // Ticks the derived displays once a second. `elapsed` no longer depends on
+    // this — the ratchet is advanced by refreshElapsed() — so the timer drives
+    // an assignment rather than re-evaluating a property that writes.
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.recording || root.paused
+        onTriggered: {
+            root._tick = root._tick + 1;
+            root.refreshElapsed();
+        }
     }
 
     // watchChanges stays OFF, and that is deliberate — it looks wrong.
@@ -134,7 +168,7 @@ Item {
             root.paused = false;
             root.serviceElapsed = 0;
             root.serviceElapsedAtMs = 0;
-            root._elapsedFloor.v = 0;
+            root._lastShownElapsed = 0;
             root.countdownPending = false;
             root.serviceCountdownRemaining = 0;
             root.serviceCountdownAtMs = 0;
@@ -153,7 +187,7 @@ Item {
             root.paused = false;
             root.serviceElapsed = 0;
             root.serviceElapsedAtMs = 0;
-            root._elapsedFloor.v = 0;
+            root._lastShownElapsed = 0;
             root.countdownPending = false;
             root.serviceCountdownRemaining = 0;
             root.serviceCountdownAtMs = 0;
@@ -163,8 +197,6 @@ Item {
         try {
             var data = JSON.parse(raw);
             var st = data.recordingState || data.state || "idle";
-            root.recording = (st === "recording");
-            root.paused = (st === "paused");
             var readElapsed = typeof data.recordingElapsed === "number" ? data.recordingElapsed : 0;
             // The service stamps the count with the clock it measured it on, so
             // the anchor is the count's own age rather than this read's age.
@@ -173,21 +205,30 @@ Item {
             var readAt = typeof data.recordingElapsedAtMs === "number" && data.recordingElapsedAtMs > 0
                 ? data.recordingElapsedAtMs
                 : Date.now();
-            // Outside a live capture the service's elapsed is a leftover from
-            // the previous take, so the anchor is dropped rather than stored —
-            // otherwise the next take's 0 would look like a stale read and be
-            // rejected against it.
-            if (!(root.recording || root.paused)) {
-                root.serviceElapsed = 0;
-                root.serviceElapsedAtMs = 0;
-                root._elapsedFloor.v = 0;
-            } else {
-                // No monotonic guard on the stored pair: `elapsed` ratchets off
-                // `_elapsedFloor` instead, so a late snapshot is corrected
-                // by the clock without ever rewinding what is already on screen.
+            // The count and its anchor are written BEFORE `recording` flips.
+            // Flipping it first fires onRecordingChanged -> refreshElapsed()
+            // synchronously, against whatever the previous anchor was -- 0 on a
+            // cold start, which is what produced the epoch-sized count on the
+            // chip. Assigning the pair first makes the change handler read a
+            // coherent state instead of a half-applied one.
+            if (st === "recording" || st === "paused") {
                 root.serviceElapsed = readElapsed;
                 root.serviceElapsedAtMs = readAt;
+            } else {
+                // Outside a live capture the service's elapsed is a leftover from
+                // the previous take, so the anchor is dropped rather than stored —
+                // otherwise the next take's 0 would look like a stale read and be
+                // rejected against it.
+                root.serviceElapsed = 0;
+                root.serviceElapsedAtMs = 0;
+                // Explicit reset rather than relying on the projected === 0
+                // branch in refreshElapsed(): flipping `recording` off fires the
+                // change handler, but clearing here means the ratchet cannot
+                // survive a reset that arrives some other way.
+                root._lastShownElapsed = 0;
             }
+            root.recording = (st === "recording");
+            root.paused = (st === "paused");
             var prevCountdownPending = root.countdownPending;
             root.countdownPending = data.countdownPending === true;
             var readCountdown = typeof data.countdownRemaining === "number" ? data.countdownRemaining : 0;
@@ -250,5 +291,8 @@ Item {
         fastBurstTimer.running = true;
     }
 
-    Component.onCompleted: root.updateState()
+    Component.onCompleted: {
+        root.updateState();
+        root.refreshElapsed();
+    }
 }
