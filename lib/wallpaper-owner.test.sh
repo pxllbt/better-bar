@@ -13,7 +13,10 @@
 
 set -uo pipefail
 
-WALLSH="${1:?usage: owner.test.sh /path/to/wallpaper.sh}"
+# Defaults to this checkout's script, like the rest of the lib tests, so a bare
+# `bash lib/wallpaper-owner.test.sh` works. An explicit path still wins.
+ROOT="${1:-$HOME/.local/share/quickshell/better}"
+WALLSH="$ROOT/scripts/wallpaper.sh"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
