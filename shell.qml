@@ -925,7 +925,21 @@ ShellRoot {
                     screenName: overlay.modelData.name
                     expanded: pill.expanded
                     topFlat: (pill.mode === "game" || pill.stripBar) ? 1 : 0
-                    suppressed: overlay.surfaceOpen || pill.held
+                    // Suppressed while a recording is live.
+                    //
+                    // This popup is its own layer surface, anchored to the pill's
+                    // RESTING position. A recording holds the pill open through
+                    // `heldOpen` -- recastActive is in that set -- so the pill is
+                    // expanded while the popup still lands on the small resting
+                    // geometry. A workspace switch then draws the OSD at one size
+                    // next to the REC face at another, which reads as two
+                    // unrelated pills instead of the one that switches as a unit.
+                    //
+                    // Recording is the state that must stay readable at all
+                    // times, so the pill keeps its face and the flash step does
+                    // not get a surface of its own. `held` alone is not enough
+                    // here: it is only pinned || forcePinned.
+                    suppressed: overlay.surfaceOpen || pill.held || pill.recastActive
                         || pill.mode === "game" || (pill.toastActive && Notifs.toastCritical)
                 }
             }

@@ -598,6 +598,23 @@ elif [ "$cmd" = "set" ]; then
         fi
         exit 0
     fi
+
+    # Repoint current/background on a SUCCESSFUL set, not only on a refusal.
+    #
+    # This is the link omarchy-theme-set writes and "the state every other
+    # wallpaper reader trusts" -- the refusal branch above already maintains it,
+    # but the success branch did not, so the link kept advertising whatever the
+    # theme had installed. The next background-set hook then fired with that
+    # stale target and re-applied it, silently undoing the pick.
+    #
+    # Resolved to the real file: a pick made from a theme's backgrounds directory
+    # is reached THROUGH omarchy's current/theme symlink, and pointing the link at
+    # a path that a later theme switch would replace would strand it.
+    if [ -n "$pic" ]; then
+        resolved=$(readlink -f -- "$pic" 2>/dev/null) || resolved="$pic"
+        [ -f "$resolved" ] && \
+            ln -nsf "$resolved" "$HOME/.local/state/omarchy/current/background" 2>/dev/null || true
+    fi
 elif [ "$cmd" = "fit" ]; then
     mode="${2:-crop}"
     case "$mode" in no|crop|fit|stretch) ;; *) mode=crop ;; esac

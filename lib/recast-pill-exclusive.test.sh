@@ -94,6 +94,26 @@ ok "both faces gate on the shared predicate, not raw recastActive" \
 no "no face bypasses the shared predicate" \
     "$(grep -c 'visible: pill.recastActive' "$PILL")"
 
+# --- the OSD must not spawn a surface of its own while recording ----------
+# The OSD is its OWN layer surface (surfaces/OsdPopup.qml), anchored to the
+# pill's resting geometry. A recording holds the pill open via heldOpen --
+# recastActive is in that set -- so the pill is expanded while the popup lands
+# on the small resting position. A workspace switch therefore drew the OSD at
+# one size beside the REC face at another: two pills, unrelated animations.
+#
+# `held` is pinned || forcePinned only, so it is not sufficient here.
+SHELL="$ROOT/shell.qml"
+osd_gate="$(sed -n '/id: osdPopup/,/^                }$/p' "$SHELL" | grep 'suppressed:')"
+[ -n "$osd_gate" ] || { echo "could not locate the osdPopup suppressed gate" >&2; exit 1; }
+ok "the osdPopup surface exists and is gated" \
+    "$(printf '%s' "$osd_gate" | grep -c 'suppressed:')" "1"
+ok "the osdPopup gate includes the existing suppressors" \
+    "$(printf '%s' "$osd_gate" | grep -c 'overlay\.surfaceOpen')" "1"
+ok "the osdPopup gate suppresses on held" \
+    "$(printf '%s' "$osd_gate" | grep -c 'pill\.held')" "1"
+ok "the osdPopup gate suppresses while a recording is live" \
+    "$(printf '%s' "$osd_gate" | grep -c 'pill\.recastActive')" "1"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
     exit 1
