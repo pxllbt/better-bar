@@ -65,16 +65,24 @@ ok "a missing stamp falls back to now" \
 
 # The display is ratcheted: `elapsed` returns the running maximum rather than the
 # raw projection, so no late snapshot can rewind it.
-ok "the display ratchets through a last-shown value" \
-    "$(printf '%s' "$elapsed_block" | grep -c '_lastShownElapsed')" "3"
+ok "the display ratchets through a floor" \
+    "$(printf '%s' "$elapsed_block" | grep -c '_elapsedFloor')" "3"
 
-ok "the ratchet field is declared" \
-    "$(grep -c 'property int _lastShownElapsed: 0' "$RECAST")" "1"
+# The floor must NOT be a plain property. A binding that reads and writes the
+# same property is a binding loop -- QML logs "Binding loop detected for
+# property \"elapsed\"" and re-evaluates on every pass, which is what the first
+# version of this ratchet did. Holding it in an object keeps the binding from
+# depending on what it maintains.
+ok "the floor is not a plain property (that would be a binding loop)" \
+    "$(grep -c 'property var _elapsedFloor: ({ v: 0 })' "$RECAST")" "1"
+
+no "no plain last-shown property is reintroduced" \
+    "$(grep -c 'property int _lastShownElapsed' "$RECAST")"
 
 # The ratchet must be cleared wherever the session ends, or the next take would
 # inherit the previous one's count.
 ok "the ratchet is cleared on every session reset" \
-    "$(grep -c 'root\._lastShownElapsed = 0' "$RECAST")" "3"
+    "$(grep -c 'root\._elapsedFloor\.v = 0' "$RECAST")" "3"
 
 # The old broken comparison must be gone: anchoring a stale read against the
 # last read is what let the rewind through in the first place.

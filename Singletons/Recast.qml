@@ -76,14 +76,20 @@ Item {
             var projected = root.serviceElapsed
                 + Math.max(0, Math.floor((Date.now() - root.serviceElapsedAtMs) / 1000));
             // Ratchet: the chip only ever moves forward until the session ends.
-            if (projected > root._lastShownElapsed)
-                root._lastShownElapsed = projected;
-            return root._lastShownElapsed;
+            if (projected > root._elapsedFloor.v)
+                root._elapsedFloor.v = projected;
+            return root._elapsedFloor.v;
         }
         return 0;
     }
 
-    property int _lastShownElapsed: 0
+    // Held in an object rather than a plain property on purpose. Reading and
+    // writing the same property inside one binding is a binding loop: QML warns
+    // "Binding loop detected for property \"elapsed\"" and re-evaluates on every
+    // pass. The floor is bookkeeping, not something the UI binds to, so it is
+    // stored in an object whose field is mutated without notifying anything --
+    // the binding above reads it without depending on it.
+    property var _elapsedFloor: ({ v: 0 })
 
     property int _tick: 0
     Timer {
@@ -128,7 +134,7 @@ Item {
             root.paused = false;
             root.serviceElapsed = 0;
             root.serviceElapsedAtMs = 0;
-            root._lastShownElapsed = 0;
+            root._elapsedFloor.v = 0;
             root.countdownPending = false;
             root.serviceCountdownRemaining = 0;
             root.serviceCountdownAtMs = 0;
@@ -147,7 +153,7 @@ Item {
             root.paused = false;
             root.serviceElapsed = 0;
             root.serviceElapsedAtMs = 0;
-            root._lastShownElapsed = 0;
+            root._elapsedFloor.v = 0;
             root.countdownPending = false;
             root.serviceCountdownRemaining = 0;
             root.serviceCountdownAtMs = 0;
@@ -174,10 +180,10 @@ Item {
             if (!(root.recording || root.paused)) {
                 root.serviceElapsed = 0;
                 root.serviceElapsedAtMs = 0;
-                root._lastShownElapsed = 0;
+                root._elapsedFloor.v = 0;
             } else {
                 // No monotonic guard on the stored pair: `elapsed` ratchets off
-                // `_lastShownElapsed` instead, so a late snapshot is corrected
+                // `_elapsedFloor` instead, so a late snapshot is corrected
                 // by the clock without ever rewinding what is already on screen.
                 root.serviceElapsed = readElapsed;
                 root.serviceElapsedAtMs = readAt;
