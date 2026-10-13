@@ -135,6 +135,20 @@ ok "the yield is conditional, not unconditional" \
 ok "the REC face still yields to the flash" \
     "$(grep -c 'recastFaceVisible: recastActive' "$PILL")" "1"
 
+# And the pill's own shell hides for the duration of a flash, so the OSD box is
+# the only thing drawn. Yielding the geometry was not enough: the two share an
+# anchor but not a size, so an empty shell still showed beside the OSD.
+pill_decl="$(sed -n '/^                Pill {/,/^                    {/p' "$SHELL")"
+[ -n "$pill_decl" ] || { echo "could not locate the Pill declaration" >&2; exit 1; }
+ok "the pill hides while a flash is up" \
+    "$(printf '%s' "$pill_decl" | grep -c 'opacity: pill\.recastActive && osdPopup\.active ? 0 : 1')" "1"
+# The conditional must resolve to visible, not be pinned to hidden: the pill
+# returns as soon as the flash ends.
+ok "the pill returns when the flash ends" \
+    "$(printf '%s' "$pill_decl" | grep -cE 'opacity: .*\\? 0 : 1$')" "1"
+ok "hiding the pill does not disable it permanently" \
+    "$(printf '%s' "$pill_decl" | grep -c 'enabled: opacity > 0\.01')" "1"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
     exit 1
