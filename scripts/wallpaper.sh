@@ -219,17 +219,25 @@ apply_visual() {
             make_still "$pic" "$st" && show="$st"
             ;;
     esac
+    # One pass, and a frame rate a wallpaper can justify.
+    #
+    # 60fps for a background transition is the most expensive setting available
+    # and buys nothing here: the frame is a full-screen composite of a 4K image,
+    # so halving the frame rate halves the work the compositor does during the
+    # second or so the change takes, and the difference is not visible on a
+    # surface that is not the thing being watched.
+    #
+    # The second `awww img` that used to follow is gone. It could never run:
+    # `show` differs from `pic` only for a video still, and `! is_video "$pic"`
+    # excluded exactly those, so the branch was unreachable while still paying
+    # for a read of it on every change.
     awww img ${oflag[@]+"${oflag[@]}"} "$show" \
         --resize "$FIT" \
         --transition-type wave \
         --transition-angle 30 \
         --transition-wave "60,30" \
-        --transition-fps 60 \
+        --transition-fps 30 \
         --transition-step 90
-    if [ "$show" != "$pic" ] && ! is_video "$pic"; then
-        sleep 0.9
-        awww img ${oflag[@]+"${oflag[@]}"} "$pic" --resize "$FIT" --transition-type none
-    fi
 }
 
 # The desired video set comes from the map, collapsed to one '*' instance when
