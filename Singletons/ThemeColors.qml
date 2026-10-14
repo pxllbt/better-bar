@@ -110,6 +110,27 @@ Item {
             return s.length === 1 ? s + s : s.slice(0, 2)
         }
         // The comma form is decimal 0..255, not hex: rgba(255,136,0,1.0).
+        //
+        // Byte width, not "is it all digits", is what separates the two forms.
+        // A hashless hex channel is one or two characters, so anything longer
+        // cannot be one. That is the whole test: it reads "141412" as the hex
+        // near-black it is, while "20" in rgba(20,30,40,1.0) stays decimal.
+        //
+        // Testing "all digits" first, as this used to, is what painted the red
+        // ring. "141412" is all digits, so it was read as decimal 141412,
+        // clamped to 255 and emitted as #ff0000 -- on a theme whose entire
+        // palette has no red in it. Hyprland writes `rgb(rrggbb)` with bare
+        // hex digits, and so does every hand-written theme, so the ring showed
+        // up red on exactly the themes that had gone to the trouble of
+        // declaring a border gradient at all.
+        function byte(s) {
+            s = (s === undefined || s === null) ? "" : String(s).trim()
+            if (s.length === 0)
+                return "00"
+            if (/^\d+$/.test(s) && s.length <= 3)
+                return Math.max(0, Math.min(255, parseInt(s, 10))).toString(16).padStart(2, "0")
+            return pair(s)
+        }
         function byte(s) {
             s = (s === undefined || s === null) ? "" : String(s).trim()
             if (s.length === 0)
@@ -136,7 +157,14 @@ Item {
             var raw = match[1].trim()
             var parts = raw.split(",")
             var hex
-            if (parts.length === 1 && /^[0-9a-fA-F]{8}$/.test(parts[0].trim())) {
+            // Hyprland writes `rgb(rrggbb)` with bare hex digits and no commas,
+            // so parts.length is 1. Six digits is the common case and was NOT
+            // handled here: it fell through to the comma branch, where the
+            // three missing channels read as 00 and the one present channel
+            // read as a decimal. Opaque when there is no alpha to read.
+            if (parts.length === 1 && /^[0-9a-fA-F]{6}$/.test(parts[0].trim())) {
+                hex = "#ff" + parts[0].trim().toLowerCase()
+            } else if (parts.length === 1 && /^[0-9a-fA-F]{8}$/.test(parts[0].trim())) {
                 var h = parts[0].trim()
                 hex = "#" + h.slice(6, 8) + h.slice(0, 6)
             } else {
