@@ -602,10 +602,25 @@ download() {
     # better/flags.json carries its own (empty) wallpaper dir, which
     # would drop every pick into the autodetect fallback instead of the
     # folder the bar resolved.
-    flags="${XDG_STATE_HOME:-$HOME/.local/state}/better/flags.json"
-    wpdir=$(jq -r '.wallpaperDir // ""' "$flags" 2>/dev/null || echo "")
-    [ -n "$wpdir" ] || wpdir=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-dir" 2>/dev/null || true)
-    [ -n "$wpdir" ] || wpdir="$HOME/Pictures/Wallpapers"
+     # A destination inside `current/theme` is refused, whatever configured it.
+     #
+     # That directory is TRANSIENT: omarchy installs a theme with
+     # `rm -rf current/theme; mv next/theme current/theme`, so everything in it is
+     # destroyed the next time a theme is installed. A wallpaperDir pointing
+     # there -- the natural setting, since that is where the active theme's
+     # wallpapers live -- therefore silently deleted every wallhaven, alphacoders
+     # and wallwidgy download on the next theme install, and left the strip with
+     # nothing to switch to. The downloads were not lost to a bug in the
+     # download: they were written into a directory whose whole purpose is to be
+     # replaced.
+     #
+     # The same guard wallpaper.sh applies to a preserved pick, kept separate
+     # because this script is the one that writes downloads and must never
+     # inherit a transient target.
+     case "$wpdir" in
+         "$HOME/.local/state/omarchy/current/"*|*"/.local/state/omarchy/current/"*)
+             wpdir="$HOME/Pictures/Wallpapers" ;;
+     esac
     # Every pick lands directly in the collection root so it joins the shuffle
     # bag; wallhaven keeps its id, moewalls/DDG get stamped names. No subfolder
     # is ever created, so browsing never leaves an empty downloads/ dir behind.

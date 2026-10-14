@@ -228,7 +228,7 @@ Singleton {
     readonly property color tickRest:  manual ? manualPal.tick_rest : (dynamic ? Dyn.tickRest : (light ? "#4a423c" : "#c2c2c2"))
     readonly property color threadBg:  Qt.alpha(cream, 0.13)
     readonly property color flameCore: customAccent ? Qt.lighter(accent, 1.03) : (dyn ? Qt.lighter(onGlow, 1.03) : "#ffd9c2")
-    readonly property color flameGlow: customAccent ? accent : (dyn ? onGlow : "#ff9a64")
+    readonly property color flameGlow: customAccent ? accent : (omarchyAccent.length > 0 ? accent : (dyn ? onGlow : "#ff9a64"))
 
     /**
      * Flame canvas ramp: literal hex strings (color type won't work), fed
@@ -241,7 +241,21 @@ Singleton {
     readonly property string flameEmber: customAccent ? hexOf(accentDeep) : (manual ? manualPal.primary_container : (dynamic ? Dyn.primaryContainer : "#7e2812"))
     readonly property string flameBurn:  customAccent ? hexOf(accentDeep) : (manual ? manualPal.primary_container : (dynamic ? Dyn.primaryContainer : "#8a2c14"))
     readonly property string flameTip:   customAccent ? hexOf(Qt.lighter(accent, 1.2)) : (manual ? manualPal.on_primary_container : (dynamic ? Dyn.onPrimaryContainer : "#ffb38a"))
-    readonly property color todayWarm: customAccent ? accent : (dyn ? onGlow : "#ffb38a")
+    /**
+     * The "today" cell's text. Was `customAccent ? accent : (dyn ? onGlow : "#ffb38a")`,
+     * which reaches the theme ONLY in dynamic/manual mode: `onGlow` is
+     * theme-aware, but it sat behind a `dyn` guard, so on a static palette mode
+     * it fell through to a hardcoded peach. The calendar's today cell is painted
+     * with this, and it was the one warm thing on screen next to a themed accent
+     * -- an orange square on a green theme, which reads as "this colour is not
+     * synced" even though the tile, the ring and the copy around it all were.
+     *
+     * Now the theme's accent is consulted in every mode, in the same slot its
+     * siblings occupy, and the peach is only what a theme without an accent
+     * gets. `flameGlow` had the identical shape and is fixed with it -- it
+     * paints the event dot.
+     */
+    readonly property color todayWarm: customAccent ? accent : (omarchyAccent.length > 0 ? accent : (dyn ? onGlow : "#ffb38a"))
     readonly property color ghost:     manual ? manualPal.surface_container_highest : (dynamic ? Dyn.surfaceContainerHighest : (light ? "#e3ddd5" : "#242424"))
     readonly property color frameBg:      Qt.alpha(cream, 0.055)
     readonly property color frameBorder:  Qt.alpha(cream, 0.10)

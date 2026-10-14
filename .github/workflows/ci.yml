@@ -96,6 +96,9 @@ jobs:
       - name: Run Wallpaper Theme Rescan Tests
         run: bash lib/wallpaper-theme-rescan.test.sh .
 
+      - name: Run Fresh Install Smoke Tests
+        run: bash lib/fresh-install-smoke.test.sh .
+
       - name: Run Wallpaper Tap Window Tests
         run: bash lib/wallpaper-tap-window.test.sh .
 
