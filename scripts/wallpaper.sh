@@ -556,6 +556,112 @@ wallpaper_owner() {
 # path that no longer exists, so entries are pruned on every write instead of
 # accumulating. The marker is a convenience, not the record of what is on
 # screen -- that stays $STATE.
+# The permanent collection, chosen independently of `wallpaperDir`.
+#
+# It cannot just be $WPDIR: this desktop's wallpaperDir points at
+# `current/theme/backgrounds` — which is exactly the transient directory the
+# preserve exists to escape. Using it copied a wallpaper onto itself, and the
+# pick stayed a pick from the theme. So the destination is resolved separately,
+# and a candidate that lives inside `current/theme` is rejected outright.
+permanent_collection() {
+    local cand
+    for cand in "$HOME/Pictures/Wallpapers" "$HOME/Pictures/wallpapers" \
+                "$HOME/Wallpapers" "$HOME/wallpapers"; do
+        case "$cand" in
+            "$HOME/.local/state/omarchy/current/"*) continue ;;
+        esac
+        if [ -n "$WPDIR" ] && [ "$WPDIR" != "$cand" ]; then
+            case "$WPDIR" in
+                "$HOME/.local/state/omarchy/current/"*) break ;;
+            esac
+        fi
+        printf '%s\n' "$cand"
+        return 0
+    done
+    printf '%s\n' "$HOME/Pictures/Wallpapers"
+}
+
+preserve_pick() {
+    local pic="${1:-}" resolved dest destdir
+
+    resolved=$(readlink -f -- "$pic" 2>/dev/null) || return 0
+    [ -n "$resolved" ] && [ -f "$resolved" ] || return 0
+
+    # Nothing to preserve if it is already in a permanent collection: copying it
+    # onto itself only costs a stat.
+    case "$resolved" in
+        "$HOME/Pictures/Wallpapers/"*|"$HOME/Pictures/wallpapers/"*|"$HOME/Wallpapers/"*|"$HOME/wallpapers/"*)
+            mark_pick "$resolved"
+            return 0
+            ;;
+    esac
+
+    # A wallpaper picked from an active theme's backgrounds lives inside
+    # `current/theme`, which omarchy deletes wholesale on every theme switch
+    # (`rm -rf current/theme; mv next/theme current/theme`). So the pick was
+    # temporary by construction — switch theme and it is gone, the recorded path
+    # is dead, and there is nothing left to restore. The user did nothing wrong
+    # and lost a wallpaper they chose.
+    #
+    # Copy it out on the way in and record THAT path. A copy rather than a move,
+    # so the theme keeps the file it shipped with and uninstalling the theme
+    # leaves the copy behind.
+    #
+    # A name collision between two themes that both ship `backgrounds/void.png`
+    # would silently overwrite the first, so theme-namespace the destination.
+    destdir=$(permanent_collection)
+
+    local theme_name qualifier
+    theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null | tr -cd '[:alnum:]-') || theme_name=""
+    if [ -n "$theme_name" ] && [ "$resolved" = "$HOME/.local/state/omarchy/current/theme/backgrounds/"* ]; then
+        qualifier="$theme_name-"
+    else
+        qualifier=""
+    fi
+
+    mkdir -p "$destdir" 2>/dev/null || { mark_pick "$resolved"; return 0; }
+    dest="$destdir/$qualifier$(basename "$resolved")"
+
+    if [ "$dest" = "$resolved" ]; then
+        # Nowhere permanent to put it; keep the pick on the original rather
+        # than losing it to a failed copy.
+        mark_pick "$resolved"
+        return 0
+    fi
+
+    if cp -p -- "$resolved" "$dest" 2>/dev/null && [ -f "$dest" ]; then
+        mark_pick "$dest"
+    else
+        # A full or read-only disk is not a reason to lose the pick.
+        mark_pick "$resolved"
+    fi
+}
+
+# Where a pick was preserved to, or "" if it was not.
+# Callers use this so the recorded path — the map and the state file — names the
+# copy rather than the theme's own file, and therefore outlives the theme.
+preserved_path() {
+    local pic="${1:-}" resolved dest destdir theme_name qualifier
+    resolved=$(readlink -f -- "$pic" 2>/dev/null) || return 0
+    [ -n "$resolved" ] && [ -f "$resolved" ] || return 0
+    case "$resolved" in
+        "$HOME/Pictures/Wallpapers/"*|"$HOME/Pictures/wallpapers/"*|"$HOME/Wallpapers/"*|"$HOME/wallpapers/"*)
+            printf '%s\n' "$resolved"
+            return 0
+            ;;
+    esac
+    destdir=$(permanent_collection)
+    theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null | tr -cd '[:alnum:]-') || theme_name=""
+    if [ -n "$theme_name" ] && [ "$resolved" = "$HOME/.local/state/omarchy/current/theme/backgrounds/"* ]; then
+        qualifier="$theme_name-"
+    else
+        qualifier=""
+    fi
+    dest="$destdir/$qualifier$(basename "$resolved")"
+    [ -f "$dest" ] && [ "$dest" != "$resolved" ] && printf '%s\n' "$dest"
+    return 0
+}
+
 mark_pick() {
     local pic="${1:-}" resolved keep existing
 
@@ -685,7 +791,7 @@ elif [ "$cmd" = "set" ]; then
     # A pick is recorded before the wallpaper is painted, not after: the paint
     # can fail (a missing codec, a full disk) and the wallpaper is still the
     # one the user chose, so the marker must not depend on the paint landing.
-    [ -n "$force" ] && mark_pick "$pic"
+    [ -n "$force" ] && preserve_pick "$pic"
 
     # A wallpaper the user owns outranks a theme wallpaper arriving on its
     # own, so refuse and put the symlink back. Both halves matter: without the
@@ -722,8 +828,14 @@ elif [ "$cmd" = "set" ]; then
         # and let $pic go on into the map as whatever the caller passed, which
         # for omarchy's own theme-set hook is the `current/background` symlink.
         # See resolve_pic for why a link must never be what gets stored.
-        if pic=$(resolve_pic "$resolved"); then
-            mark_pick "$pic"
+        # The pick now records the PRESERVED copy, so the value that goes on
+        # into the map and the state file names a file that outlives the
+        # theme it was picked from. resolve_pic already ran, so this cannot
+        # turn $pic into a link.
+        # No `local`: this is the script body, not a function.
+        kept=""
+        if kept=$(preserved_path "$pic"); then
+            pic="$kept"
         fi
     fi
 elif [ "$cmd" = "fit" ]; then

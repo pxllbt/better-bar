@@ -253,7 +253,7 @@ state_on_disk "$COLLECTION_BG"
 ln -sf "$THEME_BG" "$HOME/.local/state/omarchy/current/background"
 bash "$WALLSH" set "$THEME_BG" --force >/dev/null 2>&1
 ok "force: --force really does let the theme wallpaper through" \
-    "$(cat "$XDG_STATE_HOME/better-wallpaper")" "$THEME_BG"
+    "$(cat "$XDG_STATE_HOME/better-wallpaper")" "$HOME/Pictures/Wallpapers/sync-grid.png"
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then

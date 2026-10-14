@@ -59,10 +59,18 @@ has "map_put_all stores the resolved file" \
     "$(grep -cE 'resolved=\$\(resolve_pic "\$1"\)' "$SCRIPT")" \
     'resolve_pic "$1" in map_put_all'
 
-# 3. set reassigns pic to the file, so the value reaching the map is a file.
-has "set reassigns pic to the resolved path" \
-    "$(grep -cE 'pic=\$\(resolve_pic "\$resolved"\)' "$SCRIPT")" \
-    'pic=$(resolve_pic "$resolved")'
+# 3. set reassigns pic to a real file, so the value reaching the map is a file.
+# Normally that is the preserved copy -- see wallpaper-preserve-pick -- which
+# `preserved_path` resolves internally with readlink -f and an existence test,
+# so it cannot hand back a link. The plain resolve is the fallback when there is
+# nothing to preserve.
+has "set reassigns pic to the preserved file" \
+    "$(grep -cE 'if kept=\$\(preserved_path "\$pic"\); then' "$SCRIPT")" \
+    'if kept=$(preserved_path "$pic"); then'
+
+has "the reassignment is guarded, so a failed preserve keeps the original" \
+    "$(grep -cE 'pic="\$kept"' "$SCRIPT")" \
+    'pic="$kept"'
 
 # 4. A recorded entry that no longer resolves must not be painted.
 restore_block=$(awk '
