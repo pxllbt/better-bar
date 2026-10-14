@@ -2134,7 +2134,6 @@ PillSurface {
                 tapThreshold: 0.25
                 enabled: !tile.remote && !tile.dead
                 onConfirmed: if (!tile.remote && !tile.dead) Walls.trash(tile.modelData.path)
-                onTapped: root.activate()
             }
 
             MouseArea {
@@ -2161,6 +2160,27 @@ PillSurface {
                  * so the per-monitor picker rides the tile that was actually
                  * clicked, and activate() reads items[focusIndex], so it acts
                  * on the clicked tile rather than the previously focused one.
+                 *
+                 * ---
+                 *
+                 * And the release decides on its OWN, rather than through
+                 * HeatHold's `tapped`.
+                 *
+                 * `tapped` was gated on `hold < tapThreshold`, and tapThreshold
+                 * is 0.25 against a 900ms fill -- so a click only registered if
+                 * the release came inside the first 225ms of the press. A
+                 * release at 250ms, 400ms or 700ms hit `drain.restart()` and
+                 * nothing else: no selection, no error, no feedback. That dead
+                 * band between a tap and a confirm is the "sometimes it works,
+                 * sometimes you have to spam it" report, and it was intermittent
+                 * only because it hinged on how fast the mouse came up.
+                 *
+                 * The confirm is a different gesture and keeps its full 900ms:
+                 * it fires `confirmed` and trashes. So the only thing that
+                 * disqualifies a release from being a selection is an actual
+                 * confirm, which is what `fired` records. Everything short of
+                 * that -- including a pause and a look before letting go --
+                 * is a pick.
                  */
                 onPressed: {
                     if (!tile.focused)
@@ -2170,7 +2190,16 @@ PillSurface {
                     else
                         trashHeat.press();
                 }
-                onReleased: if (!tile.remote) trashHeat.release()
+                onReleased: {
+                    if (tile.remote)
+                        return;
+                    trashHeat.release();
+                    // `fired` is set only by a completed fill, i.e. a deliberate
+                    // hold to delete. Reaching for the strip and pausing before
+                    // letting go is still a pick.
+                    if (!trashHeat.fired)
+                        root.activate();
+                }
                 onExited: trashHeat.cancel()
             }
 
@@ -2256,6 +2285,21 @@ PillSurface {
                 }
             }
         }
+    }
+
+    /**
+     * A pick was refused because the wallpaper it named is no longer on disk --
+     * a theme swap replacing the folder underneath an open strip, or a file
+     * removed outside the bar. Left unreported it is indistinguishable from the
+     * strip ignoring the click, which is the entire complaint this addresses.
+     */
+    Text {
+        anchors.centerIn: parent
+        visible: root.itemCount > 0 && Walls.applyFailed
+        text: "that wallpaper is gone — refreshing the list"
+        color: Theme.faint
+        font.family: Theme.font
+        font.pixelSize: 10.5 * root.s
     }
 
     Text {

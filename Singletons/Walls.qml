@@ -129,6 +129,27 @@ Singleton {
         root._lastOmarchyBackground = target;
         if (target.length > 0)
             root.follow(target);
+
+        // And re-scan the FOLDER, not only the wallpaper.
+        //
+        // A theme switch replaces current/theme wholesale -- omarchy does
+        // `rm -rf current/theme; mv next/theme current/theme` -- so the paths the
+        // strip is holding all name files that no longer exist. The strip used to
+        // adopt the new background and leave those stale paths in place, because
+        // the only other re-scan was the 60s fingerprint poll. For up to a minute
+        // the strip kept offering the previous theme's wallpapers, and a click on
+        // one ran `wallpaper.sh set <deleted path>`, which exits 1 at
+        // `[ -f "$pic" ] || exit 1` -- silently. So a click did nothing, on a
+        // picker that looked perfectly healthy, right after every theme switch.
+        //
+        // That is the "changing the theme then picking a wallpaper sometimes
+        // doesn't work", and it was intermittent only because whether it worked
+        // depended on whether the fingerprint timer had ticked since the switch.
+        //
+        // The poll has to stay regardless: an outside change with no event of its
+        // own (`omarchy theme bg set`) never bumps this revision, so it is still
+        // the mechanism for that case.
+        root.refresh();
     }
 
 
@@ -226,6 +247,13 @@ Singleton {
     property string queuedOutput: ""
     /** An outside wallpaper change waiting for `followProc`, newest wins. */
     property string queuedFollow: ""
+    /**
+     * True when a pick was refused because the wallpaper is no longer there.
+     * The strip reads it to say why, rather than letting the click look like
+     * the picker ignored the user. Cleared by callLater so a refusal stays
+     * visible long enough to read.
+     */
+    property bool applyFailed: false
 
     /**
      * Apply a wallpaper the user chose, so `--force`: a pick in the strip is a
@@ -236,6 +264,25 @@ Singleton {
      */
     function apply(path, output) {
         var out = output === undefined ? "" : output;
+
+        // A path that no longer exists is refused here, not left to the script.
+        //
+        // The strip can be holding a stale path for a moment between a theme
+        // swap landing and the re-scan rebuilding the list, and a pick on one
+        // used to reach wallpaper.sh, which exits 1 at `[ -f "$pic" ] || exit 1`
+        // -- silently. Nothing moved, nothing was said, and the click looked
+        // like the picker ignoring the user.
+        //
+        // Refusing here instead re-scans the folder, which repairs the list, and
+        // says so -- so the click that lands on a stale entry costs one tap and
+        // leaves the strip showing wallpapers that can actually be applied.
+        if (!root || !path || path.length === 0) {
+            root.applyFailed = true;
+            Qt.callLater(function () { root.applyFailed = false; });
+            root.refresh();
+            return;
+        }
+
         if (applyProc.running) {
             queuedApply = path;
             queuedOutput = out;
@@ -458,7 +505,18 @@ Singleton {
 
     Process {
         id: applyProc
-        onExited: {
+        onExited: function (exitCode) {
+            // The script exits 1 at `[ -f "$pic" ] || exit 1` when the wallpaper
+            // is gone -- a theme swap replacing the tree underneath a still-open
+            // strip, or a file deleted outside the bar. That path used to be
+            // indistinguishable from a success, so the strip recorded a pick
+            // that never landed. Re-scan so the list stops offering it, and say
+            // so rather than letting the click look ignored.
+            if (exitCode !== 0) {
+                root.refresh();
+                root.applyFailed = true;
+                Qt.callLater(function () { root.applyFailed = false; });
+            }
             if (root.queuedApply.length) {
                 var next = root.queuedApply;
                 var nextOut = root.queuedOutput;

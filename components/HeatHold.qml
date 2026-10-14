@@ -37,7 +37,6 @@ Item {
             tapped();
         drain.restart();
     }
-
     function cancel() {
         fill.stop();
         drain.restart();

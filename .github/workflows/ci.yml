@@ -93,6 +93,12 @@ jobs:
       - name: Run Menu Speedtest Removal Tests
         run: bash lib/menu-speedtest-removed.test.sh
 
+      - name: Run Wallpaper Theme Rescan Tests
+        run: bash lib/wallpaper-theme-rescan.test.sh .
+
+      - name: Run Wallpaper Tap Window Tests
+        run: bash lib/wallpaper-tap-window.test.sh .
+
       - name: Run Wallpaper Ownership Tests
         run: bash lib/wallpaper-owner.test.sh
 
