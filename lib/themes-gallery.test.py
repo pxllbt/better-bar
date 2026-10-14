@@ -48,11 +48,39 @@ def check(ok, label, detail=""):
 
 
 # Run the real script -- not a reimplementation of it.
+system_paths = [
+    os.path.expanduser("~/.config/omarchy/themes"),
+    "/usr/share/omarchy/themes",
+]
+has_system_themes = any(
+    os.path.exists(p) and any(os.path.isdir(os.path.join(p, d)) for d in os.listdir(p))
+    for p in system_paths if os.path.exists(p)
+)
+
+ci_sandbox = None
+run_env = None
+if not has_system_themes:
+    ci_sandbox = tempfile.mkdtemp(prefix="themes-ci-")
+    sample = os.path.join(ci_sandbox, ".config", "omarchy", "themes", "stock")
+    os.makedirs(sample)
+    with open(os.path.join(sample, "colors.toml"), "w") as f:
+        f.write(
+            'mode = "dark"\n'
+            'background = "#1e1e2e"\n'
+            'accent = "#89b4fa"\n'
+            'foreground = "#cdd6f4"\n'
+        )
+    run_env = dict(os.environ)
+    run_env["HOME"] = ci_sandbox
+
 out = subprocess.run(
-    [sys.executable, THEMES_PY], capture_output=True, text=True
+    [sys.executable, THEMES_PY], capture_output=True, text=True, env=run_env
 )
 check(out.returncode == 0, "themes.py runs", out.stderr.strip()[:200])
 if out.returncode != 0:
+    if ci_sandbox:
+        import shutil
+        shutil.rmtree(ci_sandbox, ignore_errors=True)
     sys.exit(1)
 
 themes = json.loads(out.stdout)
@@ -159,6 +187,10 @@ else:
         "parser strips an inline comment from a palette entry",
         f'got {t["palette"][1]!r}',
     )
+
+if ci_sandbox:
+    import shutil
+    shutil.rmtree(ci_sandbox, ignore_errors=True)
 
 if failed:
     print(f"\n{len(failed)} failing")
