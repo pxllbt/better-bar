@@ -62,6 +62,22 @@ Singleton {
 
     property string resolvedDir: ""
     /**
+     * The active theme's background folder, or "" when there is none.
+     *
+     * Read live from ThemeSync rather than from a path constant: omarchy swaps a
+     * theme by replacing `current/theme` wholesale, so the folder only exists
+     * while that theme is installed, and a cached path would keep naming a tree
+     * a later theme switch had already deleted.
+     */
+    readonly property string themeBackgroundsDir: {
+        if (String(ThemeSync.activeThemeName || "").trim().length === 0)
+            return "";
+        return (Quickshell.env("XDG_STATE_HOME")
+            || (Quickshell.env("HOME") + "/.local/state"))
+            + "/omarchy/current/theme/backgrounds";
+    }
+
+    /**
      * The directories the strip reads, in order.
      *
      * Two, because they answer different questions and both matter:
