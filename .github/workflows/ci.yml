@@ -99,6 +99,9 @@ jobs:
       - name: Run Wallpaper Tap Window Tests
         run: bash lib/wallpaper-tap-window.test.sh .
 
+      - name: Run Wallpaper Multi Source Tests
+        run: bash lib/wallpaper-multi-source.test.sh .
+
       - name: Run Wallpaper Ownership Tests
         run: bash lib/wallpaper-owner.test.sh
 

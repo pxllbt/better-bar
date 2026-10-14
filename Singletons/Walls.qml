@@ -61,8 +61,60 @@ Singleton {
     signal refreshDone()
 
     property string resolvedDir: ""
-    readonly property string wpDir: Flags.wallpaperDir.length > 0 ? Flags.wallpaperDir
-        : (resolvedDir.length > 0 ? resolvedDir : Quickshell.env("HOME") + "/Pictures/Wallpapers")
+    /**
+     * The directories the strip reads, in order.
+     *
+     * Two, because they answer different questions and both matter:
+     *
+     *   * the user's own collection, which is permanent, and
+     *   * the active theme's backgrounds, which follows every theme switch.
+     *
+     * The strip used to read exactly one directory, and the natural single
+     * choice is the theme's -- that is where the wallpapers you just switched to
+     * live. But it is TRANSIENT: omarchy installs a theme with
+     * `rm -rf current/theme; mv next/theme current/theme`, so a theme switch
+     * destroys every path in it. Making that the wallpaper library is what made
+     * wallpapers feel broken rather than automatic -- dead paths held for a
+     * minute after each switch, symlinks recorded into a tree about to vanish,
+     * a black background.
+     *
+     * Reading both is what makes this need no maintenance. Install a new custom
+     * theme and its wallpapers appear on their own; they leave when the theme
+     * does, and your own collection never moves. Each entry carries the
+     * directory it came from so the strip can tell them apart.
+     *
+     * `wallpaperDir` set explicitly still wins outright: someone who has
+     * deliberately pointed the bar at one folder is not second-guessed by a
+     * default.
+     */
+    readonly property var wpDirs: Flags.wallpaperDir.length > 0
+        ? [Flags.wallpaperDir]
+        : (function () {
+            var out = [];
+            var own = root.resolvedDir.length > 0 ? root.resolvedDir
+                : Quickshell.env("HOME") + "/Pictures/Wallpapers";
+            // The user's own collection first, so a wallpaper they put there
+            // wins the newest-first sort against a theme's same-named file.
+            if (own.length > 0)
+                out.push(own);
+            var themeDir = root.themeBackgroundsDir;
+            if (themeDir.length > 0 && out.indexOf(themeDir) < 0)
+                out.push(themeDir);
+            return out;
+          })()
+
+    /** The active theme's background folder, or "" when there is none. */
+    readonly property string themeBackgroundsDir: {
+        var name = String(ThemeSync.activeThemeName || "").trim();
+        if (!name.length)
+            return "";
+        return (Quickshell.env("XDG_STATE_HOME")
+            || (Quickshell.env("HOME") + "/.local/state"))
+            + "/omarchy/current/theme/backgrounds";
+    }
+
+    /** Kept for the resolver hop and for surfaces that read one path. */
+    readonly property string wpDir: wpDirs.length > 0 ? wpDirs[0] : ""
     readonly property string thumbDir: (Quickshell.env("XDG_CACHE_HOME") || (Quickshell.env("HOME") + "/.cache")) + "/better/wp-thumbs/"
     readonly property string thumbScript: Config.hyprPath("scripts", "wallpaper-thumbs.sh")
     readonly property string setScript: Config.hyprPath("scripts", "wallpaper.sh")
@@ -339,11 +391,16 @@ Singleton {
 
     Process {
         id: listProc
+        // Every directory in the list, in one pass. The `-printf` output is
+        // prefixed with the directory it came from, so the entries can be tagged
+        // and the sort is still newest-first across all of them.
         command: ["sh", "-c",
-            "key=$(printf %s \"${1%/}\" | md5sum | cut -d' ' -f1); "
-            + "find \"$1\" -type f \\( -iname '*.jpg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.mov' \\) -printf '%T@\\t%p\\n' | sort -rn "
-            + "| awk -F'\\t' -v c=\"$2$key\" '{ n = split($2, p, \"/\"); printf \"%s\\t%s\\t%s\\n\", $1, $2, c \"/\" p[n] \".png\" }'",
-            "_", root.wpDir, root.thumbDir]
+            "for d in \"$@\"; do "
+            + "  [ -d \"$d\" ] || continue; "
+            + "  find \"$d\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.mov' \\) -printf '%T@\\t%p\\n'; "
+            + "done | sort -rn "
+            + "| awk -F'\\t' -v c=\"$2\" '{ n = split($2, p, \"/\"); printf \"%s\\t%s\\t%s/%s.png\\t%s\\n\", $1, $2, c, p[n], p[n-1] }'",
+            "_", root.wpDirs.join(" "), root.thumbDir]
         stdout: StdioCollector {
             onStreamFinished: {
                 var lines = this.text.split("\n");
@@ -355,13 +412,20 @@ Singleton {
                     var t2 = lines[i].indexOf("\t", t1 + 1);
                     if (t2 < 0)
                         continue;
+                    var t3 = lines[i].indexOf("\t", t2 + 1);
+                    if (t3 < 0)
+                        continue;
                     var path = lines[i].substring(t1 + 1, t2);
                     var name = path.substring(path.lastIndexOf("/") + 1);
+                    // The containing directory, so a wallpaper that arrived with
+                    // a theme can be recognised later -- including after the
+                    // theme's own copy is gone.
                     out.push({
                         path: path,
                         name: name,
                         mtime: parseFloat(lines[i].substring(0, t1)),
-                        thumb: lines[i].substring(t2 + 1)
+                        thumb: lines[i].substring(t2 + 1, t3),
+                        origin: lines[i].substring(t3 + 1)
                     });
                 }
                 root.entries = out;
