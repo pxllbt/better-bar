@@ -92,6 +92,19 @@ if command -v hyprctl >/dev/null 2>&1; then
         RESULTS["layers"]="WARN (better layer not currently mapped)"
         ISSUES=$((ISSUES + 1))
     fi
+
+    # Check for colliding background layers covering awww
+    if echo "$layer_output" | grep -q "namespace: omarchy-background"; then
+        RESULTS["background_collision"]="FAIL (omarchy-background layer is mapped, occluding awww wallpaper)"
+        ISSUES=$((ISSUES + 1))
+        if [ "$DO_FIX" = true ]; then
+            omarchy plugin disable omarchy.background >/dev/null 2>&1 || true
+            omarchy plugin disable io.github.prostratepossum.starwatch-background >/dev/null 2>&1 || true
+            omarchy restart shell >/dev/null 2>&1 || true
+            RESULTS["background_collision"]="FIXED (disabled conflicting background plugin and restarted omarchy shell)"
+            FIXED=$((FIXED + 1))
+        fi
+    fi
 else
     RESULTS["layers"]="SKIP (hyprctl not available)"
 fi
