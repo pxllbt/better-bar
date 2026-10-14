@@ -29,9 +29,16 @@ FIXED=0
 declare -A RESULTS
 
 # 1. Process Topology
+#
+# `ps` and the count are separate reads, so a bar that exits in between is still
+# listed. Counting it would report a duplicate for a bar that is already gone --
+# and a doctor that cries wolf gets ignored on the runs that matter, so each pid
+# is re-checked against /proc before it counts.
 bar_pids=()
 while IFS= read -r pid; do
-    [ -n "$pid" ] && bar_pids+=("$pid")
+    [ -n "$pid" ] || continue
+    [ -d "/proc/$pid" ] || continue
+    bar_pids+=("$pid")
 done < <(ps -eo pid,args 2>/dev/null | grep "[q]uickshell --config" | awk '{print $1}')
 
 bar_count=${#bar_pids[@]}

@@ -52,6 +52,11 @@ has "better-doctor supports --fix flag" \
 has "better-doctor supports --json flag" \
     "$(grep -c -- '--json' "$DOCTOR")" "--json"
 
+# 3. Only counts pids still alive, so a bar that exits between the ps and the
+# count is not reported as a duplicate
+has "better-doctor revalidates pids against /proc before counting" \
+    "$(grep -c '\[ -d "/proc/\$pid" \] || continue' "$DOCTOR")" "pid liveness filter"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
     exit 1
