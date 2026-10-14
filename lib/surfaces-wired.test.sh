@@ -181,9 +181,13 @@ assert.equal(binding(rest, restOpacity, { pill: restPill, Math }), 0, "inline pl
 const strip = pill.slice(pill.indexOf("id: stripFace"), pill.indexOf("anchors.centerIn: parent", pill.indexOf("id: stripFace")));
 const stripVisible = /^\s*visible:\s*([^\n]+)/m;
 const stripPill = { specialView: "", stripBar: true, surfaceOpen: true, pluginPopupOpen: true };
-assert.equal(binding(strip, stripVisible, { pill: stripPill }), true);
+assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: false } }), true);
 stripPill.pluginPopupOpen = false;
-assert.equal(binding(strip, stripVisible, { pill: stripPill }), false);
+assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: false } }), false);
+// Game mode hides the strip face: it is clickable and far wider than the game
+// bar, so leaving it up would hand the game a target and overflow the pill.
+stripPill.pluginPopupOpen = true;
+assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: true } }), false, "game mode must hide the strip face");
 const bar = source.slice(source.indexOf("id: barStub"), source.indexOf("Flickable {", source.indexOf("id: barStub")));
 const barHeight = /^\s*barHeightOverride:\s*([^\n]+)/m;
 assert.equal(binding(bar, barHeight, { root: { barHeightOverride: 39, height: 10 } }), 39);
