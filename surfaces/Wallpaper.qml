@@ -543,6 +543,17 @@ PillSurface {
         if (focusIndex < 0 || focusIndex >= itemCount)
             return;
         var entry = items[focusIndex];
+        // `entry` can be undefined even with a valid index: `items` is rebuilt
+        // whenever a refresh lands, and the strip is virtualised, so a click that
+        // arrives between a refresh starting and its new list being assigned
+        // reads a hole. Reading `.image` off it then THROWS, which aborts the
+        // handler in a way nothing reports -- the click does nothing at all, and
+        // on a remote tile it is a download that never starts. That is the
+        // "i cant still switch theme in wallhaven" report.
+        if (entry === undefined || entry === null) {
+            root.refresh();
+            return;
+        }
         if (entry.image !== undefined) {
             if (dlProc.running)
                 return;
