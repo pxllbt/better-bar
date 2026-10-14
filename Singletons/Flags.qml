@@ -86,6 +86,8 @@ Singleton {
     property alias weatherCity: adapter.weatherCity
     property alias musicViz: adapter.musicViz
     property alias gameMode: adapter.gameMode
+    //* Autonomous GameMode auto-shadowplay: automatically arms Better Recast replay buffer on game launch.
+    property alias autoGameReplay: adapter.autoGameReplay
     //* Game mode's snapshot slot per flag it disturbs. The first three are
     //* load-bearing: GameMode.enter() writes them and leave() reads them back, so
     //* dropping one does not throw -- the desktop just stays quiet after a game
@@ -181,6 +183,7 @@ Singleton {
             property string weatherCity: ""
             property bool musicViz: true
             property bool gameMode: false
+            property bool autoGameReplay: true
             property bool gamePrevDnd: false
             property bool gamePrevViz: true
             property bool gamePrevAwake: false
