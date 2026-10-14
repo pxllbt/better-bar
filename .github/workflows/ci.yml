@@ -102,6 +102,9 @@ jobs:
       - name: Run Wallpaper Multi Source Tests
         run: bash lib/wallpaper-multi-source.test.sh .
 
+      - name: Run Theme Dim Token Tests
+        run: bash lib/theme-dim-token.test.sh .
+
       - name: Run Wallpaper Ownership Tests
         run: bash lib/wallpaper-owner.test.sh
 

@@ -88,6 +88,17 @@ Singleton {
         }
     }
     readonly property string omarchyForeground: (ThemeColors.palette && ThemeColors.palette["foreground"]) ? String(ThemeColors.palette["foreground"]) : ""
+    /**
+     * The theme's dim-text colour, from `dark_foreground`.
+     *
+     * Every shipped omarchy theme names it -- it is the "dimmer than normal
+     * text" key -- and it is the one colour the bar was the only surface not to
+     * read. The calendar's weekday headers paint with
+     * `weekend ? Theme.faint : Theme.dim`, so the non-weekend days came out a
+     * neutral grey beside the theme's own accent and foreground, which reads as
+     * "this colour is not synced" rather than as a missing token.
+     */
+    readonly property string omarchyDarkFg: (ThemeColors.palette && ThemeColors.palette["dark_foreground"]) ? String(ThemeColors.palette["dark_foreground"]) : ""
     readonly property string omarchyDarker: (ThemeColors.palette && ThemeColors.palette["darker_background"]) ? String(ThemeColors.palette["darker_background"]) : ""
     readonly property string omarchyMuted: (ThemeColors.palette && ThemeColors.palette["muted"]) ? String(ThemeColors.palette["muted"]) : ""
     /** Omarchy's accent, when the active theme names one. */
@@ -196,7 +207,8 @@ Singleton {
     readonly property color vermDeep: (customAccent || omarchyAccent.length > 0) ? accentDeep : (manual ? manualPal.primary_container : (dynamic ? Dyn.primaryContainer : "#a3371f"))
     readonly property color cream:    (omarchyForeground.length > 0) ? omarchyForeground : (customText ? customTextHex : (manual ? manualPal.cream : (dynamic ? Dyn.cream : (light ? "#2a241f" : "#ececec"))))
     readonly property color bright:   (omarchyBrightFg.length > 0) ? omarchyBrightFg : ((omarchyForeground.length > 0) ? omarchyForeground : (customText ? customTextHex : (manual ? manualPal.bright : (dynamic ? Dyn.bright : (light ? "#1d1814" : "#ffffff")))))
-    readonly property color dim:      manual ? manualPal.dim : (dynamic ? Dyn.dim : (light ? "#6b635c" : "#8c8c8c"))
+    /** Dimmed body copy. Reads the theme's `dark_foreground` like its siblings read foreground and muted. */
+    readonly property color dim:      manual ? manualPal.dim : (dynamic ? Dyn.dim : (omarchyDarkFg.length > 0 ? omarchyDarkFg : (light ? "#6b635c" : "#8c8c8c")))
     readonly property color cardTop:  (omarchyLight ? omarchyLight : (manual ? manualPal.surface_container_high : (dynamic ? Dyn.surfaceContainerHigh : (light ? "#f6f2ec" : "#171717"))))
     readonly property color cardBot:  (omarchyDarker ? omarchyDarker : (manual ? manualPal.surface_container_low : (dynamic ? Dyn.surfaceContainerLow : (light ? "#ece6df" : "#0c0c0c"))))
     readonly property color border:   ThemeColors.activeBorder.length > 0
