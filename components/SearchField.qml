@@ -53,11 +53,20 @@ Item {
     /** Hard cap on stored characters, enforced locally as it always was. */
     readonly property int maxChars: 256
 
+    // One invisible line, measured once, for the vertical metric every element
+    // shares — the caret, the query and the placeholder all derive from it.
+    TextMetrics {
+        id: lineMetrics
+        font.family: Theme.font
+        font.pixelSize: 12.5 * root.s
+        text: "Ag"
+    }
+
     // The root hugs the line's content height so the glyph, text, placeholder
     // and caret all share one baseline, instead of each anchoring to a taller
     // box that drags them low. Heighting from the font metric keeps every
     // verticalCenter consistent with the typed text.
-    readonly property real fieldLine: lineMetrics.implicitHeight
+    readonly property real fieldLine: lineMetrics.height
     height: fieldLine + 2
 
     /**
@@ -67,7 +76,11 @@ Item {
      */
     Item {
         id: inputProxy
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.right: counter.left
+        anchors.rightMargin: 10 * root.s
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         focus: true
         // Every gate a caller can use, so a closed or hidden surface can never
         // hold focus or eat keys: the explicit `active` flag, the inherited
@@ -94,8 +107,7 @@ Item {
         Text {
             id: queryText
             anchors.left: parent.left
-            anchors.right: counter.left
-            anchors.rightMargin: 10 * root.s
+            anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             text: inputProxy.buffer
             color: Theme.cream
@@ -119,7 +131,7 @@ Item {
             id: caretMark
             x: inputProxy.caretX
             width: 1.6 * root.s
-            height: lineMetrics.implicitHeight
+            height: lineMetrics.height
             anchors.verticalCenter: parent.verticalCenter
             color: Theme.vermLit
             visible: inputProxy.activeFocus && root.active
@@ -133,7 +145,7 @@ Item {
             interval: 530
             repeat: true
             running: inputProxy.activeFocus && root.active
-            onTriggered: parent.on = !parent.on
+            onTriggered: blinkTimer.on = !blinkTimer.on
         }
 
         // The caret is captured before the buffer is touched and written after it,
@@ -245,15 +257,6 @@ Item {
         font.family: Theme.font
         font.pixelSize: 12.5 * root.s
         elide: Text.ElideRight
-    }
-
-    // One invisible line, measured once, for the vertical metric every element
-    // shares — the caret, the query and the placeholder all derive from it.
-    TextMetrics {
-        id: lineMetrics
-        font.family: Theme.font
-        font.pixelSize: 12.5 * root.s
-        text: "Ag"
     }
 
     Text {

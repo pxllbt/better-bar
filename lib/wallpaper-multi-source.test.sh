@@ -94,6 +94,40 @@ else
         "the scan is driven by the directory list" "wpDirs in the listing process"
 fi
 
+hasnt "wpDirs is not collapsed into a single string with join(' ')" \
+    "$(printf '%s' "$scan_block" | grep -c 'wpDirs\.join')" \
+    "wpDirs.join in listProc command"
+
+# 5b. Functional test: the exact listing shell command must find files across multiple folders
+tmp_test=$(mktemp -d)
+trap 'rm -rf "$tmp_test"' EXIT
+mkdir -p "$tmp_test/dirA" "$tmp_test/dirB" "$tmp_test/thumbs"
+touch "$tmp_test/dirA/wall1.png" "$tmp_test/dirB/wall2.jpg"
+
+eval_status=$(python3 - "$WALLS" "$tmp_test" <<'PY'
+import sys, re, subprocess
+walls_path, tmp_test = sys.argv[1], sys.argv[2]
+content = open(walls_path).read()
+m = re.search(r'id:\s*listProc.*?command:\s*\["sh",\s*"-c",\s*"(.*?)"\s*,\s*"_"\s*,\s*root\.thumbDir\]\.concat\(root\.wpDirs\)', content, re.DOTALL)
+if not m:
+    print("NO_MATCH")
+    sys.exit(0)
+raw = m.group(1).replace('"\n            + "', '')
+cmd = raw.replace('\\"', '"').replace('\\\\(', '\\(').replace('\\\\)', '\\)').replace('\\\\t', '\\t').replace('\\\\n', '\\n')
+res = subprocess.run(["sh", "-c", cmd, "_", f"{tmp_test}/thumbs/", f"{tmp_test}/dirA", f"{tmp_test}/dirB"], capture_output=True, text=True)
+lines = [l for l in res.stdout.splitlines() if l.strip()]
+print(len(lines))
+PY
+)
+
+if [ "$eval_status" = "2" ]; then
+    printf 'PASS %s\n' "the listing command scans multiple directories without collapsing"
+else
+    failed=$((failed + 1))
+    printf 'FAIL %s\n  expected 2 entries, got %s\n' \
+        "the listing command scans multiple directories without collapsing" "$eval_status"
+fi
+
 # 6. Theme switch must still refresh, which is what makes a newly installed
 #    custom theme appear with no action from the user.
 has "a background change re-scans the folders" \

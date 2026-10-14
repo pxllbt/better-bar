@@ -43,7 +43,7 @@ fi
 # own first, theme second -- same order the strip lists in, so cache and
 # listing stay in lockstep. Dedupe so a pointed-to theme folder is not thrice
 # scanned (the listing dedupes on name; the generator avoids duplicate work).
-dirs=$(printf '%s\n%s' "$own" "$theme_dir" | sed '/^[[:space:]]*$/d' | awk 'NF{u[$0]=1} END{for(k in u) print k}')
+dirs=$(printf '%s\n%s\n' "$own" "$theme_dir" | sed '/^[[:space:]]*$/d' | awk '!seen[$0]++')
 
 # --- Helpers -----------------------------------------------------------------
 sources() {  # $1 = source folder; basenames of its wallpapers, sorted, unique
@@ -81,8 +81,8 @@ gen_dir() {  # $1 = wpdir
     mkdir -p "$dir"
     printf '%s' "$wpdir" > "$dir/.srcdir"
     prune_dir "$dir" "$wpdir"
-    find "$wpdir" -type f \( -iname '*.jpg' -o -iname '*.png' -o -iname '*.gif' \
-        -o -iname '*.webp' -o -iname '*.webm' \
+    find "$wpdir" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.png' -o -iname '*.gif' \
+        -o -iname '*.webp' -o -iname '*.mp4' -o -iname '*.webm' \
         -o -iname '*.mkv' -o -iname '*.mov' \) | while IFS= read -r src; do
         thumb="$dir/$(basename "$src").png"
         if [ ! -s "$thumb" ] || [ "$src" -nt "$thumb" ]; then
