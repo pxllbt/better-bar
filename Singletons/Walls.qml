@@ -405,6 +405,7 @@ Singleton {
             onStreamFinished: {
                 var lines = this.text.split("\n");
                 var out = [];
+                var seenNames = {};
                 for (var i = 0; i < lines.length; i++) {
                     var t1 = lines[i].indexOf("\t");
                     if (t1 < 1)
@@ -420,6 +421,18 @@ Singleton {
                     // The containing directory, so a wallpaper that arrived with
                     // a theme can be recognised later -- including after the
                     // theme's own copy is gone.
+                    //
+                    // One entry per wallpaper NAME, first wins. The user's
+                    // collection is scanned first, so a preserved copy of a
+                    // theme wallpaper hides the theme's own original of the same
+                    // name rather than showing the same picture twice under one
+                    // name. Deduping on the resolved file would also be right,
+                    // but the copy is a DIFFERENT file, so only the name tells
+                    // the two apart -- and two directories is exactly where that
+                    // ambiguity was created.
+                    if (seenNames[name] === true)
+                        continue;
+                    seenNames[name] = true;
                     out.push({
                         path: path,
                         name: name,

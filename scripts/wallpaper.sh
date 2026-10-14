@@ -611,12 +611,17 @@ preserve_pick() {
     # would silently overwrite the first, so theme-namespace the destination.
     destdir=$(permanent_collection)
 
-    local theme_name qualifier
+    local theme_name qualifier=""
     theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null | tr -cd '[:alnum:]-') || theme_name=""
-    if [ -n "$theme_name" ] && [ "$resolved" = "$HOME/.local/state/omarchy/current/theme/backgrounds/"* ]; then
-        qualifier="$theme_name-"
-    else
-        qualifier=""
+    # `case`, not `[ = ]`: in POSIX test the `*` is LITERAL, so
+    #   [ "$p" = "$dir/"* ]
+    # compares against the string ending in a star and is always false. That is
+    # why every preserved copy arrived unprefixed and collided with the theme's
+    # own file of the same name.
+    if [ -n "$theme_name" ]; then
+        case "$resolved" in
+            "$HOME/.local/state/omarchy/current/theme/backgrounds/"*) qualifier="$theme_name-" ;;
+        esac
     fi
 
     mkdir -p "$destdir" 2>/dev/null || { mark_pick "$resolved"; return 0; }
@@ -652,10 +657,11 @@ preserved_path() {
     esac
     destdir=$(permanent_collection)
     theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null | tr -cd '[:alnum:]-') || theme_name=""
-    if [ -n "$theme_name" ] && [ "$resolved" = "$HOME/.local/state/omarchy/current/theme/backgrounds/"* ]; then
-        qualifier="$theme_name-"
-    else
-        qualifier=""
+    qualifier=""
+    if [ -n "$theme_name" ]; then
+        case "$resolved" in
+            "$HOME/.local/state/omarchy/current/theme/backgrounds/"*) qualifier="$theme_name-" ;;
+        esac
     fi
     dest="$destdir/$qualifier$(basename "$resolved")"
     [ -f "$dest" ] && [ "$dest" != "$resolved" ] && printf '%s\n' "$dest"

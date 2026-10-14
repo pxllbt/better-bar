@@ -41,6 +41,15 @@ has() {
     fi
 }
 
+hasnt() {
+    if [ "$2" -eq 0 ]; then
+        printf 'PASS %s\n' "$1"
+    else
+        failed=$((failed + 1))
+        printf 'FAIL %s\n  expected NOT to find: %s\n' "$1" "$3"
+    fi
+}
+
 [ -f "$SCRIPT" ] || { echo "no wallpaper.sh at $SCRIPT" >&2; exit 1; }
 
 # 1. The preserve helper must exist, and be a copy rather than a move.
@@ -77,6 +86,25 @@ has "the recorded path comes from the preserved copy" \
 has "the preserve writes to a permanent collection" \
     "$(grep -cE 'Pictures/Wallpapers|userWallpapers' "$SCRIPT")" \
     "a permanent collection path"
+
+# 5. The preserved copy must be namespaced by theme, so two themes shipping a
+#    same-named wallpaper do not overwrite each other. This was broken by using
+#    `[ "$p" = "$dir/"* ]`, which is a LITERAL comparison in POSIX test -- the
+#    star never globs -- so every copy arrived unprefixed.
+has "the preserve namespaces by theme using a pattern match" \
+    "$(grep -cE 'case "\$resolved" in' "$SCRIPT")" \
+    "a case pattern, not [ = ]"
+
+hasnt "the preserve does not glob with a POSIX test comparison" \
+    "$(grep -cE '\[ "\$resolved" = [^]]*\*[^]]*\]' "$SCRIPT")" \
+    '[ "$resolved" = ...* ]'
+
+# 6. And the strip must not show one wallpaper twice now that it reads two
+#    directories -- the preserved copy and the theme's own original share a name.
+WALLS="$ROOT/Singletons/Walls.qml"
+has "the listing dedupes by wallpaper name" \
+    "$(grep -c 'seenNames' "$WALLS")" \
+    "a seen-name guard in the listing"
 
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
