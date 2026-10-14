@@ -202,7 +202,7 @@ Singleton {
      */
     readonly property color onGlow: (customAccent || omarchyAccent.length > 0) ? accent : (manual ? manualPal.primary : (dynamic ? Dyn.primary : "#ff9a64"))
 
-    readonly property color verm:     (customAccent || omarchyAccent.length > 0) ? Qt.darker(accent, 1.18) : (manual ? Qt.darker(manualPal.primary, 1.18) : (dynamic ? Qt.darker(Dyn.primary, 1.18) : "#c0442b"))
+    readonly property color verm:     (customAccent || omarchyAccent.length > 0) ? accent : (manual ? Qt.darker(manualPal.primary, 1.18) : (dynamic ? Qt.darker(Dyn.primary, 1.18) : "#c0442b"))
     readonly property color vermLit:  (customAccent || omarchyAccent.length > 0) ? accent : (manual ? manualPal.primary : (dynamic ? Dyn.primary : "#e0563b"))
     readonly property color vermDeep: (customAccent || omarchyAccent.length > 0) ? accentDeep : (manual ? manualPal.primary_container : (dynamic ? Dyn.primaryContainer : "#a3371f"))
     readonly property color cream:    (omarchyForeground.length > 0) ? omarchyForeground : (customText ? customTextHex : (manual ? manualPal.cream : (dynamic ? Dyn.cream : (light ? "#2a241f" : "#ececec"))))

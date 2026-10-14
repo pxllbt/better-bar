@@ -131,14 +131,6 @@ Item {
                 return Math.max(0, Math.min(255, parseInt(s, 10))).toString(16).padStart(2, "0")
             return pair(s)
         }
-        function byte(s) {
-            s = (s === undefined || s === null) ? "" : String(s).trim()
-            if (s.length === 0)
-                return "00"
-            if (/^\d+$/.test(s))
-                return Math.max(0, Math.min(255, parseInt(s, 10))).toString(16).padStart(2, "0")
-            return pair(s)
-        }
         // Alpha may be hex (ff) or a 0..1 float (1.0), depending on the theme.
         function alphaOf(s) {
             s = (s === undefined || s === null) ? "" : String(s).trim()
