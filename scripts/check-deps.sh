@@ -2,7 +2,7 @@
 # Better dependency check — the single reporter for what the shell needs.
 #
 # Everything it reports comes from dependencies.json at the repo root, so this
-# script, remote-install.sh and DEPENDENCIES.md cannot disagree about what a
+# script, installer and DEPENDENCIES.md cannot disagree about what a
 # dependency is. The point of the manifest is that adding a dependency becomes a
 # one-line declarative change here, which is what lets the post-update report
 # tell an existing user "this update now needs X" without anyone writing a
@@ -18,7 +18,7 @@
 #   check-deps.sh --all        also list which optional deps are missing
 #   check-deps.sh --json       JSON, for the in-app manual check
 #   check-deps.sh --page       write the HTML report and open it in a browser
-#   check-deps.sh --install    remote-install.sh's report format, from the manifest
+#   check-deps.sh --install    installer report format, from the manifest
 #   check-deps.sh --report     post-update path: write the page and open it
 #
 # Exit codes: 0 = every core dependency present, 1 = core dependency missing,
@@ -95,7 +95,7 @@ done
 # jq is both this script's parser and one of the dependencies it reports on, so
 # its absence is a genuine chicken-and-egg case. Duplicating the list here to
 # cover it would reintroduce exactly the drift the manifest exists to prevent, so
-# we say what is actually wrong and how to fix it. remote-install.sh checks its
+# we say what is actually wrong and how to fix it. The installer checks its
 # own list independently, so a fresh install still gets the full report.
 # ---------------------------------------------------------------------------
 
@@ -677,7 +677,7 @@ if [ "$as_json" -eq 1 ]; then
 fi
 
 if [ "$install_mode" -eq 1 ]; then
-  # remote-install.sh's exact wording, produced from the manifest so the
+  # The installer's exact wording, produced from the manifest so the
   # installer's report and the post-update report cannot describe different
   # dependency sets. The installer keeps the red summary footer.
   if [ "$missing_core" -eq 1 ]; then

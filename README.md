@@ -33,7 +33,9 @@ Update later with `omarchy plugin update pix.bar`, or hit the Update button in t
 ### Standalone (Quickshell)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/pxllbt/better-bar/master/remote-install.sh | bash
+git clone https://github.com/pxllbt/better-bar.git ~/.local/share/quickshell/better
+~/.local/share/quickshell/better/scripts/optimize-setup.sh
+~/.local/share/quickshell/better/launch.sh
 ```
 
 Then add to your `hyprland.conf`:

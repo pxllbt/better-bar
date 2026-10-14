@@ -9,7 +9,7 @@ All notable changes documented below. Loosely follows [Keep a Changelog](https:/
 - 27-theme visual gallery in `ThemeSurface` with live color ribbons and search
 - Wallpaper x theme harmony swatches in the Accent surface
 - Dynamic scratchpad indicator via `activespecial` detection
-- `scripts/optimize-setup.sh` integrated into `remote-install.sh`
+- `scripts/optimize-setup.sh` runs as part of the standalone install path
 
 ### Fixed
 - Corner spandrel artifacts — replaced rectangular border strips with `Shape.CurveRenderer` vector paths
@@ -17,5 +17,8 @@ All notable changes documented below. Loosely follows [Keep a Changelog](https:/
 - Media CD artwork cropping improved, outer rim softened, center spindle cleaned up
 
 ### Removed
+- `remote-install.sh` — the piped bootstrap installer is gone. Standalone installs are now
+  an explicit `git clone` plus `scripts/optimize-setup.sh`, so nothing from a moving branch
+  is fetched and executed before review
 - Redundant clipboard button from media card
 - Old screenshots in favor of clean hero banner

@@ -7,7 +7,7 @@
 #               The bar runs inside omarchy-shell. `omarchy plugin remove` is
 #               the supported door and is used here when it is available.
 #
-#   standalone  curl ... | bash  (remote-install.sh)
+#   standalone  git clone https://github.com/pxllbt/better-bar.git
 #               The bar is a separate quickshell instance under
 #               ~/.local/share/quickshell/better-bar, and the stock bar was
 #               hidden so the two would not overlap.
