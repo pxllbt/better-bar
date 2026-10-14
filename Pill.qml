@@ -1482,7 +1482,15 @@ Item {
                 pill.hoverLatch = false;
                 return;
             }
-            if (Flags.expandTo === "media" && pill.hasMedia) {
+            /* The media takeover needs the same guard the hover path gives it
+             * (the expandTo branch above): `!Flags.autoHide && !pill.stripBar`.
+             * Without it a click on the auto-hidden strip opened the media
+             * surface instead of expanding the pill, and the hoverLatch toggle --
+             * the only expand entry point while a reveal session holds the pill
+             * -- was dead whenever something was playing. In strip mode the tap
+             * expands the pill, like every other click on it. */
+            if (Flags.expandTo === "media" && pill.hasMedia
+                && !Flags.autoHide && !pill.stripBar) {
                 pill.requestSurface("media");
             } else if (Flags.autoHide) {
                 pill.hoverLatch = !pill.hoverLatch;

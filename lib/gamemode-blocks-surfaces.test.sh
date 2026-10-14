@@ -111,6 +111,39 @@ has "the strip face is hidden while game mode is on" \
     "$(printf '%s\n' "$strip_line" | grep -c '!Flags.gameMode')" \
     "!Flags.gameMode on the strip face"
 
+# 7. Auto-hide: a tap on the revealed strip must expand the pill, not open the
+#    media surface. The hover path gates the media takeover behind
+#    `!Flags.autoHide && !pill.stripBar`; the tap did not, so with anything
+#    playing a click opened the player and the hoverLatch toggle -- the only
+#    expand entry point under a reveal session -- was dead.
+tap_block=$(awk '/TapHandler \{/{grab=1} grab{print} grab && /^    }$/{exit}' "$PILL_QML" | head -40)
+if printf '%s' "$tap_block" | grep -q 'Flags.expandTo === "media"'; then
+    if printf '%s' "$tap_block" | grep -q '!Flags.autoHide && !pill.stripBar'; then
+        printf 'PASS %s\n' "the tap media takeover is guarded by the same rule as the hover path"
+    else
+        failed=$((failed + 1))
+        printf 'FAIL %s\n  expected the tap guard to read: !Flags.autoHide && !pill.stripBar\n' \
+            "the tap media takeover is guarded by the same rule as the hover path"
+    fi
+    # And the hover path it must match really does carry that guard, or the two
+    # have drifted apart without this noticing.
+    hover_block=$(awk '/function onHoveredChanged|onHoveredChanged: \{/{grab=1} grab{print} grab && /^    \}/ {exit}' "$PILL_QML")
+    has "the hover path carries the same guard, so the two have not drifted" \
+        "$(printf '%s' "$hover_block" | grep -c '!Flags.autoHide && !pill.stripBar')" \
+        "!Flags.autoHide && !pill.stripBar in onHoveredChanged"
+else
+    printf 'PASS %s\n' "the tap has no media takeover to guard"
+fi
+
+# 8. And under auto-hide the tap must actually reach the expand toggle.
+if printf '%s' "$tap_block" | grep -q 'pill.hoverLatch = !pill.hoverLatch'; then
+    printf 'PASS %s\n' "the tap toggles hoverLatch, which is how auto-hide expands"
+else
+    failed=$((failed + 1))
+    printf 'FAIL %s\n  expected to find: %s\n' \
+        "the tap toggles hoverLatch, which is how auto-hide expands" "hoverLatch = !hoverLatch"
+fi
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
     exit 1
