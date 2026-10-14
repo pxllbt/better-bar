@@ -602,6 +602,10 @@ download() {
     # better/flags.json carries its own (empty) wallpaper dir, which
     # would drop every pick into the autodetect fallback instead of the
     # folder the bar resolved.
+       flags="${XDG_STATE_HOME:-$HOME/.local/state}/better/flags.json"
+       wpdir=$(jq -r '.wallpaperDir // ""' "$flags" 2>/dev/null || echo "")
+       [ -n "$wpdir" ] || wpdir=$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-dir" 2>/dev/null || true)
+       [ -n "$wpdir" ] || wpdir="$HOME/Pictures/Wallpapers"
      # A destination inside `current/theme` is refused, whatever configured it.
      #
      # That directory is TRANSIENT: omarchy installs a theme with

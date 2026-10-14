@@ -84,6 +84,9 @@ jobs:
       - name: Run Wallpaper Single Click Tests
         run: bash lib/wallpaper-single-click.test.sh .
 
+      - name: Run Wallpaper Search Unbound Var Tests
+        run: bash lib/wallpaper-search-unbound.test.sh .
+
       - name: Run Wallpaper Map Symlink Tests
         run: bash lib/wallpaper-map-symlink.test.sh .
 

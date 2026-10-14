@@ -133,6 +133,148 @@ else
     RESULTS["background_link"]="WARN (no background symlink at $bg_link)"
 fi
 
+# ---------------------------------------------------------------------------
+# 4b. The wallpaper and theme hazards that actually bit this install.
+#
+# These are not hypothetical. Each one shipped, each one was reported, and each
+# one is invisible to the checks above -- none of them touch whether the bar is
+# running, whether awww is up, or whether the layer is mapped. They are all
+# "the wallpaper is quietly wrong" or "the wallpaper data was destroyed", which
+# is exactly the class a doctor that only checks liveness will never see.
+# ---------------------------------------------------------------------------
+
+FLAGS_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/better/flags.json"
+WPDIR_CFG=$(jq -r '.wallpaperDir // ""' "$FLAGS_FILE" 2>/dev/null || echo "")
+
+# (a) A wallpaperDir inside current/theme. This is the data-loss one: omarchy
+# installs a theme with rm -rf + mv, so everything downloaded there -- every
+# wallhaven, alphacoders and wallwidgy pick -- is deleted by the next theme
+# install. It is the natural setting, which is why it gets chosen.
+if [ -n "$WPDIR_CFG" ]; then
+    case "$WPDIR_CFG" in
+        "$HOME/.local/state/omarchy/current/"*|*"/.local/state/omarchy/current/"*)
+            RESULTS["wallpaper_dir"]="FAIL ($WPDIR_CFG is transient -- a theme install deletes every wallpaper in it)"
+            ISSUES=$((ISSUES + 1))
+            if [ "$DO_FIX" = true ]; then
+                PERM="$HOME/Pictures/Wallpapers"
+                mkdir -p "$PERM"
+                # Move what is there out rather than deleting it: the wallpapers
+                # in that folder are the user's, and the one they are looking at
+                # is among them.
+                for f in "$WPDIR_CFG"/*; do
+                    [ -f "$f" ] || continue
+                    cp -p -- "$f" "$PERM/" 2>/dev/null || true
+                done
+                jq --arg v "$PERM" '.wallpaperDir = $v' "$FLAGS_FILE" > "$FLAGS_FILE.tmp" 2>/dev/null \
+                    && mv "$FLAGS_FILE.tmp" "$FLAGS_FILE"
+                RESULTS["wallpaper_dir"]="FIXED (moved wallpapers to $PERM and repointed)"
+                FIXED=$((FIXED + 1))
+            fi
+            ;;
+        *)
+            RESULTS["wallpaper_dir"]="PASS ($WPDIR_CFG)"
+            ;;
+    esac
+else
+    RESULTS["wallpaper_dir"]="PASS (autodetect)"
+fi
+
+# (b) A theme gallery cache that is missing, or older than the themes it should
+# describe. A stale cache is the black-tile bug: the picker paints from it, so a
+# new custom theme's colours never arrive and its tile fills with the fallback.
+GALLERY="${XDG_CACHE_HOME:-$HOME/.cache}/better/themes.json"
+if [ ! -s "$GALLERY" ]; then
+    RESULTS["theme_gallery"]="FAIL (no gallery cache -- theme tiles will render from fallbacks)"
+    ISSUES=$((ISSUES + 1))
+    if [ "$DO_FIX" = true ]; then
+        python3 "$INSTALL_DIR/scripts/themes.py" > "$GALLERY" 2>/dev/null \
+            && RESULTS["theme_gallery"]="FIXED (gallery rebuilt)" && FIXED=$((FIXED + 1))
+    fi
+else
+    newest_theme=$(stat -c %Y "$HOME/.config/omarchy/themes" 2>/dev/null || echo 0)
+    cache_age=$(stat -c %Y "$GALLERY" 2>/dev/null || echo 0)
+    if [ "$newest_theme" -gt "$cache_age" ]; then
+        RESULTS["theme_gallery"]="FAIL (gallery is older than the themes -- a newly installed theme will show a black tile)"
+        ISSUES=$((ISSUES + 1))
+        if [ "$DO_FIX" = true ]; then
+            python3 "$INSTALL_DIR/scripts/themes.py" > "$GALLERY" 2>/dev/null \
+                && RESULTS["theme_gallery"]="FIXED (gallery rebuilt)" && FIXED=$((FIXED + 1))
+        fi
+    else
+        RESULTS["theme_gallery"]="PASS"
+    fi
+fi
+
+# (c) A colour the gallery would paint black. A TOML value that kept its inline
+# comment is not a colour, and QML reads an unparseable colour as opaque black --
+# so the tile fills black with an invisible title. Parsing here, not trusting
+# the cache, so a theme edited since the cache was built is caught too.
+if [ -s "$GALLERY" ]; then
+    bad_tiles=$(python3 - "$GALLERY" <<'PY' 2>/dev/null
+import json, re, sys
+d = json.load(open(sys.argv[1]))
+HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+bad = [t["name"] for t in d for k in ("bg", "accent", "fg")
+       if not HEX.match(str(t.get(k, "")))]
+print(",".join(bad[:3]))
+PY
+)
+    if [ -n "$bad_tiles" ]; then
+        RESULTS["theme_tiles"]="FAIL (these themes paint a black tile: $bad_tiles)"
+        ISSUES=$((ISSUES + 1))
+        if [ "$DO_FIX" = true ]; then
+            python3 "$INSTALL_DIR/scripts/themes.py" > "$GALLERY" 2>/dev/null \
+                && RESULTS["theme_tiles"]="FIXED (gallery rebuilt with a colour-validating parser)" \
+                && FIXED=$((FIXED + 1))
+        fi
+    else
+        RESULTS["theme_tiles"]="PASS (every tile colour is a colour)"
+    fi
+fi
+
+# (d) A per-output map entry naming a symlink. -f follows symlinks, so every
+# liveness check passes while the target is inside current/theme and that tree is
+# about to be replaced -- so the entry names a file that will not exist, and
+# restore_all paints the void. This is the black-screen wallpaper.
+WPMAP="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-map"
+if [ -s "$WPMAP" ]; then
+    symlinked=$(cut -f2 "$WPMAP" 2>/dev/null | while read -r p; do
+        [ -n "$p" ] && [ -L "$p" ] && printf '%s ' "$p"
+    done)
+    if [ -n "$symlinked" ]; then
+        RESULTS["wallpaper_map"]="FAIL (entries name a symlink, so a theme switch strands them: $symlinked)"
+        ISSUES=$((ISSUES + 1))
+        if [ "$DO_FIX" = true ]; then
+            bash "$INSTALL_DIR/scripts/wallpaper.sh" init >/dev/null 2>&1 || true
+            RESULTS["wallpaper_map"]="FIXED (re-resolved against the wallpaper script)"
+            FIXED=$((FIXED + 1))
+        fi
+    else
+        RESULTS["wallpaper_map"]="PASS"
+    fi
+fi
+
+# (e) Aww is painting a file that no longer exists. awww keeps reporting the last
+# image it was asked for long after that file is deleted, so the desktop is
+# blank with every check reporting success. The fix is a re-apply.
+if command -v awww >/dev/null 2>&1; then
+    shown=$(awww query -j 2>/dev/null | jq -r '[.[]?[]?.displaying?.image? // empty] | .[0] // empty' 2>/dev/null)
+    if [ -n "$shown" ] && [ ! -f "$shown" ]; then
+        RESULTS["wallpaper_painted"]="FAIL (the wallpaper on screen is gone: $shown)"
+        ISSUES=$((ISSUES + 1))
+        if [ "$DO_FIX" = true ]; then
+            bash "$INSTALL_DIR/scripts/wallpaper.sh" set "$shown" --force >/dev/null 2>&1 \
+                || bash "$INSTALL_DIR/scripts/wallpaper.sh" init >/dev/null 2>&1 || true
+            RESULTS["wallpaper_painted"]="FIXED (re-applied from the recorded wallpaper)"
+            FIXED=$((FIXED + 1))
+        fi
+    elif [ -z "$shown" ]; then
+        RESULTS["wallpaper_painted"]="WARN (nothing reported on screen)"
+    else
+        RESULTS["wallpaper_painted"]="PASS ($(basename "$shown"))"
+    fi
+fi
+
 # 5. Output Format
 if [ "$DO_JSON" = true ]; then
     printf '{\n'

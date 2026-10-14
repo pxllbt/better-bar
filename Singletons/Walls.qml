@@ -87,30 +87,31 @@ Singleton {
      * deliberately pointed the bar at one folder is not second-guessed by a
      * default.
      */
-    readonly property var wpDirs: Flags.wallpaperDir.length > 0
-        ? [Flags.wallpaperDir]
-        : (function () {
-            var out = [];
-            var own = root.resolvedDir.length > 0 ? root.resolvedDir
-                : Quickshell.env("HOME") + "/Pictures/Wallpapers";
-            // The user's own collection first, so a wallpaper they put there
-            // wins the newest-first sort against a theme's same-named file.
-            if (own.length > 0)
-                out.push(own);
-            var themeDir = root.themeBackgroundsDir;
-            if (themeDir.length > 0 && out.indexOf(themeDir) < 0)
-                out.push(themeDir);
-            return out;
-          })()
-
-    /** The active theme's background folder, or "" when there is none. */
-    readonly property string themeBackgroundsDir: {
-        var name = String(ThemeSync.activeThemeName || "").trim();
-        if (!name.length)
-            return "";
-        return (Quickshell.env("XDG_STATE_HOME")
-            || (Quickshell.env("HOME") + "/.local/state"))
-            + "/omarchy/current/theme/backgrounds";
+    /**
+     * The directories the strip reads, in order: the user's own collection and
+     * the active theme's backgrounds.
+     *
+     * An explicit `wallpaperDir` adds to that set rather than replacing it. It
+     * used to win outright, and that was wrong: the natural value to point it at
+     * is `current/theme/backgrounds`, which then made it the ONLY directory
+     * scanned and removed the theme's wallpapers from the picker -- the exact
+     * feature the second directory exists for.
+     *
+     * The transient-theme guard from the doctor moves the flag to a permanent
+     * collection, and with the old logic that silently dropped the theme too.
+     * Both directories are read regardless.
+     */
+    readonly property var wpDirs: {
+        var out = [];
+        var own = Flags.wallpaperDir.length > 0 ? Flags.wallpaperDir
+            : (root.resolvedDir.length > 0 ? root.resolvedDir
+               : Quickshell.env("HOME") + "/Pictures/Wallpapers");
+        if (own.length > 0)
+            out.push(own);
+        var themeDir = root.themeBackgroundsDir;
+        if (themeDir.length > 0 && out.indexOf(themeDir) < 0)
+            out.push(themeDir);
+        return out;
     }
 
     /** Kept for the resolver hop and for surfaces that read one path. */
@@ -392,14 +393,22 @@ Singleton {
     Process {
         id: listProc
         // Every directory in the list, in one pass. The `-printf` output is
-        // prefixed with the directory it came from, so the entries can be tagged
-        // and the sort is still newest-first across all of them.
+        // prefixed with the source directory, so the entries can be tagged and
+        // the sort is still newest-first across all of them.
+        //
+        // The thumb path keeps the md5-per-directory subdir scheme it always
+        // had: thumbDir + md5(dir) + "/" + name + ".png". Flattening it to
+        // thumbDir/name.png (as this briefly did) orphans every cached thumb and,
+        // worse, collides -- backgrounds/void.webp and Wallpapers/void.webp
+        // would share one cache entry and show each other's image. Two scanned
+        // directories is exactly when the collision starts to matter.
         command: ["sh", "-c",
             "for d in \"$@\"; do "
             + "  [ -d \"$d\" ] || continue; "
-            + "  find \"$d\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.mov' \\) -printf '%T@\\t%p\\n'; "
-            + "done | sort -rn "
-            + "| awk -F'\\t' -v c=\"$2\" '{ n = split($2, p, \"/\"); printf \"%s\\t%s\\t%s/%s.png\\t%s\\n\", $1, $2, c, p[n], p[n-1] }'",
+            + "  key=$(printf %s \"${d%/}\" | md5sum | cut -d' ' -f1); "
+            + "  find \"$d\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.mov' \\) -printf '%T@\\t%p\\n' "
+            + "  | awk -F'\\t' -v c=\"$2\" -v k=\"$key\" -v d=\"$d\" '{ n = split($2, p, \"/\"); printf \"%s\\t%s\\t%s%s/%s.png\\t%s\\n\", $1, $2, c, k, p[n], d }'; "
+            + "done | sort -rn",
             "_", root.wpDirs.join(" "), root.thumbDir]
         stdout: StdioCollector {
             onStreamFinished: {
