@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Launch Better Bar: a clone of github.com/pxllbt/better-bar,
+# running as its own Quickshell process with the stock Omarchy
+# bar hidden (omarchy toggle bar off). The in-app Update pulls
+# from the same repo, so this wrapper only has to launch it.
+set -uo pipefail
+
+# Prepend ~/.local/bin so the guard scripts this shell owns are found before their
+# stock namesakes in /usr/bin. Menu rows are run with `bash -c`
+# (OmarchyMenu.qml `runAction`), and a non-interactive bash reads neither .bashrc
+# nor .profile, so exporting here is what actually covers them -- a .bashrc edit
+# would reach your terminal but not the shell's own actions.
+export PATH="$HOME/.local/bin:$PATH"
+
+
+# Wait for the session before starting the bar. quickshell launched
+# before the compositor's first output is mapped comes up with no
+# screens and a blank bar -- the "whole bar missing on fresh boot"
+# -- so give Hyprland a moment: at least one live monitor, with a
+# timeout so a broken session still launches (and fails loudly)
+# rather than hanging autostart forever.
+wait_for_session() {
+  command -v hyprctl >/dev/null 2>&1 || return 0
+  local i
+  for i in $(seq 1 80); do
+    if hyprctl monitors -j 2>/dev/null | grep -q '"name"'; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+wait_for_session || echo "better-launch: session not ready after 20s, launching anyway" >&2
+
+
+INSTALL_DIR="$HOME/.local/share/quickshell/better"
+
+# Only one bar may own the desktop at a time. Each instance reserves its own
+# exclusive band, so two shells stack two bands and windows start below both --
+# the "big gap at the top" that looks like a layout bug. Quickshell has no
+# single-instance lock of its own, so enforce it here: find an existing shell
+# already serving this config and hand the request back to it rather than
+# starting a second one.
+#
+# Two signals, because neither alone is complete. The argv names the config on
+# a normal start, but a crash-restarted shell comes back as a bare `quickshell`
+# with its argv gone, so it would slip past a cmdline check. Conversely the
+# layer-shell surface is the thing that actually steals the screen, and it
+# survives the restart. Prefer the surface, fall back to argv.
+existing_pid() {
+  local pid surface
+  if command -v hyprctl >/dev/null 2>&1; then
+    surface=$(hyprctl layers 2>/dev/null | grep -o 'namespace: better, pid: [0-9]*' | grep -o '[0-9]*$' | head -1)
+    if [ -n "$surface" ] && [ -d "/proc/$surface" ]; then
+      echo "$surface"
+      return 0
+    fi
+  fi
+  for pid in $(pgrep -x quickshell 2>/dev/null); do
+    [ "$pid" = "$$" ] && continue
+    case "$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)" in
+      *"--config $INSTALL_DIR"*|*"-c $INSTALL_DIR"*) echo "$pid"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
+if existing=$(existing_pid); then
+  echo "better-launch: already running as pid $existing; not starting a second bar" >&2
+  exit 0
+fi
+
+exec "$INSTALL_DIR/launch.sh" "$@"

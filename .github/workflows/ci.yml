@@ -63,6 +63,9 @@ jobs:
       - name: Run Search Field Input Tests
         run: bash lib/search-field-input.test.sh .
 
+      - name: Run Bar Mutex Tests
+        run: bash lib/bar-mutex.test.sh .
+
       - name: Run Wallpaper Ownership Tests
         run: bash lib/wallpaper-owner.test.sh
 
