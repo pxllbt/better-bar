@@ -419,13 +419,14 @@ Singleton {
         // would share one cache entry and show each other's image. Two scanned
         // directories is exactly when the collision starts to matter.
         command: ["sh", "-c",
-            "for d in \"$@\"; do "
+            "c=\"$1\"; shift; "
+            + "for d in \"$@\"; do "
             + "  [ -d \"$d\" ] || continue; "
             + "  key=$(printf %s \"${d%/}\" | md5sum | cut -d' ' -f1); "
             + "  find \"$d\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.png' -o -iname '*.gif' -o -iname '*.webp' -o -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.mov' \\) -printf '%T@\\t%p\\n' "
-            + "  | awk -F'\\t' -v c=\"$2\" -v k=\"$key\" -v d=\"$d\" '{ n = split($2, p, \"/\"); printf \"%s\\t%s\\t%s%s/%s.png\\t%s\\n\", $1, $2, c, k, p[n], d }'; "
+            + "  | awk -F'\\t' -v c=\"$c\" -v k=\"$key\" -v d=\"$d\" '{ n = split($2, p, \"/\"); printf \"%s\\t%s\\t%s%s/%s.png\\t%s\\n\", $1, $2, c, k, p[n], d }'; "
             + "done | sort -rn",
-            "_", root.wpDirs.join(" "), root.thumbDir]
+            "_", root.thumbDir].concat(root.wpDirs)
         stdout: StdioCollector {
             onStreamFinished: {
                 var lines = this.text.split("\n");
