@@ -87,6 +87,12 @@ jobs:
       - name: Run Wallpaper Map Symlink Tests
         run: bash lib/wallpaper-map-symlink.test.sh .
 
+      - name: Run Theme Gallery Tests
+        run: python3 lib/themes-gallery.test.py
+
+      - name: Run Menu Speedtest Removal Tests
+        run: bash lib/menu-speedtest-removed.test.sh
+
       - name: Run Wallpaper Ownership Tests
         run: bash lib/wallpaper-owner.test.sh
 
