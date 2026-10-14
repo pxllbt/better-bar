@@ -72,6 +72,9 @@ jobs:
       - name: Run GameMode Recast Integration Tests
         run: bash lib/gamemode-recast.test.sh .
 
+      - name: Run Better Doctor Tests
+        run: bash lib/better-doctor.test.sh .
+
       - name: Run Wallpaper Ownership Tests
         run: bash lib/wallpaper-owner.test.sh
 
