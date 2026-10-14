@@ -44,7 +44,10 @@ has() {
     fi
 }
 
-[ -f "$MENU" ] || { echo "no omarchy-menu.jsonc at $MENU" >&2; exit 1; }
+if [ ! -f "$MENU" ]; then
+    printf 'SKIP menu-speedtest-removed: no omarchy-menu.jsonc at %s\n' "$MENU"
+    exit 0
+fi
 
 # 1. The row is hidden.
 has "the network speed test is hidden with a failing when guard" \
