@@ -157,15 +157,31 @@ pop_bag() {
 # skipped as unnecessary. jq answers it precisely; the grep fallback keeps it
 # right on a box without jq.
 daemon_painted() {
-    local js
+    local js shown
     js=$(awww query -j 2>/dev/null) || return 1
     if command -v jq >/dev/null 2>&1; then
         printf '%s' "$js" \
             | jq -e '[ .[]?[]?.displaying?.image? | select(type == "string" and length > 0) ] | length > 0' \
-            >/dev/null 2>&1
-        return $?
+            >/dev/null 2>&1 || return 1
+        # Up is not painted. awww keeps reporting the last image it was asked
+        # for even after that file is deleted -- a theme switch rm -rf's
+        # current/theme, a temp dir gets cleaned up -- so a path it still names
+        # is no evidence that anything is on screen. Check the file is still
+        # there, or this reports a healthy desktop over a black one and init
+        # skips the restore that would have fixed it.
+        shown=$(printf '%s' "$js" \
+            | jq -r '[ .[]?[]?.displaying?.image? | select(type == "string" and length > 0) ] | .[0] // empty' \
+            2>/dev/null)
+    else
+        printf '%s' "$js" | grep -qE '"image"[[:space:]]*:[[:space:]]*"[^"]+"' || return 1
+        shown=$(printf '%s' "$js" | sed -n 's/.*"image"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
     fi
-    printf '%s' "$js" | grep -qE '"image"[[:space:]]*:[[:space:]]*"[^"]+"'
+    [ -n "$shown" ] || return 1
+    if [ ! -f "$shown" ]; then
+        echo "better: the wallpaper on screen is gone ($shown)" >&2
+        return 1
+    fi
+    return 0
 }
 
 outputs() {
@@ -193,18 +209,51 @@ map_get() {
     awk -F'\t' -v o="$1" '$1 == o { print $2; exit }' "$MAP" 2>/dev/null || true
 }
 
+# The real file behind a wallpaper path, or empty if there isn't one.
+#
+# Everything that RECORDS or REPAINTS a wallpaper goes through here, because a
+# wallpaper path is routinely a symlink and storing one loses in two ways.
+#
+# It can dangle: omarchy's theme-set hook passes `current/background`, and that
+# link's target lives inside `current/theme/backgrounds`, which a theme switch
+# `rm -rf`s and replaces. `-f` follows symlinks, so every liveness check passed
+# while the link pointed at nothing -- restore_all believed the entry existed,
+# repainted it, and the desktop went black with no check reporting failure.
+#
+# And it can silently change meaning even when it resolves: `current/background`
+# is rewritten on every theme switch, so a map entry naming it starts pointing
+# at a different image without the map changing at all.
+#
+# Resolving at the point of recording fixes both: the map names a file, and the
+# file keeps meaning what it meant. Deliberately resolved on every read as well
+# as every write, so an entry written by an older version heals itself.
+resolve_pic() {
+    local p="${1:-}" resolved
+    [ -n "$p" ] || return 1
+    resolved=$(readlink -f -- "$p" 2>/dev/null) || return 1
+    [ -n "$resolved" ] && [ -f "$resolved" ] || return 1
+    printf '%s\n' "$resolved"
+}
+
 map_put() {
+    # Store the file, never the link. See resolve_pic.
+    local resolved
+    resolved=$(resolve_pic "$2") || return 0
     mkdir -p "$(dirname "$MAP")"
-    { awk -F'\t' -v o="$1" '$1 != o' "$MAP" 2>/dev/null || true; printf '%s\t%s\n' "$1" "$2"; } > "$MAP.tmp"
+    { awk -F'\t' -v o="$1" '$1 != o' "$MAP" 2>/dev/null || true; printf '%s\t%s\n' "$1" "$resolved"; } > "$MAP.tmp"
     mv "$MAP.tmp" "$MAP"
 }
 
 map_put_all() {
     local o
+    # Store the file, never the link. See resolve_pic: a symlink in the map is
+    # both dangle-prone and liable to silently change meaning.
+    local resolved
+    resolved=$(resolve_pic "$1") || return 0
     mkdir -p "$(dirname "$MAP")"
     : > "$MAP.tmp"
     for o in $(outputs); do
-        printf '%s\t%s\n' "$o" "$1" >> "$MAP.tmp"
+        printf '%s\t%s\n' "$o" "$resolved" >> "$MAP.tmp"
     done
     mv "$MAP.tmp" "$MAP"
 }
@@ -380,11 +429,23 @@ map_has_video() {
 # strip's fit control rescales the screen in place. Videos briefly show their
 # first frame again, then sync_videos restarts them under the new mpv scaling.
 silent_reapply() {
-    local o pic st
+    local o pic st candidate resolved
     for o in $(outputs); do
-        pic=$(map_get "$o")
-        [ -n "$pic" ] && [ -f "$pic" ] || pic=$(cat "$STATE" 2>/dev/null || true)
-        [ -n "$pic" ] && [ -f "$pic" ] || continue
+        # Resolved like every other reader: a map entry naming a symlink passes
+        # `-f` while pointing at nothing, and handing that to awww is a black
+        # screen. See resolve_pic.
+        pic=""
+        for candidate in "$(map_get "$o")" "$(cat "$STATE" 2>/dev/null || true)"; do
+            if pic=$(resolve_pic "$candidate"); then
+                break
+            fi
+            pic=""
+        done
+        [ -n "$pic" ] || continue
+        # And write the healed value back, so a map entry written by an older
+        # version is repaired the first time it is read rather than on every
+        # read from now on.
+        map_put "$o" "$pic"
         if is_video "$pic"; then
             st="$STILL"
             [ -n "$o" ] && st="${STILL%.png}-$o.png"
@@ -397,9 +458,22 @@ silent_reapply() {
 restore_all() {
     local o pic any=false
     for o in $(outputs); do
-        pic=$(map_get "$o")
-        [ -n "$pic" ] && [ -f "$pic" ] || pic=$(cat "$STATE" 2>/dev/null || true)
-        [ -n "$pic" ] && [ -f "$pic" ] || pic=$(pop_bag) || continue
+        # Every candidate is resolved, so a dangling symlink left by an older
+        # version -- or by a theme switch that removed the tree it pointed into
+        # -- is rejected here instead of being handed to awww as if it were an
+        # image. That is what painted a black screen: `-f` followed the link,
+        # saw a file-shaped answer for a path that resolved to nothing, and
+        # repainted the void.
+        pic=""
+        local candidate
+        for candidate in "$(map_get "$o")" "$(cat "$STATE" 2>/dev/null || true)"; do
+            if pic=$(resolve_pic "$candidate"); then
+                break
+            fi
+            pic=""
+        done
+        [ -n "$pic" ] || pic=$(pop_bag) || continue
+        pic=$(resolve_pic "$pic") || continue
         map_put "$o" "$pic"
         apply_visual "$pic" "$o"
         any=true
@@ -644,6 +718,13 @@ elif [ "$cmd" = "set" ]; then
         resolved=$(readlink -f -- "$pic" 2>/dev/null) || resolved="$pic"
         [ -f "$resolved" ] && \
             ln -nsf "$resolved" "$HOME/.local/state/omarchy/current/background" 2>/dev/null || true
+        # And record the FILE. This used to resolve only to repoint the link
+        # and let $pic go on into the map as whatever the caller passed, which
+        # for omarchy's own theme-set hook is the `current/background` symlink.
+        # See resolve_pic for why a link must never be what gets stored.
+        if pic=$(resolve_pic "$resolved"); then
+            mark_pick "$pic"
+        fi
     fi
 elif [ "$cmd" = "fit" ]; then
     mode="${2:-crop}"

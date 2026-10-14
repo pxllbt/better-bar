@@ -195,11 +195,42 @@ ok "owner: a marked pick inside the theme folder reads as the user's" \
 # asserting on its effects would be asserting that the script did something it
 # deliberately did not. Skip them and say why, rather than letting them fail in
 # an environment that cannot run them.
+#
+# A REAL awww daemon is worse than none. These cases deliberately run with a
+# sandboxed HOME, so every wallpaper they paint is a path inside $TMP -- and the
+# sandbox is deleted on exit. `awww` talks to the daemon over a socket that
+# ignores HOME, so `set` reaches straight past the sandbox and repaints the
+# user's actual desktop with a temp file. The test then deletes that file and
+# exits, leaving awww displaying a path that no longer exists: a black
+# wallpaper, no error anywhere, and a daemon left pointing into /tmp. So the
+# daemon is stubbed and the stub records calls to disk instead of painting.
 if ! command -v awww >/dev/null 2>&1; then
-    printf 'SKIP the swap cases: no awww daemon, so `set` cannot paint\n'
+    printf 'SKIP the swap cases: no awww binary, so `set` cannot paint\n'
     printf '\nall green (swap cases skipped)\n'
     exit 0
 fi
+
+STUBBIN="$TMP/stubbin"
+mkdir -p "$STUBBIN"
+cat >"$STUBBIN/awww" <<'STUB'
+#!/usr/bin/env bash
+# Records what it was asked to paint; paints nothing. `query` answers with an
+# empty set so `ensure_daemon` sees a healthy daemon and the script proceeds
+# through the code under test.
+case "${1:-}" in
+    query)
+        printf '{"eDP-1":{"displaying":{"image":"/stub/painted.png"}}}'
+        ;;
+    *)
+        printf '%s\n' "$*" >>"${AWWW_STUB_LOG:-/dev/null}"
+        ;;
+esac
+exit 0
+STUB
+chmod +x "$STUBBIN/awww"
+export AWWW_STUB_LOG="$TMP/awww-calls.log"
+: > "$AWWW_STUB_LOG"
+export PATH="$STUBBIN:$PATH"
 
 # The refusal is only useful if the wallpaper stays painted and the wallpaper
 # symlink stops advertising the theme's. Both are observable from outside.
