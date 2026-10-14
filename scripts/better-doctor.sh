@@ -165,6 +165,9 @@ WPDIR_CFG=$(jq -r '.wallpaperDir // ""' "$FLAGS_FILE" 2>/dev/null || echo "")
 # install. It is the natural setting, which is why it gets chosen.
 if [ -n "$WPDIR_CFG" ]; then
     case "$WPDIR_CFG" in
+        "$HOME/.local/state/omarchy/current/theme/backgrounds"|*"/.local/state/omarchy/current/theme/backgrounds"|"$HOME/.local/state/omarchy/current/theme/backgrounds/"|*"/.local/state/omarchy/current/theme/backgrounds/")
+            RESULTS["wallpaper_dir"]="PASS ($WPDIR_CFG [active theme backgrounds])"
+            ;;
         "$HOME/.local/state/omarchy/current/"*|*"/.local/state/omarchy/current/"*)
             RESULTS["wallpaper_dir"]="FAIL ($WPDIR_CFG is transient -- a theme install deletes every wallpaper in it)"
             ISSUES=$((ISSUES + 1))
