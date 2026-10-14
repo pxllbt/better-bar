@@ -508,8 +508,8 @@ thumbget() {
     # stays as the fallback.
     local dim w h
     if command -v vipsheader >/dev/null 2>&1; then
-        # [0-9]+ (not *) so a bare "x" in the path -- the
-        # home directory is /home/pixllbeat -- cannot match
+        # [0-9]+ (not *) so a bare "x" in the path (e.g.
+        # username containing 'x') cannot match
         # ahead of the real dimensions.
         dim=$(vipsheader "$tmp" 2>/dev/null | head -1 \
               | grep -oE '[0-9]+x[0-9]+' | head -1 | tr 'x' ' ')
