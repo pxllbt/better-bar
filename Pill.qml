@@ -760,9 +760,9 @@ Item {
     }
 
     readonly property string mode: dragActive ? "dragOver"
+        : (Flags.gameMode ? "game"
         : (pluginSurfaceOpen ? "plugin"
         : (surfaceOpen && Object.prototype.hasOwnProperty.call(pill.surfaces, surface) ? surface
-        : (Flags.gameMode ? "game"
         : (toastActive && Notifs.toastCritical && !held ? "toast"
         : (toastActive && !held ? "toast"
         : (expanded ? "hover" : "rest"))))))
@@ -2019,6 +2019,7 @@ Item {
             anchors.margins: -8 * pill.s
             hoverEnabled: true
             z: -1
+            enabled: !Flags.gameMode
             onContainsMouseChanged: ws && (ws.pulseMode = containsMouse)
         }
 
@@ -2028,7 +2029,7 @@ Item {
             // strip mode it is far wider than the card-sized body a surface
             // morphs the pill into, so leaving it up overflows the pill and
             // covers the surface.
-            visible: pill.specialView === "" && !pill.recastActive && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+            visible: pill.specialView === "" && !pill.recastActive && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen) && !Flags.gameMode
             anchors.centerIn: parent
             spacing: pill.stripGap
 

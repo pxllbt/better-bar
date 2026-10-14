@@ -304,6 +304,8 @@ ShellRoot {
     function toggleSurface(mon, surface) {
         if (!mon || mon.length === 0)
             mon = Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : "";
+        if (Flags.gameMode)
+            return;
         // A capability handed to a plugin is rendered by that plugin
         // now; opening Better Bar's own surface for it as well would
         // put two of a kind on screen at once.
@@ -333,6 +335,14 @@ ShellRoot {
         root.openMon = "";
         root.openSurface = "";
         root.menuRoute = "";
+    }
+
+    Connections {
+        target: Flags
+        function onGameModeChanged() {
+            if (Flags.gameMode)
+                root.close();
+        }
     }
 
     /**
@@ -432,7 +442,7 @@ ShellRoot {
             if (Players.list.length > 0)
                 root.toggleSurface(mon, "media");
         }
-        function peek(mon: string): void { root.peek(mon); }
+        function peek(mon: string): void { if (!Flags.gameMode) root.peek(mon); }
         function hide(): void { root.close(); }
         function reloadTheme(): void { ThemeSync.probe(); Color.reloadTheme(); }
         function toggleRecast(): void { Recast.toggleRecording(); }

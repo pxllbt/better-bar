@@ -164,11 +164,19 @@ PillSurface {
      * changes with GPU presence), vertically centred on the header
      * and never floating. Mapped into surface-local space so the
      * host can offset it by the surface origin.
+     *
+     * The 4s inset is the house offset every surface uses for its
+     * ember (SettingsSurface, Link): the bead's 7s core then ends
+     * half a unit left of the label, so the bead reads as belonging
+     * to the SYSTEM caption without touching the S. It was 8s,
+     * double that, which put the ember's 22s halo past the pill's
+     * rounded left corner and its mid ring on top of the caption --
+     * one element looking unmoored from the header it belongs to.
      */
     readonly property point soulPoint: {
         void root.width;
         void root.height;
-        return sysLabel.mapToItem(root, -8 * root.s, sysLabel.height / 2);
+        return sysLabel.mapToItem(root, -4 * root.s, sysLabel.height / 2);
     }
 
     ameForm: open ? "soul" : "off"
