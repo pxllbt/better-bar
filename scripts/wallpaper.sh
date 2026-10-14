@@ -5,6 +5,14 @@ flags_file="${XDG_STATE_HOME:-$HOME/.local/state}/better/flags.json"
 WPDIR=$(jq -r '.wallpaperDir // ""' "$flags_file" 2>/dev/null || echo "")
 FIT=$(jq -r '.wallpaperFit // "crop"' "$flags_file" 2>/dev/null || echo crop)
 case "$FIT" in no|crop|fit|stretch) ;; *) FIT=crop ;; esac
+# How long a wallpaper change takes to land, in seconds. awww's own default is
+# 3, and leaving it unset is what made every pick feel like the desktop hung --
+# see apply_visual. Overridable from the same flags file so a user who wants a
+# slow, obvious sweep can ask for one.
+TRANSITION_SECONDS=$(jq -r '.wallpaperTransitionSeconds // 0.5' "$flags_file" 2>/dev/null || echo 0.5)
+case "$TRANSITION_SECONDS" in
+    ''|*[!0-9.]*) TRANSITION_SECONDS=0.5 ;;
+esac
 if [ -z "$WPDIR" ]; then
     # No explicit folder set: adopt an existing collection in the usual spots.
     # Two or more images counts as a collection, a single stray file does not,
@@ -227,6 +235,19 @@ apply_visual() {
     # second or so the change takes, and the difference is not visible on a
     # surface that is not the thing being watched.
     #
+    # --transition-duration is the one that actually sets how long the change
+    # takes, and it defaults to THREE seconds. It was never passed, so every
+    # wallpaper pick -- and every wallpaper a theme switch or the poll brings in
+    # -- animated for three full seconds, which is what read as the desktop
+    # being laggy rather than as an animation. --transition-step and
+    # --transition-fps shape the sweep but do not shorten it, so raising those
+    # alone changed nothing.
+    #
+    # Half a second keeps the wave legible as a wave -- the direction still
+    # sweeps, so the change still reads as deliberate -- while landing well
+    # inside the time it takes to reach for the next wallpaper. Longer than
+    # this and picking through a set of wallpapers means waiting on each one.
+    #
     # The second `awww img` that used to follow is gone. It could never run:
     # `show` differs from `pic` only for a video still, and `! is_video "$pic"`
     # excluded exactly those, so the branch was unreachable while still paying
@@ -236,6 +257,7 @@ apply_visual() {
         --transition-type wave \
         --transition-angle 30 \
         --transition-wave "60,30" \
+        --transition-duration "$TRANSITION_SECONDS" \
         --transition-fps 30 \
         --transition-step 90
 }

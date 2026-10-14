@@ -2141,17 +2141,37 @@ PillSurface {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
+                /**
+                 * A click applies the wallpaper, first time, no matter where
+                 * focus was.
+                 *
+                 * This used to require two: `onPressed` returned early unless
+                 * the tile was already focused, so the first click on any other
+                 * tile only moved the selection and the second one applied it.
+                 * Two clicks is defensible on its own, but it was not what made
+                 * this flaky -- centerOnCurrent() re-centres the strip on
+                 * Walls.current after every apply, which moves focus off the
+                 * tile under the pointer as soon as a wallpaper lands. So each
+                 * pick silently reset the state the next click depended on, and
+                 * how many clicks a given wallpaper took depended on whether a
+                 * re-centre happened to land between them. That is the "works
+                 * sometimes, take it many times" behaviour.
+                 *
+                 * Focusing and applying are now one action. Focus moves first
+                 * so the per-monitor picker rides the tile that was actually
+                 * clicked, and activate() reads items[focusIndex], so it acts
+                 * on the clicked tile rather than the previously focused one.
+                 */
                 onPressed: {
                     if (!tile.focused)
-                        return;
+                        root.focusIndex = tile.gridIndex;
                     if (tile.remote)
                         root.activate();
                     else
                         trashHeat.press();
                 }
-                onReleased: if (tile.focused && !tile.remote) trashHeat.release()
+                onReleased: if (!tile.remote) trashHeat.release()
                 onExited: trashHeat.cancel()
-                onClicked: if (!tile.focused) root.focusIndex = tile.gridIndex
             }
 
             /**

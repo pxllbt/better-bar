@@ -75,6 +75,12 @@ jobs:
       - name: Run Better Doctor Tests
         run: bash lib/better-doctor.test.sh .
 
+      - name: Run Theme Parse Tests
+        run: node --test lib/theme-parse.test.mjs
+
+      - name: Run Wallpaper Single Click Tests
+        run: bash lib/wallpaper-single-click.test.sh .
+
       - name: Run Wallpaper Ownership Tests
         run: bash lib/wallpaper-owner.test.sh
 

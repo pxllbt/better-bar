@@ -32,6 +32,43 @@ Item {
     /** Writable: adopt() updates it from the theme's angle, so not readonly. */
     property real activeBorderAngle: 90
 
+    /**
+     * Truncate a raw value at its TOML comment, if it has one.
+     *
+     * A `#` starts a comment only OUTSIDE a quoted string, and tracking the
+     * quotes is the entire point: every colour here is "#rrggbb", so the naive
+     * "cut at the first #" would empty `"#83b755"` instead of trimming
+     * `"#83b755"  # glass`.
+     *
+     * This is what stopped a hand-written theme from ever reaching the bar.
+     * Stock omarchy themes are machine-generated and carry no inline comments,
+     * so their values happened to end at the closing quote and parsed fine. A
+     * custom theme written by a person annotates every line -- `accent =
+     * "#83b755"  # glass` -- and the old parser kept everything after the
+     * closing quote, so `palette.accent` held the literal string
+     * `"#83b755"  # glass`. That is not a colour, so every token derived from
+     * it rendered as nothing: the bar followed the theme's background and
+     * foreground but had no accent at all, and it read as "it did not sync
+     * with my theme".
+     *
+     * An unterminated quote simply finds no comment, so a malformed line still
+     * yields its own value and cannot swallow the keys after it.
+     */
+    function stripComment(value) {
+        var raw = String(value === undefined || value === null ? "" : value);
+        var inString = false;
+        for (var i = 0; i < raw.length; i++) {
+            var ch = raw.charAt(i);
+            if (ch === '"')
+                inString = !inString;
+            else if (ch === "#" && !inString)
+                // Trimmed, because an unquoted value would otherwise keep the
+                // space that separates it from the comment.
+                return raw.slice(0, i).trim();
+        }
+        return raw;
+    }
+
     function parse(text) {
         var out = {}
         var lines = String(text || "").split("\n")
@@ -43,7 +80,7 @@ Item {
             if (eq === -1)
                 continue
             var key = line.slice(0, eq).trim()
-            var value = line.slice(eq + 1).trim()
+            var value = stripComment(line.slice(eq + 1).trim())
             if (value.length >= 2 && value.charAt(0) === '"' && value.charAt(value.length - 1) === '"')
                 value = value.slice(1, -1)
             if (key)
