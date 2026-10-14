@@ -31,4 +31,19 @@ Singleton {
             if (list[i] && list[i].unloadClosedSurfaces)
                 list[i].unloadClosedSurfaces();
     }
+
+    /**
+     * Autonomous idle memory trimmer. Runs periodically (every 60s).
+     * Automatically unloads all closed surfaces across all registered pills
+     * to reclaim QML loaders, image delegates, and heap pages.
+     */
+    Timer {
+        id: autoTrimTimer
+        interval: 60000
+        repeat: true
+        running: true
+        onTriggered: {
+            root.unloadClosed();
+        }
+    }
 }
