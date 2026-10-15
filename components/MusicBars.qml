@@ -87,6 +87,9 @@ Row {
             ctx.fill();
         }
 
+        Component.onCompleted: if (wave.visible) wave.requestPaint()
+        onVisibleChanged: if (wave.visible) wave.requestPaint()
+
         Connections {
             target: Cava
             function onLevelsChanged() { if (wave.visible) wave.requestPaint(); }
