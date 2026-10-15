@@ -50,6 +50,26 @@ SettingsSurface {
     // 'all' | 'first-party' | 'third-party'
     property string filterMode: "all"
 
+    /* The global automation/install controls are not what someone opens the
+     * Plugins page for. They used to sit above the inventory, so every open
+     * started with eight rows before the first plugin. They are one row now and
+     * expand in place when asked for. */
+    property bool advancedOpen: false
+    property bool installOpen: false
+    onAdvancedOpenChanged: root.syncRows()
+    onInstallOpenChanged: root.syncRows()
+
+    readonly property bool showStatus: Plugins.busy
+        || Plugins.healingNeeded
+        || Plugins.lastError.length > 0
+        || Plugins.lastOutput.length > 0
+
+    readonly property string automationSummary:
+        (Plugins.autoCheckEnabled ? "check on" : "check off")
+        + " · " + (Flags.pluginAutoUpdate ? "auto-update on" : "manual updates")
+        + " · " + (Flags.pluginAutoIntegrate ? "adopt on" : "adopt off")
+        + " · " + (Flags.pluginSelfHeal ? "self-heal on" : "self-heal off")
+
     readonly property var filtered: {
         var q = root.query.trim().toLowerCase();
         var mode = root.filterMode;
@@ -89,18 +109,18 @@ SettingsSurface {
     }
 
     /**
-     * Rebuild the shared nav list. Static rows bracket the live plugin rows, so
-     * the arrows walk install -> inventory -> plugins -> status in the order
-     * they are drawn, and the list follows enable/disable/install live.
+     * Rebuild the shared nav list. The collapsed global controls are only in the
+     * registry while they are on screen, so the arrows walk the same rows the
+     * user can see: updates, install, (advanced controls), inventory, status.
      */
     function syncRows() {
-        root.rows = [
-            // The update row and the restart row are the only two here that do
-            // something rather than toggle or navigate, so they carry an
-            // `activate` -- the dispatcher's escape hatch. An `onClicked` on the
-            // row itself would look equivalent and would not work: SettingsRow
-            // has no such property, and assigning one fails the whole shell at
-            // load, which is how the bar came to be missing entirely.
+        var rows = [
+            // The update row is the only one here that does something rather
+            // than toggle or navigate, so it carries an `activate` -- the
+            // dispatcher's escape hatch. An `onClicked` on the row itself would
+            // look equivalent and would not work: SettingsRow has no such
+            // property, and assigning one fails the whole shell at load, which
+            // is how the bar came to be missing entirely.
             { item: updatesRow, kind: "toggle",
               get: function () { return false; },
               activate: function () {
@@ -109,40 +129,69 @@ SettingsSurface {
                   else
                       Plugins.checkForUpdates();
               } },
-            { item: autoCheckRow, kind: "toggle",
-              get: function () { return Plugins.autoCheckEnabled; },
-              set: function (v) { Plugins.autoCheckEnabled = v; } },
-            { item: autoUpdateRow, kind: "toggle",
-              get: function () { return Flags.pluginAutoUpdate; },
-              set: function (v) { Flags.pluginAutoUpdate = v; } },
-            { item: autoAdoptRow, kind: "toggle",
-              get: function () { return Flags.pluginAutoIntegrate; },
-              set: function (v) { Flags.pluginAutoIntegrate = v; } },
-            { item: selfHealRow, kind: "toggle",
-              get: function () { return Flags.pluginSelfHeal; },
-              set: function (v) { Flags.pluginSelfHeal = v; } },
-            { item: repairRow, kind: "toggle",
-              get: function () { return false; },
-              activate: Plugins.healAll },
-            { item: restartRow, kind: "toggle",
-              get: function () { return false; },
-              activate: function () { Plugins.restartShell(); } },
-            { item: installRow, kind: "toggle", get: function () { return false; },
-              set: function () { root.install(urlField.text); } },
-            { item: doInstallRow, kind: "toggle", get: function () { return false; },
-              set: function () { root.install(urlField.text); } },
+            { item: automationRow, kind: "toggle",
+              get: function () { return root.advancedOpen; },
+              activate: function () { root.advancedOpen = !root.advancedOpen; } },
+            { item: installRow, kind: "toggle",
+              get: function () { return root.installOpen; },
+              activate: function () { root.installOpen = !root.installOpen; } }
+        ];
+
+        if (root.installOpen) {
+            rows = rows.concat([
+                { item: doInstallRow, kind: "toggle", get: function () { return false; },
+                  set: function (v) { root.install(urlField.text); } }
+            ]);
+        }
+
+        if (root.advancedOpen) {
+            rows = rows.concat([
+                { item: autoCheckRow, kind: "toggle",
+                  get: function () { return Plugins.autoCheckEnabled; },
+                  set: function (v) { Plugins.autoCheckEnabled = v; } },
+                { item: autoUpdateRow, kind: "toggle",
+                  get: function () { return Flags.pluginAutoUpdate; },
+                  set: function (v) { Flags.pluginAutoUpdate = v; } },
+                { item: autoAdoptRow, kind: "toggle",
+                  get: function () { return Flags.pluginAutoIntegrate; },
+                  set: function (v) { Flags.pluginAutoIntegrate = v; } },
+                { item: selfHealRow, kind: "toggle",
+                  get: function () { return Flags.pluginSelfHeal; },
+                  set: function (v) { Flags.pluginSelfHeal = v; } },
+                { item: repairRow, kind: "toggle",
+                  get: function () { return false; },
+                  activate: Plugins.healAll }
+            ]);
+        }
+
+        if (Plugins.needsShellRestart) {
+            rows = rows.concat([
+                { item: restartRow, kind: "toggle",
+                  get: function () { return false; },
+                  activate: function () { Plugins.restartShell(); } }
+            ]);
+        }
+
+        rows = rows.concat([
             { item: countRow, kind: "toggle", get: function () { return false; },
               set: function () { Plugins.rescan(); } }
-        ].concat(root.pluginRows).concat([
-            { item: statusRow, kind: "toggle", get: function () { return false; },
-              set: function () { Plugins.rescan(); } }
-        ]);
+        ]).concat(root.pluginRows);
+
+        if (root.showStatus) {
+            rows = rows.concat([
+                { item: statusRow, kind: "toggle", get: function () { return false; },
+                  set: function () { Plugins.rescan(); } }
+            ]);
+        }
+
+        root.rows = rows;
     }
 
     /** Keep the focused row in view when the arrows move below the fold. */
     function followFocus(item) {
         if (!item || item === installRow || item === doInstallRow
             || item === countRow || item === statusRow
+            || item === automationRow || item === restartRow
             || item === autoCheckRow || item === autoUpdateRow
             || item === autoAdoptRow || item === selfHealRow || item === repairRow)
             return;
@@ -254,6 +303,15 @@ SettingsSurface {
         function onFocusRowItemChanged() { root.followFocus(root.focusRowItem); }
     }
 
+    Connections {
+        target: Plugins
+        function onBusyWithChanged() { root.syncRows(); }
+        function onHealingNeededChanged() { root.syncRows(); }
+        function onNeedsShellRestartChanged() { root.syncRows(); }
+        function onLastErrorChanged() { root.syncRows(); }
+        function onLastOutputChanged() { root.syncRows(); }
+    }
+
     SettingsHeader {
         s: root.s
         glyph: "⬡"
@@ -291,145 +349,204 @@ SettingsSurface {
             }
             sub: {
                 if (Plugins.updateError)
-                    return "Could not check — the last check could not be completed";
+                    return "Could not check";
                 if (Plugins.updateCount > 0)
-                    return "Updates every git-managed plugin at once · validated · rolled back on failure";
-                return "Checks without changing anything · fetches refs, never merges";
+                    return "Tap to update all git-managed plugins";
+                return "Check now · refs only, never merges";
             }
         }
 
+        /**
+         * The collapsed automation group. All four settings stay, but they cost
+         * one row until asked for; the summary row says what each one is doing
+         * without opening them.
+         */
         SettingsRow {
-            id: autoCheckRow
-            surface: root
-            icon: "download"
-            name: "Auto update check"
-            sub: "Read-only every 4 hours · fetches refs, never merges"
-
-            LinkToggle {
-                s: root.s
-                on: Plugins.autoCheckEnabled
-                onToggled: Plugins.autoCheckEnabled = !Plugins.autoCheckEnabled
-            }
-        }
-
-        SettingsRow {
-            id: autoUpdateRow
-            surface: root
-            icon: "refresh"
-            name: "Auto install updates"
-            sub: "Validated · rolled back on failure · shell restart stays a click"
-            opacity: Plugins.autoCheckEnabled ? 1 : 0.55
-
-            LinkToggle {
-                s: root.s
-                on: Flags.pluginAutoUpdate
-                enabled: Plugins.autoCheckEnabled
-                onToggled: Flags.pluginAutoUpdate = !Flags.pluginAutoUpdate
-            }
-        }
-
-        SettingsRow {
-            id: autoAdoptRow
+            id: automationRow
             surface: root
             icon: "layers"
-            name: "Auto adopt plugins"
-            sub: "A newly seen third-party plugin is enabled and hosted like a native entry"
-
-            LinkToggle {
-                s: root.s
-                on: Flags.pluginAutoIntegrate
-                onToggled: Flags.pluginAutoIntegrate = !Flags.pluginAutoIntegrate
-            }
-        }
-
-        SettingsRow {
-            id: selfHealRow
-            surface: root
-            icon: "undo"
-            name: "Self-heal plugins"
-            sub: "Retry broken or missing plugins on a clock"
-
-            LinkToggle {
-                s: root.s
-                on: Flags.pluginSelfHeal
-                onToggled: Flags.pluginSelfHeal = !Flags.pluginSelfHeal
-            }
-        }
-
-        SettingsRow {
-            id: repairRow
-            surface: root
-            icon: "refresh"
-            name: "Repair now"
-            sub: Plugins.healingNeeded
-                ? "Re-reading the manifest and retrying every failed plugin"
-                : "Nothing to repair"
+            name: root.advancedOpen ? "Hide automation" : "Automation"
+            sub: root.automationSummary
 
             GlyphIcon {
                 width: 15 * root.s
                 height: 15 * root.s
                 name: "chevron-right"
-                color: root.focusRowItem === repairRow ? Theme.cream : Theme.iconDim
+                color: root.focusRowItem === automationRow ? Theme.cream : Theme.iconDim
                 stroke: 1.8
+                rotation: root.advancedOpen ? 90 : 0
+                transformOrigin: Item.Center
+                Behavior on rotation { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
             }
         }
-
-        /**
-         * Only appears when an update actually changed plugin code. The shell
-         * running right now has not loaded it, which is exactly what an
-         * unfixed update looks like from the outside — so this is the difference
-         * between the update having worked and looking like it had not.
-         */
-        SettingsRow {
-            id: restartRow
-            surface: root
-            visible: Plugins.needsShellRestart
-            icon: "refresh"
-            name: "Restart the shell"
-            sub: "Plugin code was updated — restart to load it"
-        }
-
-        // ---- install --------------------------------------------------------
 
         SettingsRow {
             id: installRow
             surface: root
             icon: "download"
             name: "Install from URL"
-            sub: "git clone · validated · then rescanned"
+            sub: root.installOpen ? "Paste a repository URL" : "git clone · validated · then rescanned"
+
+            GlyphIcon {
+                width: 15 * root.s
+                height: 15 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === installRow ? Theme.cream : Theme.iconDim
+                stroke: 1.8
+                rotation: root.installOpen ? 90 : 0
+                transformOrigin: Item.Center
+                Behavior on rotation { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
+            }
         }
 
         Item {
             width: parent.width
-            height: 30 * root.s
+            height: root.installOpen ? installCol.implicitHeight : 0
+            visible: height > 0
+            clip: true
+            Behavior on height { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
 
-            SearchField {
-                id: urlField
-                s: root.s
-                anchors.left: parent.left
-                anchors.leftMargin: 12 * root.s
-                anchors.right: parent.right
-                anchors.rightMargin: 12 * root.s
-                anchors.verticalCenter: parent.verticalCenter
-                placeholder: "https://github.com/user/repo"
-                onAccepted: root.install(urlField.text)
+            Column {
+                id: installCol
+                width: parent.width
+
+                Item {
+                    width: parent.width
+                    height: 30 * root.s
+
+                    SearchField {
+                        id: urlField
+                        s: root.s
+                        anchors.left: parent.left
+                        anchors.leftMargin: 12 * root.s
+                        anchors.right: parent.right
+                        anchors.rightMargin: 12 * root.s
+                        anchors.verticalCenter: parent.verticalCenter
+                        placeholder: "https://github.com/user/repo"
+                        onAccepted: root.install(urlField.text)
+                    }
+                }
+
+                SettingsRow {
+                    id: doInstallRow
+                    surface: root
+                    glyph: "＋"
+                    name: "Install"
+                    sub: root.busy ? "working…" : "fetch, validate and register"
+                    enabled: urlField.text.trim().length > 0 && !root.busy
+
+                    GlyphIcon {
+                        width: 16 * root.s
+                        height: 16 * root.s
+                        name: "chevron-right"
+                        color: root.focusRowItem === doInstallRow ? Theme.cream : Theme.iconDim
+                        stroke: 1.9
+                    }
+                }
             }
         }
 
-        SettingsRow {
-            id: doInstallRow
-            surface: root
-            glyph: "＋"
-            name: "Install"
-            sub: root.busy ? "working…" : "fetch, validate and register"
-            enabled: urlField.text.trim().length > 0 && !root.busy
+        Item {
+            width: parent.width
+            height: root.advancedOpen ? automationCol.implicitHeight : 0
+            visible: height > 0
+            clip: true
+            Behavior on height { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
 
-            GlyphIcon {
-                width: 16 * root.s
-                height: 16 * root.s
-                name: "chevron-right"
-                color: root.focusRowItem === doInstallRow ? Theme.cream : Theme.iconDim
-                stroke: 1.9
+            Column {
+                id: automationCol
+                width: parent.width
+
+                SettingsRow {
+                    id: autoCheckRow
+                    surface: root
+                    icon: "download"
+                    name: "Auto update check"
+                    sub: "Read-only every 4 hours · fetches refs, never merges"
+
+                    LinkToggle {
+                        s: root.s
+                        on: Plugins.autoCheckEnabled
+                        onToggled: Plugins.autoCheckEnabled = !Plugins.autoCheckEnabled
+                    }
+                }
+
+                SettingsRow {
+                    id: autoUpdateRow
+                    surface: root
+                    icon: "refresh"
+                    name: "Auto install updates"
+                    sub: "Validated · rolled back on failure · shell restart stays a click"
+                    opacity: Plugins.autoCheckEnabled ? 1 : 0.55
+
+                    LinkToggle {
+                        s: root.s
+                        on: Flags.pluginAutoUpdate
+                        enabled: Plugins.autoCheckEnabled
+                        onToggled: Flags.pluginAutoUpdate = !Flags.pluginAutoUpdate
+                    }
+                }
+
+                SettingsRow {
+                    id: autoAdoptRow
+                    surface: root
+                    icon: "layers"
+                    name: "Auto adopt plugins"
+                    sub: "A newly seen third-party plugin is enabled and hosted like a native entry"
+
+                    LinkToggle {
+                        s: root.s
+                        on: Flags.pluginAutoIntegrate
+                        onToggled: Flags.pluginAutoIntegrate = !Flags.pluginAutoIntegrate
+                    }
+                }
+
+                SettingsRow {
+                    id: selfHealRow
+                    surface: root
+                    icon: "undo"
+                    name: "Self-heal plugins"
+                    sub: "Retry broken or missing plugins on a clock"
+
+                    LinkToggle {
+                        s: root.s
+                        on: Flags.pluginSelfHeal
+                        onToggled: Flags.pluginSelfHeal = !Flags.pluginSelfHeal
+                    }
+                }
+
+                SettingsRow {
+                    id: repairRow
+                    surface: root
+                    icon: "refresh"
+                    name: "Repair now"
+                    sub: Plugins.healingNeeded
+                        ? "Re-reading the manifest and retrying every failed plugin"
+                        : "Nothing to repair"
+
+                    GlyphIcon {
+                        width: 15 * root.s
+                        height: 15 * root.s
+                        name: "chevron-right"
+                        color: root.focusRowItem === repairRow ? Theme.cream : Theme.iconDim
+                        stroke: 1.8
+                    }
+                }
+
+                /**
+                 * Only appears when an update actually changed plugin code. The shell
+                 * running right now has not loaded it, which is exactly what an
+                 * unfixed update looks like from the outside — so this is the difference
+                 * between the update having worked and looking like it had not.
+                 */
+                SettingsRow {
+                    id: restartRow
+                    surface: root
+                    visible: Plugins.needsShellRestart
+                    icon: "refresh"
+                    name: "Restart the shell"
+                    sub: "Plugin code was updated — restart to load it"
+                }
             }
         }
 
@@ -730,6 +847,7 @@ SettingsSurface {
         SettingsRow {
             id: statusRow
             surface: root
+            visible: root.showStatus
             glyph: "◌"
             name: root.busy ? "Working"
                 : (Plugins.healingNeeded ? "Self-healing plugins" : "Status")

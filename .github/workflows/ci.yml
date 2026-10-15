@@ -48,6 +48,9 @@ jobs:
       - name: Run Plymouth Custom Tests
         run: bash lib/plymouth-custom.test.sh .
 
+      - name: Run Plugins Surface Compact Tests
+        run: bash lib/plugins-surface-compact.test.sh .
+
       - name: Run Strip Layout Tests
         run: bash lib/strip-layout.test.sh .
 

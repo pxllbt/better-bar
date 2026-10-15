@@ -94,7 +94,7 @@ ok "the surface surfaces the pending count from the singleton, not a local copy"
 ok "the count drives three distinct renderings, so each state is legible" \
     "$(grep -c 'Plugins.updateCount > 0' "$SURFACE")" "3"
 ok "the surface offers the restart when one is owed" \
-    "$(grep -c 'needsShellRestart' "$SURFACE")" "1"
+    "$(grep -c 'needsShellRestart' "$SURFACE")" "2"
 # Two, and deliberately so: the row offers a manual check, and opening the
 # surface fires one because coming here is usually about a plugin that is not
 # working — and "an update is waiting" is the cheapest possible answer.
