@@ -43,14 +43,20 @@ Item {
     // cannot freeze, rewind or jump because of a slow or out-of-order poll.
     property int countdownBase: 0
     property double countdownStartAtMs: 0
+    property bool countdownCompleted: false
     property int liveBase: 0
     property double liveStartAtMs: 0
 
     readonly property int countdownRemaining: {
         root._tick
+        // Once we have reached one, hold it until the service leaves the pending
+        // state. A delayed repaint/re-read could otherwise re-arm and jump back.
+        if (root.countdownCompleted) return 1;
         if (root.countdownPending && root.countdownStartAtMs > 0) {
             var diff = Math.floor((Date.now() - root.countdownStartAtMs) / 1000);
-            return Math.max(1, root.countdownBase - diff);
+            var rem = Math.max(1, root.countdownBase - diff);
+            if (rem <= 1) root.countdownCompleted = true;
+            return rem;
         }
         return root.serviceCountdownRemaining;
     }
@@ -273,9 +279,11 @@ Item {
                 if (!prevCountdownPending) {
                     root.countdownBase = readCountdown;
                     root.countdownStartAtMs = Date.now();
+                    root.countdownCompleted = false;
                 } else if (readCountdown > root.countdownBase) {
                     root.countdownBase = readCountdown;
                     root.countdownStartAtMs = Date.now();
+                    root.countdownCompleted = false;
                 }
                 // Keep the older service values in sync, though the display no
                 // longer depends on them.
@@ -286,8 +294,7 @@ Item {
             } else {
                 root.countdownBase = 0;
                 root.countdownStartAtMs = 0;
-                root.serviceCountdownRemaining = 0;
-                root.serviceCountdownAtMs = 0;
+                root.countdownCompleted = false;
                 root.serviceCountdownRemaining = 0;
                 root.serviceCountdownAtMs = 0;
             }
