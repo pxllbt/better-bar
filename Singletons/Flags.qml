@@ -200,7 +200,6 @@ Singleton {
             property bool dockMinimal: false
             //* Keep the media bud entry point available with no player; the pill still shows the real player detail whenever one exists.
             property bool mediaAlways: true
-            //* Self-survive Omarchy updates: detect a new Omarchy version, rescan host plugins and re-assert Better Bar menu overrides.
             property bool omarchySurvival: true
             //* Top margin as a fraction of the shipped 8px. 0 sits the pill flush to the screen edge.
             property real topGap: 1

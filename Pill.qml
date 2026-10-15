@@ -2209,6 +2209,27 @@ Item {
             }
         }
 
+        /* Floating visualizer: when music is playing but the strip budget can't
+         * afford the full media-title block, the spark still deserves a place to
+         * live instead of blinking out. This item is centered over the rest of the
+         * strip face so the bars sit in the middle of the bar, not pushed to one
+         * edge by the trailing day/time/workspace/battery row. Cava.active is only
+         * true while audio is actually playing, so with nothing sounding the pills
+         * stays empty. */
+        Item {
+            id: stripVizFloat
+            anchors.centerIn: stripFace
+            visible: stripFace.visible && Cava.active && Flags.musicViz && !pill.stripMedia
+            width: stripVizFloatBars.implicitWidth
+            height: stripVizFloatBars.implicitHeight
+            MusicBars {
+                id: stripVizFloatBars
+                anchors.centerIn: parent
+                s: pill.s
+                span: 14
+            }
+        }
+
         TextMetrics {
             id: stripTitleMetrics
             text: Players.title

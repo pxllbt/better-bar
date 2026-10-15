@@ -158,6 +158,16 @@ ok "Pill shows broken plugins in ghost strip with retry" "$has_broken_ghost" "1"
 has_load_status=$(grep -c 'onStatusChanged' "$ROOT/components/PluginButton.qml" || true)
 ok "PluginButton reports loader status as plugin health" "$has_load_status" "1"
 
+# 19. Strip keeps a centered visualizer while music plays, even with no media budget
+has_float_viz=$(grep -c 'id: stripVizFloat$' "$PILL" || true)
+ok "Strip has a floating centered visualizer" "$has_float_viz" "1"
+
+float_center=$(grep -A8 'id: stripVizFloat' "$PILL" | grep -c 'anchors.centerIn: stripFace' || true)
+ok "Floating visualizer is centered over the strip face" "$float_center" "1"
+
+float_cond=$(grep -A8 'id: stripVizFloat' "$PILL" | grep -c 'Cava.active && Flags.musicViz && !pill.stripMedia' || true)
+ok "Floating visualizer only appears while audio is active" "$float_cond" "1"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%d media-pill checks failed\n' "$failed" >&2
     exit 1
