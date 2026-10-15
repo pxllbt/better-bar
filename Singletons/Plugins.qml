@@ -1123,7 +1123,7 @@ Singleton {
     /**
      * Automatic update check. The manual check (checkForUpdates) is unchanged;
      * this is the unattended version: read-only, time-boxed (each fetch in
-     * plugin-updates.sh is individually time-boxed and the whole read runs in
+     * the update-check script is individually time-boxed and the whole read runs in
      * its own process), so a dead host costs one bounded wait instead of a
      * hang. It runs once on startup (after the normal 15s load) and then on a
      * 4-hour cadence, so a plugin left stale during a long session still gets
