@@ -39,7 +39,7 @@ ok() {
 # countdown. The recording/paused conditions were already there; this is the one
 # that was missing, and its absence is the entire bug.
 ok "the tick driver runs during the pre-roll" \
-    "$(grep -c 'root.recording || root.paused || root.countdownPending' "$RECAST")" "1"
+    "$(grep -c 'running: root.recording || root.paused || root.countdownPending' "$RECAST")" "1"
 ok "the tick driver still runs during a live capture" \
     "$(grep -c 'running:.*root.recording || root.paused || root.countdownPending' "$RECAST")" "1"
 
@@ -47,7 +47,13 @@ ok "the tick driver still runs during a live capture" \
 # the tick: a slower poll than the display makes the re-anchor arrive after the
 # number it is meant to correct.
 ok "the poll is quick while the countdown is running" \
-    "$(grep -c 'root.countdownPending ? 1000 : (root.recording ? 5000 : 2000)' "$RECAST")" "1"
+    "$(grep -c 'interval: (root.recording || root.paused || root.countdownPending) ? 1000 : 2000' "$RECAST")" "1"
+
+# The live face must learn the service started recording without the user moving
+# the pointer: a 5s remote read left the chip waiting for a hover/click even
+# though the local count was already correct.
+ok "the poll is also quick during a live capture" \
+    "$(grep -c 'root.recording ? 5000' "$RECAST")" "0"
 
 # The number must be allowed to reach the state that means "not counting".
 # Clamping the projection at 1 is what keeps 0 off screen *during* the pre-roll,
@@ -55,6 +61,14 @@ ok "the poll is quick while the countdown is running" \
 # clearing, not by the number hitting zero.
 ok "the projection still clamps so 0 never shows mid-countdown" \
     "$(grep -c 'Math.max(1, root.countdownBase - diff)' "$RECAST")" "1"
+
+# The countdown latch must be driven by a timer, not by the display binding: a
+# binding that wrote back into state re-ran itself and is one of the ways the
+# "1 then back to 2" behaviour could survive a cosmetic fix.
+ok "the countdown binding does not write to its own latch" \
+    "$(grep -c 'if \(rem <= 1\) root.countdownCompleted = true;' "$RECAST")" "0"
+ok "a timer latches the countdown at its final second" \
+    "$(grep -c 'if (secs >= Math.max(0, root.countdownBase - 1))' "$RECAST")" "1"
 
 # --- the visible behaviour, where a Wayland session is available -----------
 if [ -z "${WAYLAND_DISPLAY:-}" ] || ! command -v qs >/dev/null 2>&1; then

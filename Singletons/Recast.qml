@@ -49,16 +49,31 @@ Item {
 
     readonly property int countdownRemaining: {
         root._tick
-        // Once we have reached one, hold it until the service leaves the pending
-        // state. A delayed repaint/re-read could otherwise re-arm and jump back.
+        // Pure read. The latch above is armed by the completion timer below, not
+        // assigned from inside this binding: a binding that writes is exactly the
+        // pattern that turned `elapsed` into a binding loop before.
         if (root.countdownCompleted) return 1;
         if (root.countdownPending && root.countdownStartAtMs > 0) {
             var diff = Math.floor((Date.now() - root.countdownStartAtMs) / 1000);
-            var rem = Math.max(1, root.countdownBase - diff);
-            if (rem <= 1) root.countdownCompleted = true;
-            return rem;
+            return Math.max(1, root.countdownBase - diff);
         }
         return root.serviceCountdownRemaining;
+    }
+
+    // Once the pre-roll has displayed its last "1", keep it there until the
+    // service clears `countdownPending`. Timer, not a binding: it owns the only
+    // write to `countdownCompleted`, so no property dependency can re-run it.
+    Timer {
+        id: countdownCompleteTimer
+        interval: 200
+        repeat: root.countdownPending && !root.countdownCompleted
+        running: root.countdownPending && !root.countdownCompleted
+        triggeredOnStart: true
+        onTriggered: {
+            var secs = root.countdownStartAtMs > 0 ? Math.floor((Date.now() - root.countdownStartAtMs) / 1000) : 0;
+            if (secs >= Math.max(0, root.countdownBase - 1))
+                root.countdownCompleted = true;
+        }
     }
 
     function projectedElapsed() {
@@ -310,13 +325,14 @@ Item {
         }
     }
 
-    // 1s while countdown is pending, 5s while live, 2s while idle.
-    // The display does not depend on this cadence:
-    // `elapsed` and `countdownRemaining` are derived from a local clock,
-    // so they tick every second regardless.
+    // 1s while countdown is pending, 1s while live, 2s while idle.
+    // The countdown cadence has to stay ahead of, or level with, the display, and
+    // live capture is throttled only slightly harder: a 5s remote read is what
+    // made the face wait for a hover/click before the first live count appeared,
+    // even though the local count itself was already fine.
     Timer {
         id: pollTimer
-        interval: root.countdownPending ? 1000 : (root.recording ? 5000 : 2000)
+        interval: (root.recording || root.paused || root.countdownPending) ? 1000 : 2000
         repeat: true
         running: true
         onTriggered: stateFile.reload()
