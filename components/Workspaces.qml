@@ -410,12 +410,12 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     bottomPadding: 0
-                    spacing: workspaces.hoverIndex === slot.index ? 6 * workspaces.s : -2 * workspaces.s
+                    spacing: workspaces.hoverIndex === slot.index ? 8 * workspaces.s : -2 * workspaces.s
                     // Only on hover now; resting on its own it reads as clutter.
                     visible: appIcons.classes.length > 0 && appIcons.hovering
 
                     readonly property bool hovering: workspaces.hoverIndex === slot.index
-                    readonly property real iconPx: appIcons.hovering ? 20 * workspaces.s : 0
+                    readonly property real iconPx: appIcons.hovering ? 24 * workspaces.s : 0
                     Behavior on spacing { NumberAnimation { duration: Motion.fast } }
 
                     readonly property var classes: workspaces.classesByWs[slot.wsName] || []
@@ -547,11 +547,11 @@ Item {
                     id: prevRepeater
                     model: wsPreview._wins
                     delegate: Row { spacing: 6 * workspaces.s
-                        Item { width: 14 * workspaces.s; height: 14 * workspaces.s
+                        Item { width: 20 * workspaces.s; height: 20 * workspaces.s
                             Rectangle { anchors.fill: parent; radius: 3 * workspaces.s; color: Theme.surfaceHighlight; border.width: 1 * workspaces.s; border.color: Theme.borderLight; visible: pv.status !== Image.Ready }
-                            Text { anchors.centerIn: parent; text: modelData.cls && modelData.cls.length ? modelData.cls.charAt(0).toUpperCase() : ""; visible: pv.status !== Image.Ready; color: Theme.text; font.family: Theme.font; font.weight: Font.Bold; font.pixelSize: 9 * workspaces.s }
+                            Text { anchors.centerIn: parent; text: modelData.cls && modelData.cls.length ? modelData.cls.charAt(0).toUpperCase() : ""; visible: pv.status !== Image.Ready; color: Theme.text; font.family: Theme.font; font.weight: Font.Bold; font.pixelSize: 12 * workspaces.s }
                             Image { id: pv; anchors.fill: parent; smooth: true; mipmap: true; fillMode: Image.PreserveAspectFit; source: workspaces.iconFor(modelData.cls) } }
-                        Text { text: modelData.title || modelData.cls; color: Theme.text; font.family: Theme.font; font.pixelSize: 12 * workspaces.s; font.weight: Font.Medium; elide: Text.ElideRight; width: Math.min(220*workspaces.s, 260*workspaces.s) }
+                        Text { text: modelData.title || modelData.cls; color: Theme.text; font.family: Theme.font; font.pixelSize: 13 * workspaces.s; font.weight: Font.Medium; elide: Text.ElideRight; width: Math.min(220*workspaces.s, 260*workspaces.s) }
                     }
                 }
             }
