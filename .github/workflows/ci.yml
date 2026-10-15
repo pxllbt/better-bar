@@ -164,3 +164,12 @@ jobs:
 
       - name: Run OpenCode Reporter Tests
         run: node lib/opencode-agents.test.mjs
+
+      - name: Run Plugin Update Check Tests
+        run: bash lib/plugin-updates.test.sh .
+
+      - name: Run Plugin Auto-Update Tests
+        run: bash lib/plugin-autoupdate.test.sh .
+
+      - name: Run Recast Countdown Tests
+        run: bash lib/recast-countdown.test.sh .

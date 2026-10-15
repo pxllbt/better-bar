@@ -56,6 +56,37 @@ Singleton {
     property string lastError: ""
 
     /**
+     * Plugins the update-check found behind their remote.
+     *
+     * Only `behind: true` records are kept. The check script's third value,
+     * `null`, means a remote could not be reached, which is not evidence that a
+     * plugin is current — dropping it here is what stops a broken network from
+     * masquerading as a clean install.
+     */
+    property var pendingUpdates: []
+
+    /** `pendingUpdates.length`, for surfaces that only need the count. */
+    readonly property int updateCount: root.pendingUpdates.length
+
+    /** True only while a check is actually in flight, so the UI can say "..." */
+    property bool checkingUpdates: false
+
+    /**
+     * Set when the last check could not be completed — a parse failure, or a
+     * script that did not run. Kept apart from `pendingUpdates` so the surface
+     * can say "could not check" instead of confidently reporting "up to date",
+     * which is the one lie that reliably costs an update.
+     */
+    property bool updateError: false
+
+    /**
+     * Set when an update changed plugin code that the running shell has not
+     * loaded. Surfaced as a request, never acted on: restarting someone's shell
+     * unasked is worse than the stale code it would fix.
+     */
+    property bool needsShellRestart: false
+
+    /**
      * Per-plugin load health. Each key is a plugin id; value is an object:
      *   { status: "ok" | "broken" | "uninstalled", lastError: string, retryCount: int }
      * Populated by PluginButton's Loader status and the manifest scan. Broken
@@ -64,7 +95,6 @@ Singleton {
      * the ghost strip can show a "missing" badge.
      */
     property var health: ({})
-
     /** Plugins that exist in manifests but failed to load their barWidget. */
     readonly property var brokenPlugins: Object.keys(root.health)
         .filter(function(id) { return root.health[id] && root.health[id].status === "broken"; })
@@ -980,7 +1010,101 @@ Singleton {
             } else {
                 scheduleRefresh();
             }
+            // Updating leaves new code on disk that the running shell never
+            // loaded. Without this the update appears to have done nothing,
+            // which reads as a failure — so the bar now asks for a restart.
+            // Judged from the CLI's own "Updated <id>." lines rather than from
+            // the exit code, because a successful run that had nothing to do
+            // also exits 0, and restarting the shell for a no-op is the one
+            // outcome worth avoiding.
+            if (cliProc.verb === "update") {
+                root.needsShellRestart = root.lastOutput.indexOf("Updated ") !== -1;
+                if (root.needsShellRestart)
+                    root.updateCount = 0;
+            }
         }
+    }
+
+    /**
+     * Update every git-managed plugin at once.
+     *
+     * Passes no id on purpose: `omarchy plugin update` already loops over every
+     * git-managed plugin itself, and that is the safer half of the answer. Its
+     * own loop is the one that validates each merge and rolls back on failure,
+     * so reimplementing it here would fork that logic into a second copy with
+     * none of the guarantees. `--yes` because the bar is not a terminal, and the
+     * CLI rightly refuses to guess when it cannot ask.
+     */
+    function updateAll() {
+        return update("");
+    }
+
+    /**
+     * Restart the shell so updated plugin code is actually live.
+     *
+     * A request rather than an automatic action: it is disruptive, and the bar
+     * has no way to know whether you are mid-something. `needsShellRestart` is
+     * what the surface offers, so the choice stays yours.
+     */
+    function restartShell() {
+        root.needsShellRestart = false;
+        restartProc.running = true;
+        return true;
+    }
+
+    /**
+     * Ask which plugins are behind their remote, without changing anything.
+     *
+     * The check script is read-only — it fetches refs and compares, and never
+     * merges — so this is safe to run unattended. It also cannot hang: each
+     * fetch inside it is time-boxed, and the whole read is in its own process,
+     * so a dead host costs a bounded wait instead of the bar.
+     *
+     * Only a definite `behind: true` counts as pending. The report's third
+     * value, `null`, means "the remote could not be reached", which is not
+     * evidence that everything is current — counting it as such is how a
+     * broken network quietly becomes a clean bill of health.
+     */
+    function checkForUpdates() {
+        if (updatesProc.running)
+            return false;
+        root.checkingUpdates = true;
+        root.lastError = "";
+        updatesProc.running = true;
+        return true;
+    }
+
+    Process {
+        id: updatesProc
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                var list = [];
+                try {
+                    list = JSON.parse(String(text || "[]")) || [];
+                } catch (e) {
+                    // A parse failure is "could not check", not "nothing to do".
+                    // Leaving the list empty while the error stays visible keeps
+                    // the two states distinguishable by eye.
+                    root.lastError = "update check failed";
+                    list = [];
+                }
+                root.pendingUpdates = list.filter(function (p) {
+                    return p && p.behind === true;
+                });
+                root.updateError = (list.length === 0) && (root.lastError !== "");
+            }
+        }
+        onExited: root.checkingUpdates = false
+
+        // Resolved through Config, the same way every other script in here is,
+        // so the bar can be run from a checkout rather than an install.
+        command: [Config.hyprPath("scripts", "plugin-updates.sh")]
+    }
+
+    Process {
+        id: restartProc
+        command: ["omarchy-restart-shell"]
     }
 
     property string lastOutput: ""

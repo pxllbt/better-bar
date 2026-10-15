@@ -134,10 +134,19 @@ Item {
     // Ticks the derived displays once a second. `elapsed` no longer depends on
     // this — the ratchet is advanced by refreshElapsed() — so the timer drives
     // an assignment rather than re-evaluating a property that writes.
+    //
+    // countdownPending is in that condition, and must be: the countdown's number
+    // is a binding over Date.now(), which is not reactive, and root._tick is the
+    // only thing that re-evaluates it. The timer used to run during recording and
+    // paused only, so during a pre-roll nothing re-evaluated and the number read
+    // once and froze — the chip sat at "STARTING 3…" until the service finished
+    // and cleared the pending flag, at which point it jumped straight to REC.
+    // The elapsed count is unaffected: refreshElapsed() only ever advances, and
+    // during a pre-roll it projects 0, which it also writes through.
     Timer {
         interval: 1000
         repeat: true
-        running: root.recording || root.paused
+        running: root.recording || root.paused || root.countdownPending
         onTriggered: {
             root._tick = root._tick + 1;
             root.refreshElapsed();

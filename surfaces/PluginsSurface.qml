@@ -189,8 +189,15 @@ SettingsSurface {
 
     onOpenChanged: {
         Plugins.surfaceOpen = open;
-        if (open)
+        if (open) {
             Plugins.refresh();
+            // Opening is the natural moment to check: you came here because
+            // something is wrong with a plugin, and "an update is waiting" is
+            // the cheapest possible answer to that. Not on a timer — a check
+            // hits the network per plugin, which is not something to do every
+            // few seconds on someone's behalf.
+            Plugins.checkForUpdates();
+        }
     }
 
     Connections {
@@ -213,6 +220,50 @@ SettingsSurface {
         spacing: 0
 
         Item { width: 1; height: 10 * root.s }
+
+        /**
+         * The auto part: the bar notices updates instead of you noticing them.
+         *
+         * This is a row rather than a button because it has three states worth
+         * showing, and only one of them is an action: nothing to do, updates
+         * waiting, and "I could not ask" — which is deliberately not shown as
+         * "up to date", because a host we could not reach tells you nothing.
+         */
+        SettingsRow {
+            id: updatesRow
+            surface: root
+            icon: Plugins.checkingUpdates ? "refresh" : "download"
+            name: {
+                if (Plugins.checkingUpdates)
+                    return "Checking for updates…";
+                if (Plugins.updateCount > 0)
+                    return Plugins.updateCount + (Plugins.updateCount === 1 ? " update available" : " updates available");
+                return "Plugins are up to date";
+            }
+            sub: {
+                if (Plugins.updateError)
+                    return "Could not check — the last check could not be completed";
+                if (Plugins.updateCount > 0)
+                    return "Updates every git-managed plugin at once · validated · rolled back on failure";
+                return "Checks without changing anything · fetches refs, never merges";
+            }
+            onClicked: Plugins.updateCount > 0 ? Plugins.updateAll() : Plugins.checkForUpdates()
+        }
+
+        /**
+         * Only appears when an update actually changed plugin code. The shell
+         * running right now has not loaded it, which is exactly what an
+         * unfixed update looks like from the outside — so this is the difference
+         * between the update having worked and looking like it had not.
+         */
+        SettingsRow {
+            surface: root
+            visible: Plugins.needsShellRestart
+            icon: "refresh"
+            name: "Restart the shell"
+            sub: "Plugin code was updated — restart to load it"
+            onClicked: Plugins.restartShell()
+        }
 
         // ---- install --------------------------------------------------------
 
