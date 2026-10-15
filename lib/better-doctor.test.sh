@@ -75,6 +75,16 @@ has "better-doctor flags a monitors.lua with no hl.monitor block" \
 has "better-doctor ignores commented-out monitor blocks when counting outputs" \
     "$(grep -c "grep -vE '\^\[\[:space:\]\]\*--'" "$DOCTOR")" "comment strip"
 
+# A settings flag can be written AND referenced and still do nothing, if the
+# component that reads it ignores it on one path -- which is how Transparency
+# mode became a switch that changed nothing at all. A reference sweep cannot see
+# that, so the doctor at least catches a flag with no consumer whatsoever.
+has "better-doctor flags a settings row that writes a flag nothing reads" \
+    "$(grep -c 'settings_dead_flags' "$DOCTOR")" "dead-flag check"
+
+has "the dead-flag check counts script consumers, not only QML" \
+    "$(grep -c "include='\*.sh'" "$DOCTOR")" "script consumers counted"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
     exit 1

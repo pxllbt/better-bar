@@ -323,7 +323,34 @@ if [ -f "$MONITORS_LUA" ]; then
     fi
 fi
 
-# 6. Output Format
+# 6. Settings that go nowhere. A flag can be written by a settings row, be
+# referenced by a component, and STILL do nothing -- because the component that
+# reads it ignores it on one code path. That is exactly how "Transparency mode"
+# ended up as a switch that turned nothing on and nothing off: Flags.glass was
+# read by LiquidGlass, but the pill's fill took the opaque theme-background branch
+# and never consulted the flag. A "is it referenced?" sweep passes that, so the
+# check here is the sweep, so at least a flag with NO consumer at all is caught.
+WRITTEN=$(grep -rhoE 'Flags\.[a-zA-Z]+[[:space:]]*=[^=]' "$INSTALL_DIR/surfaces" 2>/dev/null \
+    | grep -oE 'Flags\.[a-zA-Z]+' | sed 's/Flags\.//' | sort -u)
+UNUSED=""
+for f in $WRITTEN; do
+    # Consumed by QML outside the settings surfaces, or by a script reading
+    # flags.json directly (wallpaper fit, for one, is a script consumer).
+    qml=$(grep -rlE "Flags\.$f\b" --include='*.qml' "$INSTALL_DIR" 2>/dev/null \
+        | grep -vE '/surfaces/' | wc -l)
+    scr=$(grep -rlE "\.$f\b" --include='*.sh' --include='*.py' "$INSTALL_DIR/scripts" "$INSTALL_DIR/lib" 2>/dev/null | wc -l)
+    if [ "$qml" -eq 0 ] && [ "$scr" -eq 0 ]; then
+        UNUSED="$UNUSED $f"
+    fi
+done
+if [ -n "$UNUSED" ]; then
+    RESULTS["settings_dead_flags"]="FAIL (a settings row writes these and nothing reads them:$UNUSED)"
+    ISSUES=$((ISSUES + 1))
+else
+    RESULTS["settings_dead_flags"]="PASS ($(printf '%s\n' $WRITTEN | grep -c .) settings flags all consumed)"
+fi
+
+# 7. Output Format
 if [ "$DO_JSON" = true ]; then
     printf '{\n'
     printf '  "issues": %d,\n' "$ISSUES"

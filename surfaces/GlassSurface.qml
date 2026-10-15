@@ -19,8 +19,40 @@ SettingsSurface {
 
     rows: [
         { item: glassRow, kind: "toggle", get: function () { return Flags.glass; }, set: function (v) { Flags.glass = v; } },
+        { item: bgRow, kind: "seg", vals: [1, 0.8, 0.6], get: function () { return bgLevel(); }, set: function (v) { Flags.pillOpacity = v; } },
         { item: glassTextRow, kind: "seg", vals: [0, 0.5, 1], get: function () { return Flags.glassText; }, set: function (v) { Flags.glassText = v; } }
     ]
+
+    /**
+     * How see-through the pill is, as one of four steps. This is the pill's own
+     * background, not the glass material: `Flags.pillOpacity` is what
+     * LiquidGlass multiplies the fill alpha by on BOTH paths, so the desktop
+     * shows through whether transparency is on or off. It was already wired into
+     * the fill and had no control anywhere, so the one knob that actually
+     * governs the pill's opacity was unreachable.
+     */
+    // Three steps, not four. SettingsRow's control slot is right-anchored with
+    // no width cap, so a fourth word-length pill pushes the control's left edge
+    // past the row's own label and the two overlap -- the same overflow the
+    // Screens resolution row had. Short labels and no sub-caption keep the
+    // control inside its half of the row.
+    readonly property var bgOptions: [
+        { label: "Solid", value: 1 },
+        { label: "Soft", value: 0.8 },
+        { label: "Sheer", value: 0.6 }
+    ]
+
+    /** Snap whatever is stored to the nearest offered step, so the seg always lights. */
+    function bgLevel() {
+        var v = (Flags.pillOpacity === undefined || Flags.pillOpacity === null) ? 1 : Number(Flags.pillOpacity);
+        var best = bgOptions[0].value;
+        var bestD = Math.abs(v - best);
+        for (var i = 1; i < bgOptions.length; i++) {
+            var d = Math.abs(v - bgOptions[i].value);
+            if (d < bestD) { bestD = d; best = bgOptions[i].value; }
+        }
+        return best;
+    }
 
     Column {
         id: content
@@ -47,6 +79,24 @@ Item { width: 1; height: 10 * root.s }
                 s: root.s
                 on: Flags.glass
                 onToggled: Flags.glass = !Flags.glass
+            }
+        }
+
+        // The pill's own background, independent of the material switch above:
+        // it applies whether transparency is on or off, because it is the fill
+        // alpha rather than the glass treatment.
+        SettingsRow {
+            id: bgRow
+            surface: root
+            name: "Background"
+            icon: "layers"
+            sub: ""
+
+            SettingsSeg {
+                s: root.s
+                options: root.bgOptions
+                value: root.bgLevel()
+                onPicked: (v) => Flags.pillOpacity = v
             }
         }
 
