@@ -885,8 +885,13 @@ elif [ "$cmd" = "set" ]; then
         # turn $pic into a link.
         # No `local`: this is the script body, not a function.
         kept=""
+        # preserved_path resolves to the copy made on a previous pick, or
+        # prints nothing when no copy exists yet -- in which case the original
+        # is exactly what should be applied. Overwriting unconditionally turned
+        # "no copy yet" into an empty pic and a silent exit, which is why a
+        # theme switch never painted the new theme's wallpaper.
         if kept=$(preserved_path "$pic"); then
-            pic="$kept"
+            [ -n "$kept" ] && pic="$kept"
         fi
     fi
 elif [ "$cmd" = "fit" ]; then

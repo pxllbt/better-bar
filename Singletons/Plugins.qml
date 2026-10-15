@@ -1120,6 +1120,38 @@ Singleton {
         onTriggered: root.pollOnce()
     }
 
+    /**
+     * Automatic update check. The manual check (checkForUpdates) is unchanged;
+     * this is the unattended version: read-only, time-boxed (each fetch in
+     * plugin-updates.sh is individually time-boxed and the whole read runs in
+     * its own process), so a dead host costs one bounded wait instead of a
+     * hang. It runs once on startup (after the normal 15s load) and then on a
+     * 4-hour cadence, so a plugin left stale during a long session still gets
+     * noticed. Only a definite `behind: true` sets pendingUpdates; a bad fetch
+     * leaves the previous result standing rather than silently flattening it
+     * to "up to date".
+     */
+    readonly property int autoCheckDelayMs: 15000
+    readonly property int autoCheckIntervalMs: 4 * 60 * 60 * 1000
+
+    property bool autoCheckEnabled: true
+
+    Timer {
+        id: autoCheckBoot
+        interval: root.autoCheckDelayMs
+        repeat: false
+        running: root.autoCheckEnabled
+        onTriggered: { root.checkForUpdates(); autoCheckClock.restart(); }
+    }
+
+    Timer {
+        id: autoCheckClock
+        interval: root.autoCheckIntervalMs
+        repeat: true
+        running: false
+        onTriggered: root.checkForUpdates()
+    }
+
     FileView {
         id: shellConfigFile
         path: root.shellConfigPath
