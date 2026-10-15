@@ -570,8 +570,8 @@ Item {
      * no parallel ternary chains to keep in lockstep.
      */
     readonly property var surfaces: ({
-        calendar:  { size: () => { const it = surfaceItem("calendar"); return Qt.size((it.implicitWidth > 0 ? it.implicitWidth : 282 * s) + 36 * s, it.implicitHeight + 32 * s); }, ame: () => surfaceItem("calendar") },
-        weather:   { size: () => { const it = surfaceItem("weather"); return Qt.size((it.implicitWidth > 0 ? it.implicitWidth : 282 * s) + 36 * s, it.implicitHeight + 32 * s); }, ame: () => surfaceItem("weather") },
+        calendar:  { size: () => { const it = surfaceItem("calendar"); if (!it) return Qt.size(282 * s + 36 * s, 260 * s + 32 * s); return Qt.size((it.implicitWidth > 0 ? it.implicitWidth : 282 * s) + 36 * s, it.implicitHeight + 32 * s); }, ame: () => surfaceItem("calendar") },
+        weather:   { size: () => { const it = surfaceItem("weather"); if (!it) return Qt.size(282 * s + 36 * s, 260 * s + 32 * s); return Qt.size((it.implicitWidth > 0 ? it.implicitWidth : 282 * s) + 36 * s, it.implicitHeight + 32 * s); }, ame: () => surfaceItem("weather") },
         launcher:  { size: () => { surfaceItem("launcher"); return Qt.size(launcherW, launcherH); }, ame: () => surfaceItem("launcher") },
         clipboard: { size: () => { surfaceItem("clipboard"); return Qt.size(clipboardW, clipboardH); }, ame: () => surfaceItem("clipboard") },
         wallpaper: { size: () => { surfaceItem("wallpaper"); return Qt.size(wallpaperW, wallpaperH); }, ame: () => null },
@@ -1220,7 +1220,7 @@ Item {
 
     LiquidGlass {
         id: bud
-        readonly property bool shown: pill.mode === "hover" && (pill.hasMedia || Flags.mediaAlways)
+        readonly property bool shown: (pill.mode === "rest" || pill.mode === "hover") && (pill.hasMedia || Flags.mediaAlways)
         property real budR: (budArea.containsMouse ? 15 : 12) * pill.s
         width: budR * 2
         height: budR * 2

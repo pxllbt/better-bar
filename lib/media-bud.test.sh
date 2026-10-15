@@ -32,8 +32,8 @@ ok "the always-media flag is persisted" \
 ok "always-media defaults to on so the control comes back" \
     "$(grep -c 'property bool mediaAlways: true' "$FLAGS")" "1"
 
-ok "the media bud survives with no active player" \
-    "$(grep -c 'readonly property bool shown: pill.mode === "hover" && (pill.hasMedia || Flags.mediaAlways)' "$PILL")" "1"
+ok "the media bud survives with no active player and is visible at rest" \
+    "$(grep -c 'readonly property bool shown: (pill.mode === "rest" || pill.mode === "hover") && (pill.hasMedia || Flags.mediaAlways)' "$PILL")" "1"
 
 ok "the media bud still opens the media surface" \
     "$(grep -c 'onClicked: pill.requestSurface("media")' "$PILL")" "1"
