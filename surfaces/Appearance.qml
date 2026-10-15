@@ -39,6 +39,7 @@ SettingsSurface {
         { item: dispTile, kind: "nav", surface: "display" },
         { item: screensTile, kind: "nav", surface: "screens" },
         { item: dockTile, kind: "nav", surface: "dock" },
+        { item: keyboardTile, kind: "nav", surface: "keybinds" },
         { item: ifaceTile, kind: "nav", surface: "interface" },
         { item: pluginsTile, kind: "nav", surface: "plugins" },
         { item: updateTile, kind: "nav", surface: "update" }
@@ -302,6 +303,23 @@ SettingsSurface {
                     height: 16 * root.s
                     name: "chevron-right"
                     color: root.focusRowItem === dockTile ? Theme.cream : Theme.iconDim
+                    stroke: 1.9
+                }
+            }
+
+            // --- Keyboard ---
+            SettingsRow {
+                id: keyboardTile
+                surface: root
+                glyph: "keyboard"
+                name: "Keyboard"
+                sub: "Hyprland keybindings · conflicts · editor"
+
+                GlyphIcon {
+                    width: 16 * root.s
+                    height: 16 * root.s
+                    name: "chevron-right"
+                    color: root.focusRowItem === keyboardTile ? Theme.cream : Theme.iconDim
                     stroke: 1.9
                 }
             }

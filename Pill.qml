@@ -1237,88 +1237,24 @@ Item {
         Behavior on budR { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
         Behavior on opacity { NumberAnimation { duration: Motion.standard } }
 
-        Canvas {
-            id: budBead
+        // The same media disc the media surface uses, scaled into the pill. It
+        // is the entry point, not a second now-playing card.
+        MediaDisc {
+            id: mediaBudDisc
             anchors.centerIn: parent
-            anchors.horizontalCenterOffset: 3 * pill.s
             width: 18 * pill.s
             height: 18 * pill.s
-            onPaint: {
-                const ctx = getContext("2d");
-                ctx.reset();
-                const c = width / 2;
-                const R = (budArea.containsMouse ? 5.2 : 4) * pill.s;
-                const hg = ctx.createRadialGradient(c - R * 0.32, c - R * 0.38, 0, c, c, R);
-                hg.addColorStop(0, Theme.todayWarm);
-                hg.addColorStop(0.55, Theme.vermLit);
-                hg.addColorStop(0.92, Theme.verm);
-                hg.addColorStop(1, Theme.vermDim);
-                ctx.beginPath();
-                ctx.arc(c, c, R, 0, 7);
-                ctx.fillStyle = hg;
-                ctx.fill();
-                ctx.beginPath();
-                ctx.ellipse(c - R * 0.62, c - R * 0.66, R * 0.6, R * 0.36);
-                ctx.fillStyle = "rgba(255,246,240,0.6)";
-                ctx.fill();
-                         }
+            s: pill.s
+            spinning: budArea.containsMouse || (Players.has && Players.playing)
+        }
 
-                        Repeater {
-                            model: Plugins.brokenPlugins
-
-                            delegate: Item {
-                                required property var modelData
-                                required property int index
-
-                                width: 17 * pill.s
-                                height: 17 * pill.s
-
-                                GlyphIcon {
-                                    id: brokenIcon
-                                    anchors.centerIn: parent
-                                    width: 11 * pill.s
-                                    height: 11 * pill.s
-                                    name: Plugins.iconFor(modelData.id)
-                                    color: Theme.verm
-                                    stroke: 1.5 * pill.s
-                                    opacity: 0.4
-                                }
-
-                                GlyphIcon {
-                                    anchors.centerIn: parent
-                                    width: 8 * pill.s
-                                    height: 8 * pill.s
-                                    name: "close"
-                                    color: Theme.vermLit
-                                    stroke: 1.2 * pill.s
-                                    opacity: 0.7
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: Plugins.reloadPlugin(modelData.id)
-                                }
-
-                                Tooltip {
-                                    s: pill.s
-                                    placement: "below"
-                                    title: modelData.name || modelData.id
-                                    desc: Plugins.health[modelData.id] ? (Plugins.health[modelData.id].lastError || "Failed to load — click to retry") : "Click to reload"
-                                }
-                            }
-                        }
-                    }
-
-                    MouseArea {
+        MouseArea {
             id: budArea
             anchors.fill: parent
             enabled: bud.shown
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: pill.requestSurface("media")
-            onContainsMouseChanged: budBead.requestPaint()
         }
     }
 
@@ -2884,6 +2820,59 @@ Item {
                                     placement: "below"
                                     title: modelData.name || modelData.id
                                     desc: "Click to enable"
+                                }
+                            }
+                        }
+
+                        // Broken plugins: the retry ghost belongs beside the
+                        // disabled-plugin ghosts, not inside the media bud.
+                         Repeater {
+                            model: Plugins.brokenPlugins
+
+                            delegate: Item {
+                                required property var modelData
+                                required property int index
+
+                                width: 17 * pill.s
+                                height: 17 * pill.s
+
+                                GlyphIcon {
+                                    id: brokenGhostIcon
+                                    anchors.centerIn: parent
+                                    width: 11 * pill.s
+                                    height: 11 * pill.s
+                                    name: Plugins.iconFor(modelData.id)
+                                    color: Theme.verm
+                                    stroke: 1.5 * pill.s
+                                    opacity: 0.5
+                                    Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+                                }
+
+                                GlyphIcon {
+                                    anchors.centerIn: parent
+                                    width: 8 * pill.s
+                                    height: 8 * pill.s
+                                    name: "close"
+                                    color: Theme.vermLit
+                                    stroke: 1.2 * pill.s
+                                    opacity: 0.7
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: Plugins.reloadPlugin(modelData.id)
+                                    onContainsMouseChanged: {
+                                        brokenGhostIcon.opacity = containsMouse ? 0.8 : 0.5;
+                                    }
+                                }
+
+                                Tooltip {
+                                    s: pill.s
+                                    placement: "below"
+                                    title: modelData.name || modelData.id
+                                    desc: Plugins.health[modelData.id] ? (Plugins.health[modelData.id].lastError || "Failed to load — click to retry") : "Click to reload"
                                 }
                             }
                         }

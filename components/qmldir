@@ -31,3 +31,4 @@ PluginButton PluginButton.qml
 StripCell StripCell.qml
 ActiveBorderRing ActiveBorderRing.qml
 AltText AltText.qml
+MediaDisc MediaDisc.qml

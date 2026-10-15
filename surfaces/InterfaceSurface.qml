@@ -23,8 +23,9 @@ SettingsSurface {
         { item: motionRow, kind: "toggle", get: function () { return Flags.reduceMotion; }, set: function (v) { Flags.reduceMotion = v; } },
         { item: autoHideRow, kind: "toggle", get: function () { return Flags.autoHide; }, set: function (v) { Flags.autoHide = v; } },
         { item: cursorFollowRow, kind: "toggle", get: function () { return Flags.cursorFollow; }, set: function (v) { Flags.cursorFollow = v; } },
-        { item: keybindsRow, kind: "nav", surface: "keybinds" },
         { item: mediaAlwaysRow, kind: "toggle", get: function () { return Flags.mediaAlways; }, set: function (v) { Flags.mediaAlways = v; } },
+        { item: omarchySurvivalRow, kind: "toggle", get: function () { return Flags.omarchySurvival; }, set: function (v) { Flags.omarchySurvival = v; } },
+        { item: omarchyGuardStatusRow, kind: "toggle", get: function () { return false; }, activate: function () { OmarchyGuard.check(); } },
         { item: saverRow, kind: "toggle", get: function () { return Flags.memorySaver; }, set: function (v) { Flags.memorySaver = v; } }
     ]
 
@@ -96,22 +97,6 @@ Item { width: 1; height: 10 * root.s }
         }
 
         SettingsRow {
-            id: keybindsRow
-            surface: root
-            icon: "keyboard"
-            name: "Keybindings"
-            sub: "Open the Hyprland keybinding manager"
-
-            GlyphIcon {
-                width: 16 * root.s
-                height: 16 * root.s
-                name: "chevron-right"
-                color: root.focusRowItem === keybindsRow ? Theme.cream : Theme.iconDim
-                stroke: 1.9
-            }
-        }
-
-        SettingsRow {
             id: mediaAlwaysRow
             surface: root
             icon: "music"
@@ -122,6 +107,40 @@ Item { width: 1; height: 10 * root.s }
                 s: root.s
                 on: Flags.mediaAlways
                 onToggled: Flags.mediaAlways = !Flags.mediaAlways
+            }
+        }
+
+        SettingsRow {
+            id: omarchySurvivalRow
+            surface: root
+            icon: "lock"
+            name: "Omarchy survival"
+            sub: "Rescan and re-assert custom rows after Omarchy updates"
+            last: false
+
+            LinkToggle {
+                s: root.s
+                on: Flags.omarchySurvival
+                onToggled: Flags.omarchySurvival = !Flags.omarchySurvival
+            }
+        }
+
+        SettingsRow {
+            id: omarchyGuardStatusRow
+            surface: root
+            icon: OmarchyGuard.busy ? "refresh" : "check"
+            name: OmarchyGuard.busy ? "Checking Omarchy…" : "Run Omarchy check now"
+            sub: OmarchyGuard.lastError.length > 0
+                ? OmarchyGuard.lastError
+                : (OmarchyGuard.statusMessage.length > 0 ? OmarchyGuard.statusMessage : "Check that Better Bar still matches the installed Omarchy")
+            last: false
+
+            GlyphIcon {
+                width: 15 * root.s
+                height: 15 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === omarchyGuardStatusRow ? Theme.cream : Theme.iconDim
+                stroke: 1.8
             }
         }
 

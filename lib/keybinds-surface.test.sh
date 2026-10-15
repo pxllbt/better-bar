@@ -38,8 +38,11 @@ ok "the keybinds surface is registered" \
 ok "the keybind singleton is registered" \
     "$(grep -c '^singleton Keybinds Keybinds.qml$' "$ROOT/Singletons/qmldir")" "1"
 
-ok "the interface row opens the native keybinds surface" \
-    "$(grep -c '{ item: keybindsRow, kind: "nav", surface: "keybinds" }' "$INTERFACE")" "1"
+ok "the keyboard settings open the native keybinds surface" \
+    "$(grep -c '{ item: keyboardTile, kind: "nav", surface: "keybinds" }' "$ROOT/surfaces/Appearance.qml")" "1"
+
+ok "the keybind manager is not left inside the interface page" \
+    "$(grep -c 'keybindsRow' "$INTERFACE")" "0"
 
 ok "the interface row no longer bridges to the plugin" \
     "$(grep -c 'Plugins.openOrEnable(\"meviusisback.keybinds\")' "$INTERFACE")" "0"

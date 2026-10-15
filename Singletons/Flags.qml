@@ -83,6 +83,8 @@ Singleton {
     property alias dockMinimal: adapter.dockMinimal
     //* Keep the media entry point on the pill even with nothing playing.
     property alias mediaAlways: adapter.mediaAlways
+    //* Auto-survive an Omarchy update: rescan the host and re-assert Better Bar's custom rows.
+    property alias omarchySurvival: adapter.omarchySurvival
     property alias topGap: adapter.topGap
     property alias appGap: adapter.appGap
     property alias weatherCity: adapter.weatherCity
@@ -198,6 +200,8 @@ Singleton {
             property bool dockMinimal: false
             //* Keep the media bud entry point available with no player; the pill still shows the real player detail whenever one exists.
             property bool mediaAlways: true
+            //* Self-survive Omarchy updates: detect a new Omarchy version, rescan host plugins and re-assert Better Bar menu overrides.
+            property bool omarchySurvival: true
             //* Top margin as a fraction of the shipped 8px. 0 sits the pill flush to the screen edge.
             property real topGap: 1
             //* Pill-to-window band as a fraction of the shipped 12px. 0 tucks the windows flush under the pill.

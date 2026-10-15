@@ -188,3 +188,21 @@ jobs:
 
       - name: Run Settings Row Handler Tests
         run: bash lib/settings-rows.test.sh .
+
+      - name: Run Media Disc Tests
+        run: bash lib/media-disc.test.sh .
+
+      - name: Run Media Bud Tests
+        run: bash lib/media-bud.test.sh .
+
+      - name: Run Omarchy Guard Tests
+        run: bash lib/omarchy-guard.test.sh .
+
+      - name: Run Native Keybinds Tests
+        run: bash lib/keybinds-surface.test.sh .
+
+      - name: Run Settings Search Tests
+        run: bash lib/settings-search.test.sh .
+
+      - name: Run Keybinds Model Tests
+        run: node --test lib/keybinds.test.mjs

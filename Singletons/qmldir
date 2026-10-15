@@ -35,3 +35,4 @@ singleton StripLayout StripLayout.qml
 singleton Recast Recast.qml
 singleton TextEntry TextEntry.qml
 singleton Keybinds Keybinds.qml
+singleton OmarchyGuard OmarchyGuard.qml
