@@ -88,6 +88,23 @@ SettingsSurface {
      */
     function syncRows() {
         root.rows = [
+            // The update row and the restart row are the only two here that do
+            // something rather than toggle or navigate, so they carry an
+            // `activate` -- the dispatcher's escape hatch. An `onClicked` on the
+            // row itself would look equivalent and would not work: SettingsRow
+            // has no such property, and assigning one fails the whole shell at
+            // load, which is how the bar came to be missing entirely.
+            { item: updatesRow, kind: "toggle",
+              get: function () { return false; },
+              activate: function () {
+                  if (Plugins.updateCount > 0)
+                      Plugins.updateAll();
+                  else
+                      Plugins.checkForUpdates();
+              } },
+            { item: restartRow, kind: "toggle",
+              get: function () { return false; },
+              activate: function () { Plugins.restartShell(); } },
             { item: installRow, kind: "toggle", get: function () { return false; },
               set: function () { root.install(urlField.text); } },
             { item: doInstallRow, kind: "toggle", get: function () { return false; },
@@ -255,7 +272,6 @@ SettingsSurface {
                     return "Updates every git-managed plugin at once · validated · rolled back on failure";
                 return "Checks without changing anything · fetches refs, never merges";
             }
-            onClicked: Plugins.updateCount > 0 ? Plugins.updateAll() : Plugins.checkForUpdates()
         }
 
         /**
@@ -265,12 +281,12 @@ SettingsSurface {
          * between the update having worked and looking like it had not.
          */
         SettingsRow {
+            id: restartRow
             surface: root
             visible: Plugins.needsShellRestart
             icon: "refresh"
             name: "Restart the shell"
             sub: "Plugin code was updated — restart to load it"
-            onClicked: Plugins.restartShell()
         }
 
         // ---- install --------------------------------------------------------

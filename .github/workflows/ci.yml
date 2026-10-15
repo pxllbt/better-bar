@@ -185,3 +185,6 @@ jobs:
 
       - name: Run Settings Header Tests
         run: bash lib/settings-headers.test.sh .
+
+      - name: Run Settings Row Handler Tests
+        run: bash lib/settings-rows.test.sh .
