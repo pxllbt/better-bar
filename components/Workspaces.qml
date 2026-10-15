@@ -133,6 +133,24 @@ Item {
         onTriggered: workspaces.pulseTick += 1
     }
 
+    /**
+     * Drives the agent badge's breath, and unlike the hover pulse it is never
+     * optional: a running timer is what makes the badge animate, and a badge
+     * that only animates while the clock happens to be hovered would be dead
+     * most of the time. It only runs while something is actually badged, so it
+     * costs nothing on an idle bar.
+     */
+    property int agentTick: 0
+    readonly property bool anyAgent: Agents.urgent > 0 || Object.keys(Agents.badges).length > 0
+    Timer {
+        id: agentTimer
+        interval: 90
+        repeat: true
+        running: workspaces.anyAgent
+        triggeredOnStart: true
+        onTriggered: workspaces.agentTick += 1
+    }
+
     readonly property int activeIndex: range.indexOf(parseInt(activeName))
 
     readonly property real clockHoverPhase: {
@@ -256,6 +274,13 @@ Item {
                 readonly property string wsName: String(modelData)
                 readonly property bool isActive: workspaces.activeName === wsName
 
+                /**
+                 * "" / "working" / "waiting" for this workspace. Read per
+                 * delegate rather than cached, so a session that ends drops its
+                 * badge on the next read rather than on a timer of its own.
+                 */
+                readonly property string agentState: Agents.badgeFor(wsName)
+
                 Layout.preferredWidth: slot.isActive ? workspaces.stickW : workspaces.dotW
                 Layout.preferredHeight: 22 * workspaces.s
                 Behavior on Layout.preferredWidth { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
@@ -275,6 +300,52 @@ Item {
                         return area.containsMouse ? 0.7 : 0.3;
                     }
                     Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+                }
+
+                /**
+                 * Agent badge, on the dot rather than beside it: the dot is
+                 * already the thing that means "this workspace", and a badge
+                 * floating next to it would have to be told which dot it belongs
+                 * to. `working` breathes, `waiting` is the one that pulses hard
+                 * because it is the only state worth interrupting you for, and
+                 * `done` deliberately shows nothing — a check that never clears
+                 * is a check you stop seeing.
+                 */
+                Item {
+                    id: agentBadge
+                    anchors.centerIn: parent
+                    width: parent.width + 3 * workspaces.s
+                    height: parent.height + 3 * workspaces.s
+                    visible: slot.agentState !== ""
+
+                    readonly property color ink: slot.agentState === "waiting"
+                        ? Theme.vermLit : Theme.verm
+                    readonly property real beat: slot.agentState === "waiting" ? 0.85 : 0.45
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: workspaces.dotW
+                        height: workspaces.dotW
+                        radius: height / 2
+                        color: "transparent"
+                        border.width: 1.4 * workspaces.s
+                        border.color: agentBadge.ink
+                        opacity: 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(workspaces.agentTick * agentBadge.beat))
+                        Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+                    }
+
+                    // A "!" rather than a glyph: it reads at 5px, where a word
+                    // or an icon cannot, and it is the shape people already
+                    // associate with "this wants you".
+                    Text {
+                        anchors.centerIn: parent
+                        visible: slot.agentState === "waiting"
+                        text: "!"
+                        color: agentBadge.ink
+                        font.family: Theme.font
+                        font.pixelSize: 7 * workspaces.s
+                        font.weight: Font.Bold
+                    }
                 }
 
                 MouseArea {
