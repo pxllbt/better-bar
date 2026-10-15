@@ -517,7 +517,7 @@ Item {
 
         Rectangle {
             id: wsPreview
-            x: Math.max(0, workspaces.slotCenterX(Math.max(0, workspaces.hoverIndex)) - width / 2)
+            x: Math.max(0, Math.min(workspaces.width - width, workspaces.slotCenterX(Math.max(0, workspaces.hoverIndex)) - width / 2))
             y: 4 * workspaces.s
             width: 250 * workspaces.s
             height: (28 + prevRepeater.count * 18) * workspaces.s
