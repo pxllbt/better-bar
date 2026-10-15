@@ -465,7 +465,13 @@ Item {
     /** Media-side gaps depend only on the visualizer. */
     readonly property int stripMediaGaps: 1 + (Cava.active ? 1 : 0)
 
-    readonly property bool stripMedia: Players.has && stripRoomForTitle >= stripMinTitle
+    // Media is the one section that should not vanish merely because the budget
+    // cannot fit a full-width title: a partial title and the album art still
+    // read as media. The full title still gets the min-width preference when
+    // none is playing, so an idle bar is not steadily crowded.
+    readonly property bool stripMedia: Players.has
+        && (Players.playing || stripRoomForTitle >= stripMinTitle)
+        && stripRoomForTitle > 0
     readonly property real stripRoomForTitle: stripCap - 2 * stripPad - stripArtW - stripFixedW
         - 4 * stripGap - stripMediaGaps * stripGap
         - (Cava.active ? stripVizW : 0)
@@ -1220,7 +1226,11 @@ Item {
 
     LiquidGlass {
         id: bud
-        readonly property bool shown: (pill.mode === "rest" || pill.mode === "hover") && (pill.hasMedia || Flags.mediaAlways)
+        // The media bud stays available whenever a track is actually playing,
+        // even if the persistent "always show media" toggle is off. Paused/idle
+        // media still follows the user's toggle.
+        readonly property bool shown: (pill.mode === "rest" || pill.mode === "hover")
+            && (Flags.mediaAlways || Players.playing)
         property real budR: (budArea.containsMouse ? 15 : 12) * pill.s
         width: budR * 2
         height: budR * 2
