@@ -405,11 +405,26 @@ Item {
                 // Per-workspace app icons. Tiny, leaning into the dot on hover
                 // or when the workspace is active; hidden at rest to keep the
                 // strip calm. First three distinct apps, overlapped.
-                Row {
-                    id: appIcons
+                // chips sit in a soft surface-colored pill, which keeps the
+                // hover state from bleeding into the workspace strip even when
+                // a lot of apps are open -- it reads as one object rather than
+                // a pile of tiny fall-out images.
+                Rectangle {
+                    id: iconFrame
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
-                    bottomPadding: 0
+                    width: appIcons.implicitWidth + 10 * workspaces.s
+                    height: appIcons.implicitHeight + 6 * workspaces.s
+                    radius: 999
+                    color: Theme.surface
+                    border.width: 1 * workspaces.s
+                    border.color: Theme.borderLight
+                    visible: appIcons.classes.length > 0 && appIcons.hovering
+                    opacity: appIcons.hovering ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                    Row {
+                        id: appIcons
                     spacing: workspaces.hoverIndex === slot.index ? 8 * workspaces.s : -2 * workspaces.s
                     // Only on hover now; resting on its own it reads as clutter.
                     visible: appIcons.classes.length > 0 && appIcons.hovering
@@ -463,6 +478,15 @@ Item {
                             }
                         }
                     }
+                    Text {
+                        visible: appIcons.classes.length > 4
+                        text: "+" + (appIcons.classes.length - 4)
+                        color: Theme.text
+                        font.family: Theme.font
+                        font.pixelSize: Math.max(9, appIcons.iconPx * 0.6)
+                        font.weight: Font.Bold
+                    }
+                }
                 }
 
                 MouseArea {
