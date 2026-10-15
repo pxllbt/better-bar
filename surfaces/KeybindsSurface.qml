@@ -142,7 +142,7 @@ SettingsSurface {
 
             Row {
                 id: tabRow
-                x: 12 * root.s
+                x: 14 * root.s
                 y: 8 * root.s
                 spacing: 8 * root.s
 
@@ -197,9 +197,9 @@ SettingsSurface {
 
             Column {
                 id: searchWrap
-                x: 12 * root.s
+                x: 14 * root.s
                 y: 7 * root.s
-                width: parent.width - 24 * root.s
+                width: parent.width - 28 * root.s
                 spacing: 3 * root.s
 
                 SearchField {
@@ -208,7 +208,6 @@ SettingsSurface {
                     s: root.s
                     active: root.open && !root.editorOpen
                     placeholder: "Search keybindings…"
-                    counterText: String(root.visibleRows.length)
                     onTextChanged: Keybinds.query = text
                     onDismissed: {
                         if (text.length > 0)
@@ -237,27 +236,12 @@ SettingsSurface {
         Item { width: 1; height: 8 * root.s }
 
         SettingsRow {
+            id: newBindingRow
             surface: root
             icon: "type"
             name: "New binding"
             sub: root.editorOpen ? "Close the editor" : "Create a custom Hyprland binding"
             last: false
-
-            GlyphIcon {
-                width: 16 * root.s
-                height: 16 * root.s
-                name: root.editorOpen ? "close" : "type"
-                color: root.focusRowItem === keybindEditorToggle ? Theme.cream : Theme.iconDim
-                stroke: 1.9
-
-                MouseArea {
-                    id: keybindEditorToggle
-                    anchors.fill: parent
-                    anchors.margins: -5 * root.s
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.editorOpen ? root.closeEditor() : root.openEditor("", "", "", "New binding", "")
-                }
-            }
         }
 
         Rectangle {
@@ -277,9 +261,9 @@ SettingsSurface {
 
             Column {
                 id: editorCol
-                x: 12 * root.s
+                x: 14 * root.s
                 y: 8 * root.s
-                width: parent.width - 24 * root.s
+                width: parent.width - 28 * root.s
                 spacing: 7 * root.s
 
                 Text {
@@ -458,6 +442,11 @@ SettingsSurface {
                         required property var modelData
                         required property int index
 
+                        // Explicit width: a ListView delegate otherwise relies on
+                        // the content item's width, which can leave the right-hand
+                        // controls at a different x from the rest of the surface.
+                        width: listScroll.width
+
                         readonly property var row: bindRow.modelData
 
                         surface: root
@@ -582,23 +571,6 @@ SettingsSurface {
                 return Keybinds.statusMessage;
             }
             last: true
-
-            GlyphIcon {
-                width: 15 * root.s
-                height: 15 * root.s
-                name: "refresh"
-                color: rescanArea.containsMouse ? Theme.cream : Theme.iconDim
-                stroke: 1.8
-
-                MouseArea {
-                    id: rescanArea
-                    anchors.fill: parent
-                    anchors.margins: -5 * root.s
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: Keybinds.refresh()
-                }
-            }
         }
     }
 
@@ -607,7 +579,17 @@ SettingsSurface {
      * always last. Dynamic only: no delegate is created until a row is visible,
      * so the 180-binding case does not cost a registry entry per row at startup.
      */
-    rows: root.rowEntries.concat([{
+    rows: [{
+        item: newBindingRow,
+        kind: "toggle",
+        get: function () { return false; },
+        activate: function () {
+            if (root.editorOpen)
+                root.closeEditor();
+            else
+                root.openEditor("", "", "", "New binding", "");
+        }
+    }].concat(root.rowEntries).concat([{
         item: statusRow,
         kind: "toggle",
         get: function () { return false; },

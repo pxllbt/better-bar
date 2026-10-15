@@ -114,7 +114,7 @@ Item { width: 1; height: 10 * root.s }
         SettingsRow {
             id: clockIconRow
             surface: root
-            name: "Clock icon"
+            name: "Time icon"
             icon: "clock"
             sub: "Icon left of the time"
 
