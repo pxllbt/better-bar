@@ -113,6 +113,16 @@ ok "a fresh open on silence arms it immediately" \
 ok "the bud is unaffected, so mediaAlways still keeps the entry" \
     "$(printf '%s\n' "$BUD" | grep -c 'Flags.mediaAlways')" "1"
 
+# --- the bud is findable, not marooned at the far edge --------------------
+ok "the bud moves next to the media title in strip mode" \
+    "$(printf '%s\n' "$BUD" | grep -c 'pill.stripBar' )" "1"
+
+ok "the bud placement maps the title into pill coordinates" \
+    "$(printf '%s\n' "$BUD" | grep -c 'stripTitle.mapToItem(pill' )" "1"
+
+ok "the bud still sits on the pill edge outside strip mode" \
+    "$(printf '%s\n' "$BUD" | grep -c 'pill.width - budR')" "1"
+
 printf '\n'
 if [ "$failed" -gt 0 ]; then
     printf '%s failing\n' "$failed"

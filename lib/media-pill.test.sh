@@ -76,21 +76,31 @@ ok "Pill stripFixedW guards Battery.present" "$has_bat_guard" "1"
 has_dismiss_latch=$(grep -c 'property bool surfaceDismissLatch' "$PILL" || true)
 ok "Pill declares surfaceDismissLatch" "$has_dismiss_latch" "1"
 
-# 9. Hover-to-media must not exclude strip mode.
+# 9. Hover-to-media belongs to the bud, not to the whole pill.
 #
-# Why this changed: the `expandTo === "media"` hover branch carried a
-# `!pill.stripBar` guard, so the one display mode that most wants the player on
-# hover — a full-width top bar — was the one mode where the hover did nothing.
-# A strip user with auto-hide off had to click to reach now playing. The guard is
-# gone; the tap handler keeps its own guard so a click still pins the pill rather
-# than being stolen by the player.
-has_strip_guard=$(sed -n '/onHoveredChanged: {/,/^    }/p' "$PILL" | grep -c '!pill.stripBar' || true)
-ok "Pill hover-to-media no longer excludes stripBar mode" "$has_strip_guard" "0"
+# Why this changed: `expandTo === "media"` used to make the pill-wide hover open
+# the player. That hijacked *every* hover on the bar — pointing at the weather
+# or wifi cell opened the now-playing card instead of that cell's own face, so
+# one setting broke navigation across the entire pill. Hover-to-media now lives
+# on the media bud alone, where the pointer already means "media", and the pill
+# hover is free to be the pill hover again.
+#
+# `expandTo` still means what it says, but only for a *tap*: it chooses between
+# opening the player and pinning/expanding the pill.
+hover_block=$(sed -n '/onHoveredChanged: {/,/^    }/p' "$PILL")
+if [ "$(printf '%s' "$hover_block" | grep -c 'expandTo')" -eq 0 ]; then
+    printf 'PASS %s\n' "the pill hover no longer steals every hover into the player"
+else
+    failed=$((failed + 1))
+    printf 'FAIL %s\n  expected: no expandTo branch in onHoveredChanged\n' \
+        "the pill hover no longer steals every hover into the player"
+fi
 
-has_media_hover=$(sed -n '/onHoveredChanged: {/,/^    }/p' "$PILL" \
-    | grep -c 'Flags.expandTo === "media" && pill.hasMedia' || true)
-ok "Pill hover opens media when a player exists" "$has_media_hover" "1"
+has_media_hover=$(printf '%s' "$hover_block" | grep -c 'pill.mode !== "game"' || true)
+ok "the pill hover still honours the game-mode gate" "$has_media_hover" "1"
 
+# The tap path keeps its own guard so a click still pins the pill rather than
+# being stolen by the player.
 has_tap_guard=$(sed -n '/acceptedButtons: Qt.RightButton/,/onTapped:/p' "$PILL" | grep -c '!pill.stripBar' || true)
 ok "the tap path keeps its own strip guard so clicks still pin the pill" "$has_tap_guard" "0"
 

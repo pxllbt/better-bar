@@ -1391,7 +1391,24 @@ Item {
         width: budR * 2
         height: budR * 2
         radius: budR
-        x: pill.width - budR
+        /* The bud sits at the pill's right edge, except in strip mode where it
+         * moves next to the media title. The strip's media cell is at the far
+         * *left* of the bar, so a disc pinned to the right edge was the single
+         * hardest target on screen to find — the one element that means "media"
+         * sitting as far from the media as the layout allowed, which is most of
+         * why "the media thing" kept being reported as missing.
+         *
+         * `mapToItem`, not `stripTitle.x`: the title lives inside the strip's
+         * own Row, so its raw x is in that Row's coordinates and would place the
+         * disc against the left edge of the pill instead of after the title. */
+        readonly property real stripBudX: {
+            void pill.width;
+            void pill.height;
+            if (!pill.stripBar || !stripTitle || stripTitle.width <= 0)
+                return -1;
+            return stripTitle.mapToItem(pill, 0, 0).x + stripTitle.width + 10 * pill.s;
+        }
+        x: stripBudX >= 0 ? stripBudX : (pill.width - budR)
         anchors.verticalCenter: parent.verticalCenter
         visible: opacity > 0.01
         opacity: shown ? 1 : 0
@@ -1633,26 +1650,7 @@ Item {
             surfaceDismissLatch = false;
         }
         if (hovered && pill.mode !== "game" && !surfaceDismissLatch) {
-            if (!Flags.autoHide && Flags.expandTo === "media" && pill.hasMedia
-                && !pill.surfaceOpen && !pill.dragActive
-                && bootSettled && !toastActive) {
-                /* expandTo "media": a hover grows the pill into the player
-                 * itself instead of the icon face, so the now-playing card
-                 * arrives with the pointer and settles back when it leaves.
-                 *
-                 * This deliberately has no `!stripBar` guard. It used to, which
-                 * meant the one display mode that most wants the player on
-                 * hover — a full-width top bar — was the one mode where the
-                 * hover did nothing at all: strip users had to click. Now the
-                 * strip morphs into the card like every other face. The tap
-                 * below keeps its own guard, so a click still pins/expands the
-                 * pill rather than being stolen by the player.
-                 *
-                 * Auto-hide still reveals the normal pill; game mode never
-                 * hands the bar to the player, or the exit chip would be buried
-                 * under it. */
-                pill.requestSurface("media");
-            } else if (Flags.autoHide && !revealSession && !expanded && !surfaceOpen) {
+            if (Flags.autoHide && !revealSession && !expanded && !surfaceOpen) {
                 revealSession = true;
                 revealTimer.stop();
             } else if (bootSettled && !revealSession && !toastActive) {
