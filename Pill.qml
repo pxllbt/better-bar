@@ -1452,22 +1452,11 @@ Item {
              * way somewhere else, which is a player nobody asked for; 260ms is
              * past a pass-through and short enough to feel like a hover.
              *
-             * The guard mirrors the pill's own hover-to-media path — a surface
-             * already open, game mode, a drag and a toast all decline — so the
-             * two entry points cannot disagree about when the player appears. */
-            onEntered: budHoverOpen.restart()
-            onExited: budHoverOpen.stop()
-        }
-
-        Timer {
-            id: budHoverOpen
-            interval: 260
-            onTriggered: {
-                if (!budArea.containsMouse || pill.surfaceOpen || pill.dragActive
-                    || pill.mode === "game" || !pill.bootSettled)
-                    return;
-                pill.requestSurface("media");
-            }
+             * The guards all live in mediaEnter()/mediaLeave() so the bud, the
+             * strip art and the strip title cannot disagree about when the
+             * player appears. */
+            onEntered: pill.mediaEnter()
+            onExited: pill.mediaLeave()
         }
     }
 
@@ -1590,6 +1579,45 @@ Item {
      * bud)". That sidesteps the per-item hover flicker the child MouseAreas and
      * the centred width morph would otherwise cause.
      */
+    /**
+     * One media-entry contract, shared by every element that means "media".
+     *
+     * The bud, the strip's album art and the strip's track title all hand their
+     * hover to `mediaEnter()`/`mediaLeave()`, so there is exactly one dwell and
+     * one guard set for "the pointer means media". This used to be per-site
+     * logic, and the two available answers were both wrong: a pill-wide hover
+     * opened the player when you pointed at the *weather* cell (one setting
+     * hijacking navigation across the whole bar), and a bud-only hover left a
+     * 21px disc as the sole target in a bar 500px wide.
+     *
+     * The result is one rule: hover the media — its art, its title, or its disc
+     * — and the player arrives after a short dwell. Hover anything else and the
+     * pill is just the pill. Nothing playing means no media to enter, so the
+     * rule has nothing to fire on.
+     */
+    function mediaEnter() {
+        if (pill.mode === "game" || pill.surfaceOpen || pill.dragActive || !pill.bootSettled)
+            return;
+        mediaHoverDwell.restart();
+    }
+
+    function mediaLeave() {
+        mediaHoverDwell.stop();
+    }
+
+    Timer {
+        id: mediaHoverDwell
+        interval: 260
+        onTriggered: {
+            // Re-checked at fire time, not only at entry: a surface can open, a
+            // drag can start, or game mode can arm during the dwell.
+            if (pill.mode === "game" || pill.surfaceOpen || pill.dragActive
+                || !pill.hasMedia)
+                return;
+            pill.requestSurface("media");
+        }
+    }
+
     readonly property real inputPadRight: bud.shown ? bud.budR + 2 * s : 0
 
     /**
@@ -2317,6 +2345,10 @@ Item {
                             Players.active.volume = Math.max(0.0, Math.min(1.0, Players.active.volume + delta));
                         }
                     }
+                    /* The album art is the largest thing on the strip that means
+                     * media, so it carries the same hover contract as the bud. */
+                    onEntered: pill.mediaEnter()
+                    onExited: pill.mediaLeave()
                 }
             }
 
@@ -2350,6 +2382,11 @@ Item {
                             Players.active.volume = Math.max(0.0, Math.min(1.0, Players.active.volume + delta));
                         }
                     }
+                    /* The track title is the other half of the same target, so
+                     * hovering it enters media exactly as the art and the disc
+                     * do. */
+                    onEntered: pill.mediaEnter()
+                    onExited: pill.mediaLeave()
                 }
 
                 Tooltip {

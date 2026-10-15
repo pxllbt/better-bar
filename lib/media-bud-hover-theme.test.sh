@@ -37,27 +37,49 @@ BUD=$(sed -n '/id: bud$/,/id: body$/p' "$PILL")
 [ -n "$BUD" ] || { echo "could not locate the media bud" >&2; exit 1; }
 
 # --- hover reaches the player ---------------------------------------------
-ok "the bud arms a hover-open timer" \
-    "$(printf '%s\n' "$BUD" | grep -c 'id: budHoverOpen')" "1"
+# One shared contract, not per-site logic: `mediaEnter()`/`mediaLeave()` on the
+# pill, called by the bud, the strip album art and the strip track title.
+ok "the pill exposes one media hover contract" \
+    "$(grep -c 'function mediaEnter()' "$PILL")" "1"
+ok "the pill exposes the matching leave" \
+    "$(grep -c 'function mediaLeave()' "$PILL")" "1"
+ok "there is a single shared dwell timer" \
+    "$(grep -c 'id: mediaHoverDwell' "$PILL")" "1"
 
-ok "entering the bud starts that timer" \
-    "$(printf '%s\n' "$BUD" | grep -c 'onEntered: budHoverOpen.restart()')" "1"
+ok "the bud hands its hover to the shared contract" \
+    "$(printf '%s\n' "$BUD" | grep -c 'onEntered: pill.mediaEnter()')" "1"
 
-ok "leaving the bud cancels it, so a sweep does not open the player" \
-    "$(printf '%s\n' "$BUD" | grep -c 'onExited: budHoverOpen.stop()')" "1"
+ok "the strip album art hands its hover to the shared contract" \
+    "$(sed -n '/id: stripArtMouse/,/^                }/p' "$PILL" | grep -c 'pill.mediaEnter()')" "1"
 
-ok "the timer still opens the media surface" \
-    "$(printf '%s\n' "$BUD" | grep -c 'pill.requestSurface("media")')" "2"
+ok "the strip track title hands its hover to the shared contract" \
+    "$(sed -n '/id: stripTitleMouse/,/^                }/p' "$PILL" | grep -c 'pill.mediaEnter()')" "1"
 
-ok "the hover dwell is long enough to ignore a pass-through" \
-    "$(printf '%s\n' "$BUD" | grep -c 'interval: 260')" "1"
+ok "the dwell still opens the media surface" \
+    "$(sed -n '/id: mediaHoverDwell/,/^    }/p' "$PILL" | grep -c 'requestSurface("media")')" "1"
 
-# The dwell must decline in exactly the cases the pill's own hover path does,
-# or the two entry points disagree about when the player appears.
-ok "the hover dwell declines while a surface is already open" \
-    "$(printf '%s\n' "$BUD" | grep -c 'pill.surfaceOpen')" "1"
-ok "the hover dwell declines in game mode" \
-    "$(printf '%s\n' "$BUD" | grep -c 'pill.mode === "game"')" "1"
+ok "the dwell is long enough to ignore a pass-through" \
+    "$(grep -A2 'id: mediaHoverDwell' "$PILL" | grep -c 'interval: 260')" "1"
+
+# The dwell must decline in the cases the pill's own hover path does, or the
+# entry points disagree about when the player appears.
+ok "the shared dwell declines while a surface is already open" \
+    "$(sed -n '/id: mediaHoverDwell/,/^    }/p' "$PILL" | grep -c 'pill.surfaceOpen')" "1"
+ok "the shared dwell declines in game mode" \
+    "$(sed -n '/id: mediaHoverDwell/,/^    }/p' "$PILL" | grep -c 'pill.mode === "game"')" "1"
+ok "the shared dwell requires media to exist" \
+    "$(sed -n '/id: mediaHoverDwell/,/^    }/p' "$PILL" | grep -c '!pill.hasMedia')" "1"
+
+# The pill-wide hover must stay free of media, or pointing at the weather cell
+# opens the player.
+hover_block=$(sed -n '/onHoveredChanged: {/,/^    }/p' "$PILL")
+if [ "$(printf '%s' "$hover_block" | grep -c 'expandTo')" -eq 0 ]; then
+    printf 'PASS %s\n' "the pill hover no longer steals every hover into the player"
+else
+    failed=$((failed + 1))
+    printf 'FAIL %s\n  expected: no expandTo branch in onHoveredChanged\n' \
+        "the pill hover no longer steals every hover into the player"
+fi
 
 # --- the bud is built from the pill's material ----------------------------
 ok "the bud sits on the theme background like the body" \
