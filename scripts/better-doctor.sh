@@ -291,7 +291,39 @@ if command -v awww >/dev/null 2>&1; then
     fi
 fi
 
-# 5. Output Format
+# 5. Screens: the monitor layout's own health. These are the two ways a layout
+# breaks silently -- a duplicated output (the last matching block wins at boot, so
+# an edit appears to do nothing) and an unparseable file (no layout at all) --
+# plus a plain count of what Hyprland actually has right now.
+SCREEN_COUNT=$(hyprctl monitors -j 2>/dev/null | jq -r 'length' 2>/dev/null)
+if [ -n "$SCREEN_COUNT" ] && [ "$SCREEN_COUNT" != "0" ]; then
+    RESULTS["screens_count"]="PASS ($SCREEN_COUNT screen(s) reported)"
+fi
+
+MONITORS_LUA="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/monitors.lua"
+if [ -f "$MONITORS_LUA" ]; then
+    # An output named by two LIVE blocks is the one persisting bug worth
+    # catching: at boot only the last one applies, so a save that appended
+    # instead of rewriting leaves the user staring at the old layout with no
+    # error anywhere. Only lines that actually create a monitor count -- the
+    # stock file's commented-out examples all name DP-2, and flagging those
+    # would fire on every unedited install.
+    LIVE=$(grep -vE '^[[:space:]]*--' "$MONITORS_LUA")
+    DUPES=$(printf '%s\n' "$LIVE" \
+        | sed -n 's/.*output[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' \
+        | grep -v '^$' | sort | uniq -d | tr '\n' ' ')
+    if [ -n "$DUPES" ]; then
+        RESULTS["screens_monitor_blocks"]="FAIL (two hl.monitor blocks name the same output: $DUPES)"
+        ISSUES=$((ISSUES + 1))
+    elif ! printf '%s\n' "$LIVE" | grep -q 'hl\.monitor('; then
+        RESULTS["screens_monitor_blocks"]="FAIL (no hl.monitor block at all: the layout will not apply)"
+        ISSUES=$((ISSUES + 1))
+    else
+        RESULTS["screens_monitor_blocks"]="PASS (one block per output)"
+    fi
+fi
+
+# 6. Output Format
 if [ "$DO_JSON" = true ]; then
     printf '{\n'
     printf '  "issues": %d,\n' "$ISSUES"

@@ -57,6 +57,24 @@ has "better-doctor supports --json flag" \
 has "better-doctor revalidates pids against /proc before counting" \
     "$(grep -c '\[ -d "/proc/\$pid" \] || continue' "$DOCTOR")" "pid liveness filter"
 
+# 4. Screens: the two layout faults that break silently -- a duplicated output and
+# an unparseable file -- plus a screen count. No editor, no drift; each is the
+# whole check in a form a `grep` can confirm.
+has "better-doctor reports the screen count from hyprctl monitors" \
+    "$(grep -c 'hyprctl monitors -j' "$DOCTOR")" "hyprctl monitors -j"
+
+has "better-doctor flags two hl.monitor blocks naming the same output" \
+    "$(grep -c 'uniq -d' "$DOCTOR")" "duplicate-output detection"
+
+has "better-doctor flags a monitors.lua with no hl.monitor block" \
+    "$(grep -c "no hl.monitor block at all" "$DOCTOR")" "unparseable-layout detection"
+
+# The stock monitors.lua carries commented-out examples that all name DP-2. A
+# check that counted those would fire on every unedited install, so the
+# comment-stripping is part of the check, not a nicety.
+has "better-doctor ignores commented-out monitor blocks when counting outputs" \
+    "$(grep -c "grep -vE '\^\[\[:space:\]\]\*--'" "$DOCTOR")" "comment strip"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
     exit 1

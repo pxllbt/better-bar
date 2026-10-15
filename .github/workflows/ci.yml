@@ -137,3 +137,15 @@ jobs:
 
       - name: Run Plaintext Wifi Tests
         run: bash lib/wifi-plaintext.test.sh
+
+      - name: Run Screens Apply Tests
+        run: bash lib/screens-apply.test.sh .
+
+      - name: Run Screens Writer Tests
+        run: bash lib/screens-writer.test.sh .
+
+      - name: Run Screens Surface Tests
+        run: bash lib/screens-surface.test.sh .
+
+      - name: Run Screens Model Tests
+        run: node lib/screens-model.test.mjs
