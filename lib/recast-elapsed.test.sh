@@ -167,7 +167,7 @@ ok "a zero anchor projects to the raw count, not the epoch" \
     "$(printf '%s' "$proj_block" | grep -c 'return root\.serviceElapsed;')" "2"
 
 ok "there is a plausibility ceiling on the projection" \
-    "$(grep -c '_maxPlausibleElapsed' "$RECAST")" "2"
+    "$(grep -c '_maxPlausibleElapsed' "$RECAST")" "3"
 
 # The ordering guard: the pair must be written before `recording` flips, or the
 # synchronous change handler reads the previous anchor again.

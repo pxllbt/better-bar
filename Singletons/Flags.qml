@@ -106,6 +106,14 @@ Singleton {
     property alias nightLightOffMin: adapter.nightLightOffMin
     property alias memorySaver: adapter.memorySaver
     property alias unloadSec: adapter.unloadSec
+    //* Auto-adopt every plugin the user installs afterwards: the first time Better Bar sees it, host it like a native entry and enable it when the host has it off.
+    property alias pluginAutoIntegrate: adapter.pluginAutoIntegrate
+    //* Check for stale plugins on a timer instead of only asking manually.
+    property alias pluginAutoCheck: adapter.pluginAutoCheck
+    //* Apply the updates the check finds automatically. Off means the bar waits for the click; on is validated and rolled back by the plugin CLI.
+    property alias pluginAutoUpdate: adapter.pluginAutoUpdate
+    //* Retry a broken plugin's load from the host, and re-read the manifest, without waiting for the retry click.
+    property alias pluginSelfHeal: adapter.pluginSelfHeal
 
     FileView {
         id: file
@@ -206,6 +214,14 @@ Singleton {
             property bool memorySaver: true
             //* Wallpaper-tier idle in seconds when memorySaver is on; the other tiers scale off it.
             property real unloadSec: 30
+            //* Newly seen plugins are adopted by Better Bar the same way the Better Recast plugin is: strip/panel hosted locally and enabled on first sight.
+            property bool pluginAutoIntegrate: true
+            //* Periodic, read-only plugin update check. Off removes the timer entirely.
+            property bool pluginAutoCheck: true
+            //* Automatic plugin updates after the check finds them; off leaves the outcome to the click in the Plugins surface.
+            property bool pluginAutoUpdate: false
+            //* Heal plugin load failures by re-reading state without a click.
+            property bool pluginSelfHeal: true
 
         }
     }

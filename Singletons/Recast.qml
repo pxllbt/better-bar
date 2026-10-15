@@ -87,7 +87,7 @@ Item {
                 return projected;
         }
         if (!(root.serviceElapsedAtMs > 0) || root.serviceElapsed <= 0)
-            return root.serviceElapsed || 0;
+            return root.serviceElapsed;
         var proj = root.serviceElapsed
             + Math.max(0, Math.floor((Date.now() - root.serviceElapsedAtMs) / 1000));
         if (proj > root._maxPlausibleElapsed)

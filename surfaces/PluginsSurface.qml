@@ -109,6 +109,21 @@ SettingsSurface {
                   else
                       Plugins.checkForUpdates();
               } },
+            { item: autoCheckRow, kind: "toggle",
+              get: function () { return Plugins.autoCheckEnabled; },
+              set: function (v) { Plugins.autoCheckEnabled = v; } },
+            { item: autoUpdateRow, kind: "toggle",
+              get: function () { return Flags.pluginAutoUpdate; },
+              set: function (v) { Flags.pluginAutoUpdate = v; } },
+            { item: autoAdoptRow, kind: "toggle",
+              get: function () { return Flags.pluginAutoIntegrate; },
+              set: function (v) { Flags.pluginAutoIntegrate = v; } },
+            { item: selfHealRow, kind: "toggle",
+              get: function () { return Flags.pluginSelfHeal; },
+              set: function (v) { Flags.pluginSelfHeal = v; } },
+            { item: repairRow, kind: "toggle",
+              get: function () { return false; },
+              activate: Plugins.healAll },
             { item: restartRow, kind: "toggle",
               get: function () { return false; },
               activate: function () { Plugins.restartShell(); } },
@@ -127,7 +142,9 @@ SettingsSurface {
     /** Keep the focused row in view when the arrows move below the fold. */
     function followFocus(item) {
         if (!item || item === installRow || item === doInstallRow
-            || item === countRow || item === statusRow)
+            || item === countRow || item === statusRow
+            || item === autoCheckRow || item === autoUpdateRow
+            || item === autoAdoptRow || item === selfHealRow || item === repairRow)
             return;
         var y = item.mapToItem(scroll.contentItem, 0, 0).y;
         if (y < scroll.contentY) {
@@ -278,6 +295,82 @@ SettingsSurface {
                 if (Plugins.updateCount > 0)
                     return "Updates every git-managed plugin at once · validated · rolled back on failure";
                 return "Checks without changing anything · fetches refs, never merges";
+            }
+        }
+
+        SettingsRow {
+            id: autoCheckRow
+            surface: root
+            icon: "download"
+            name: "Auto update check"
+            sub: "Read-only every 4 hours · fetches refs, never merges"
+
+            LinkToggle {
+                s: root.s
+                on: Plugins.autoCheckEnabled
+                onToggled: Plugins.autoCheckEnabled = !Plugins.autoCheckEnabled
+            }
+        }
+
+        SettingsRow {
+            id: autoUpdateRow
+            surface: root
+            icon: "refresh"
+            name: "Auto install updates"
+            sub: "Validated · rolled back on failure · shell restart stays a click"
+            opacity: Plugins.autoCheckEnabled ? 1 : 0.55
+
+            LinkToggle {
+                s: root.s
+                on: Flags.pluginAutoUpdate
+                enabled: Plugins.autoCheckEnabled
+                onToggled: Flags.pluginAutoUpdate = !Flags.pluginAutoUpdate
+            }
+        }
+
+        SettingsRow {
+            id: autoAdoptRow
+            surface: root
+            icon: "layers"
+            name: "Auto adopt plugins"
+            sub: "A newly seen third-party plugin is enabled and hosted like a native entry"
+
+            LinkToggle {
+                s: root.s
+                on: Flags.pluginAutoIntegrate
+                onToggled: Flags.pluginAutoIntegrate = !Flags.pluginAutoIntegrate
+            }
+        }
+
+        SettingsRow {
+            id: selfHealRow
+            surface: root
+            icon: "undo"
+            name: "Self-heal plugins"
+            sub: "Retry broken or missing plugins on a clock"
+
+            LinkToggle {
+                s: root.s
+                on: Flags.pluginSelfHeal
+                onToggled: Flags.pluginSelfHeal = !Flags.pluginSelfHeal
+            }
+        }
+
+        SettingsRow {
+            id: repairRow
+            surface: root
+            icon: "refresh"
+            name: "Repair now"
+            sub: Plugins.healingNeeded
+                ? "Re-reading the manifest and retrying every failed plugin"
+                : "Nothing to repair"
+
+            GlyphIcon {
+                width: 15 * root.s
+                height: 15 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === repairRow ? Theme.cream : Theme.iconDim
+                stroke: 1.8
             }
         }
 
@@ -616,10 +709,13 @@ SettingsSurface {
             id: statusRow
             surface: root
             glyph: "◌"
-            name: root.busy ? "Working" : "Status"
-            sub: Plugins.lastError ? (Plugins.lastError + (Plugins.lastOutput.length ? ": " + Plugins.lastOutput : ""))
-                : (Plugins.lastOutput.length ? Plugins.lastOutput
-                    : (root.busy ? Plugins.busyWith + "…" : "the host shell owns plugin state"))
+            name: root.busy ? "Working"
+                : (Plugins.healingNeeded ? "Self-healing plugins" : "Status")
+            sub: Plugins.healingNeeded
+                ? "Retrying broken/removed plugins until they load"
+                : (Plugins.lastError ? (Plugins.lastError + (Plugins.lastOutput.length ? ": " + Plugins.lastOutput : ""))
+                    : (Plugins.lastOutput.length ? Plugins.lastOutput
+                        : (root.busy ? Plugins.busyWith + "…" : "the host shell owns plugin state")))
             last: true
 
             GlyphIcon {

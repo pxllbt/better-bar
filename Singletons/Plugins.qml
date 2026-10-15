@@ -95,6 +95,29 @@ Singleton {
      * the ghost strip can show a "missing" badge.
      */
     property var health: ({})
+
+    /**
+     * Plugin ids this shell has already met.
+     *
+     * Session memory is not enough for adoption: a user who installs a plugin,
+     * disables it once and restarts the shell must not have it switched back on
+     * by the first read after restart. So the set is written to state and only a
+     * plugin *new relative to that file* is ever auto-enabled. The very first
+     * run, when no file exists yet, marks every existing plugin as seen without
+     * touching it — an upgrade must not enable whatever the user last left off.
+     */
+    property var seenPluginIds: []
+    property bool seenLoaded: false
+
+    /** True while an auto-update is armed only once per discovered batch. */
+    property bool autoUpdateArmed: true
+
+    /** One notification line for the shell, used by the auto paths only. */
+    function announce(summary, body) {
+        if (typeof Notifs !== "undefined") {
+            try { Notifs.notify(summary, body); } catch (e) {}
+        }
+    }
     /** Plugins that exist in manifests but failed to load their barWidget. */
     readonly property var brokenPlugins: Object.keys(root.health)
         .filter(function(id) { return root.health[id] && root.health[id].status === "broken"; })
@@ -225,6 +248,112 @@ Singleton {
         h.status = "retrying";
         root.health = root.health;
         root.refresh();
+    }
+
+    /**
+     * Retry every failed or vanished plugin in one go.
+     *
+     * Marked "retrying" first so the ghost icons fade to their retry state
+     * instead of just sitting red while the refresh is in flight.
+     */
+    function healAll() {
+        var ids = root.brokenPlugins.map(function (p) { return p.id; })
+            .concat(root.missingPlugins.map(function (p) { return p.id; }));
+        if (ids.length === 0) {
+            root.refresh();
+            return;
+        }
+        for (var i = 0; i < ids.length; i++) {
+            var id = ids[i];
+            var h = root.health[id];
+            if (h) {
+                h.retryCount = (h.retryCount || 0) + 1;
+                h.status = "retrying";
+            }
+        }
+        root.health = root.health;
+        root.refresh();
+        root.announce("Plugins", "Retrying " + ids.length + " plugin" + (ids.length === 1 ? "" : "s") + "…");
+    }
+
+    /**
+     * The adoption path for a plugin the host did not have before.
+     *
+     * First-party entries are left exactly as the host says: Better Bar is not
+     * the place to silently switch on an Omarchy widget the user never asked
+     * for. A third-party plugin is different — installing one is the ask, and
+     * "installed but invisible until I find the toggle" is the failure this
+     * exists to remove. Enabling is what puts a bar-widget in layout, which is
+     * also what gives it a Better Bar strip entry.
+     */
+    function integrateFresh(ids) {
+        if (!ids || ids.length === 0)
+            return;
+        var integrated = [];
+        for (var i = 0; i < ids.length; i++) {
+            var id = String(ids[i] || "");
+            var p = root.byId(id);
+            if (!p || p.firstParty === true || p.enabled === true)
+                continue;
+            if (p.canDisable === false)
+                continue;
+            root.enable(id);
+            integrated.push(p.name || id);
+        }
+        if (integrated.length > 0)
+            root.announce("Plugin adopted", integrated.join(", ") + " is now wired into Better Bar");
+    }
+
+    /**
+     * The persistent first-sight set. Without this, every shell restart is a
+     * first sight, and the first sight is what the auto-integration path acts
+     * on. Only a genuinely new id crosses the line from "noticed" to "enabled".
+     */
+    function markSeen(ids) {
+        if (!ids || ids.length === 0)
+            return;
+        root.seenPluginIds = root.seenPluginIds.concat(ids);
+        try {
+            seenFile.setText(JSON.stringify(root.seenPluginIds, null, 2) + "\n");
+        } catch (e) {
+            // Losing the seen set must not lose the plugin list; it only means
+            // the next run may re-adopt, which is a retry rather than a break.
+        }
+    }
+
+    function forgetSeen(id) {
+        var gone = String(id || "");
+        if (root.seenPluginIds.indexOf(gone) === -1)
+            return;
+        root.seenPluginIds = root.seenPluginIds.filter(function (x) { return x !== gone; });
+        try {
+            seenFile.setText(JSON.stringify(root.seenPluginIds, null, 2) + "\n");
+        } catch (e) {}
+    }
+
+    /**
+     * Called once both halves exist: the registry list and the seen set. The
+     * only work is the difference between them.
+     *
+     * A first run (no seen file) marks and stops, because that is the case
+     * where the difference is the whole existing bar and acting on it would
+     * overturn the user's own enable/disable decisions on upgrade.
+     */
+    function reconcileSeen() {
+        if (!root.loaded || !root.seenLoaded)
+            return;
+        var current = root.plugins.map(function (p) { return String(p.id || ""); });
+        var fresh = [];
+        for (var i = 0; i < current.length; i++) {
+            if (current[i] && root.seenPluginIds.indexOf(current[i]) === -1)
+                fresh.push(current[i]);
+        }
+        if (fresh.length === 0)
+            return;
+        var firstRun = root.seenPluginIds.length === 0;
+        root.markSeen(fresh);
+        if (!firstRun && Flags.pluginAutoIntegrate)
+            root.integrateFresh(fresh);
     }
 
     // ---- lookup -------------------------------------------------------------
@@ -882,6 +1011,7 @@ Singleton {
     }
 
     function remove(id) {
+        root.forgetSeen(id);
         return runCli("remove", [id, "--yes"]);
     }
 
@@ -928,6 +1058,9 @@ Singleton {
                     // whatever was queued, so this is the earliest moment a
                     // queued summon can succeed.
                     root.flushPendingOpens();
+                    // Then the first-sight set: this is also the signal that a
+                    // plugin installed outside the bar has been registered.
+                    root.reconcileSeen();
                 } else
                     root.lastError = "could not read the plugin list";
             }
@@ -1093,6 +1226,18 @@ Singleton {
                     return p && p.behind === true;
                 });
                 root.updateError = (list.length === 0) && (root.lastError !== "");
+                // The unattended half. One batch at a time: `autoUpdateArmed`
+                // stops a check that follows its own update from looping, and
+                // it is re-armed by the next periodic check below. A parse
+                // failure leaves `behind` empty, so it cannot auto-update by
+                // accident when the only thing that failed was the read.
+                if (Flags.pluginAutoCheck && Flags.pluginAutoUpdate
+                    && root.autoUpdateArmed && root.pendingUpdates.length > 0) {
+                    root.autoUpdateArmed = false;
+                    Qt.callLater(root.updateAll);
+                    root.announce("Plugins", "Auto-updating " + root.pendingUpdates.length
+                        + " plugin" + (root.pendingUpdates.length === 1 ? "" : "s"));
+                }
             }
         }
         onExited: root.checkingUpdates = false
@@ -1134,7 +1279,7 @@ Singleton {
     readonly property int autoCheckDelayMs: 15000
     readonly property int autoCheckIntervalMs: 4 * 60 * 60 * 1000
 
-    property bool autoCheckEnabled: true
+    property bool autoCheckEnabled: Flags.pluginAutoCheck
 
     Timer {
         id: autoCheckBoot
@@ -1150,6 +1295,62 @@ Singleton {
         repeat: true
         running: false
         onTriggered: root.checkForUpdates()
+    }
+
+    /**
+     * Self-heal: a broken plugin is not something the user should have to
+     * retry by hand. The ghost icon's retry click stays — this is the same
+     * retry, on a clock, only while there is actually something broken or
+     * missing. It costs one bounded refresh every 15s until the failure is
+     * gone, and stops the moment every plugin is healthy again.
+     */
+    readonly property bool healingNeeded: Flags.pluginSelfHeal
+        && (root.brokenPlugins.length > 0 || root.missingPlugins.length > 0)
+
+    Timer {
+        id: selfHeal
+        interval: 15000
+        repeat: true
+        running: root.healingNeeded && !root.busy
+        onTriggered: if (!root.busyWith)
+            root.refresh()
+    }
+
+    /**
+     * The first-sight set, so adoption is a transition rather than a restart.
+     */
+    FileView {
+        id: seenFile
+        path: root.home + "/.local/state/better/plugin-seen.json"
+        watchChanges: false
+        atomicWrites: true
+        printErrors: false
+
+        onLoaded: {
+            var seen = [];
+            try {
+                var raw = seenFile.text && typeof seenFile.text === "function" ? seenFile.text() : seenFile.text;
+                var parsed = raw ? JSON.parse(String(raw)) : [];
+                if (Array.isArray(parsed))
+                    seen = parsed.map(function (id) { return String(id || ""); });
+            } catch (e) {
+                // A malformed seen file is treated as "nothing seen yet" so
+                // the worst outcome is a re-adoption, never a frozen plugin list.
+                seen = [];
+            }
+            root.seenPluginIds = seen.filter(function (id, ix, arr) {
+                return id.length > 0 && arr.indexOf(id) === ix;
+            });
+            root.seenLoaded = true;
+            root.reconcileSeen();
+        }
+        onLoadFailed: {
+            if (error === FileViewError.FileNotFound) {
+                root.seenPluginIds = [];
+                root.seenLoaded = true;
+                root.reconcileSeen();
+            }
+        }
     }
 
     FileView {
@@ -1182,6 +1383,9 @@ Singleton {
             + " jq -c --arg d \"$(dirname \"$m\")\""
             + " '{id:.id,name:.name,description:.description,kinds:(.kinds//[]),entryPoints:(.entryPoints//{}),dir:$d,better:(.better//null)}' \"$m\";"
             + " done"];
+        // Read the first-sight set first, so the list read that immediately
+        // follows can be reconciled against it in the same tick.
+        seenFile.reload();
         root.refresh();
     }
 }
