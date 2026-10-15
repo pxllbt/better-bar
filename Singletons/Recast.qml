@@ -144,7 +144,7 @@ Item {
     // The elapsed count is unaffected: refreshElapsed() only ever advances, and
     // during a pre-roll it projects 0, which it also writes through.
     Timer {
-        interval: root.countdownPending ? 250 : (root.recording ? 5000 : 2000)
+        interval: root.countdownPending ? 250 : 1000
         repeat: true
         running: root.recording || root.paused || root.countdownPending
         triggeredOnStart: true
