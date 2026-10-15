@@ -74,11 +74,25 @@ Singleton {
             serial: mon.serial || "",
             width: mon.width, height: mon.height,
             refresh: (mon.refreshRate || 0) ? Math.round(mon.refreshRate) : 0,
+            // The active mode, in the exact string the writer's mode field
+            // takes. Hyprland reports it; deriving it from the geometry is the
+            // fallback for a build that does not. Without it the editor had
+            // nothing to show and nothing to send back.
+            mode: mon.mode || (mon.width
+                ? mon.width + "x" + mon.height + "@" + Math.round(mon.refreshRate || 0)
+                : "preferred"),
+            position: String(mon.x || 0) + "x" + String(mon.y || 0),
             scale: mon.scale, x: mon.x, y: mon.y,
             transform: mon.transform || 0,
             vrr: mon.vrr, mirror: mon.mirror || "",
             activeWsName: (mon.activeWorkspace && mon.activeWorkspace.name !== undefined)
                 ? String(mon.activeWorkspace.name) : "",
+            // `enabled` is the field everything else keys on -- the canvas dims a
+            // screen that is off, enabledCount drives the last-screen refusal and
+            // the toggle reflects it -- so it is set here rather than left to be
+            // derived per consumer. Omitting it made every screen read as off:
+            // an invisible canvas and an apply that was always refused.
+            enabled: !a.disabled,
             disabled: !!a.disabled,
             modes: modes,
             workspaces: ws

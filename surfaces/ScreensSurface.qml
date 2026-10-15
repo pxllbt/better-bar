@@ -86,9 +86,8 @@ SettingsSurface {
     }
 
     /**
-     * One pill per distinct resolution at its fastest refresh. A panel
-     * advertising twenty-nine modes has a handful of distinct pixel sizes, and
-     * twenty-nine pills would not fit.
+     * One entry per distinct resolution, at its fastest refresh. A panel
+     * advertising twenty-nine modes has a handful of distinct pixel sizes.
      */
     function modeOptions() {
         if (!root.scr || !root.scr.modes)
@@ -104,18 +103,52 @@ SettingsSurface {
         for (var k in best)
             out.push(best[k]);
         out.sort(function (a, b) { return (b.w * b.h) - (a.w * a.h); });
-        if (out.length > 6) {
-            var trimmed = out.slice(0, 6);
-            var current = null;
-            for (var c = 0; c < out.length; c++) {
-                if (out[c].raw === (root.scr ? root.scr.mode : ""))
-                    current = out[c];
-            }
-            if (current && trimmed.indexOf(current) < 0)
-                trimmed.push(current);
-            out = trimmed;
-        }
         return out.map(function (m) { return { label: m.w + "x" + m.h, value: m.raw }; });
+    }
+
+    /** The mode as a compact label: the pixel size, then the refresh. */
+    function shortMode(mode) {
+        if (!mode)
+            return "preferred";
+        var m = String(mode).match(/^(\d+)x(\d+)(?:@([\d.]+))?/);
+        if (!m)
+            return String(mode);
+        return m[1] + "x" + m[2] + (m[3] ? " @" + Math.round(parseFloat(m[3])) : "");
+    }
+
+    /** The index of the focused screen's current mode among its options. */
+    function modeIndex() {
+        var opts = root.modeOptions();
+        for (var i = 0; i < opts.length; i++) {
+            if (root.scr && opts[i].value === root.scr.mode)
+                return i;
+        }
+        return -1;
+    }
+
+    function canStepMode(dir) {
+        var n = root.modeOptions().length;
+        if (n < 2)
+            return false;
+        var i = root.modeIndex();
+        if (i < 0)
+            return true;
+        return i + dir >= 0 && i + dir < n;
+    }
+
+    /**
+     * Step through the resolutions. A segmented control cannot do this job: the
+     * row's control slot has no width cap, so six pills spill left over the
+     * row's own label. A stepper is a fixed width whatever the mode count, and
+     * a panel can offer any number of resolutions.
+     */
+    function stepMode(dir) {
+        if (!root.scr || !root.canStepMode(dir))
+            return false;
+        var opts = root.modeOptions();
+        var i = root.modeIndex();
+        var next = i < 0 ? (dir > 0 ? 0 : opts.length - 1) : i + dir;
+        return Screens.updateDraft(root.fi, { mode: opts[next].value });
     }
 
     function modeValues() {
@@ -298,17 +331,54 @@ SettingsSurface {
             surface: root
             name: "Resolution"
             icon: "monitor"
-            sub: root.scr ? (root.scr.mode || "preferred") : ""
+            sub: ""
             enabled: !!root.scr
 
+            // A stepper, not a segmented control. SettingsRow's control slot is
+            // right-anchored with no width cap, so one pill per resolution
+            // spills left over the row's own label once a panel offers more
+            // than a handful. A stepper is fixed width whatever the count.
             Row {
-                spacing: 6 * root.s
+                spacing: 7 * root.s
 
-                SettingsSeg {
-                    s: root.s
-                    options: root.modeOptions()
-                    value: root.scr ? root.scr.mode : ""
-                    onPicked: (v) => Screens.updateDraft(root.fi, { mode: v })
+                GlyphIcon {
+                    width: 15 * root.s
+                    height: 15 * root.s
+                    name: "prev"
+                    stroke: 1.9
+                    color: root.canStepMode(-1) ? Theme.cream : Theme.iconDim
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -5 * root.s
+                        onClicked: root.stepMode(-1)
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.max(56 * root.s, implicitWidth)
+                    horizontalAlignment: Text.AlignHCenter
+                    text: root.scr ? root.shortMode(root.scr.mode) : ""
+                    color: Theme.cream
+                    font.family: Theme.font
+                    font.pixelSize: 10 * root.s
+                    font.weight: Font.Bold
+                    elide: Text.ElideRight
+                }
+
+                GlyphIcon {
+                    width: 15 * root.s
+                    height: 15 * root.s
+                    name: "next"
+                    stroke: 1.9
+                    color: root.canStepMode(1) ? Theme.cream : Theme.iconDim
+
+                    MouseArea {
+                        anchors.fill: parent
+                        anchors.margins: -5 * root.s
+                        onClicked: root.stepMode(1)
+                    }
                 }
 
                 Text {
@@ -331,7 +401,7 @@ SettingsSurface {
             id: rowScale
             surface: root
             name: "Scale"
-            icon: "zoom"
+            icon: "scaling"
             sub: root.scr ? root.fmtScale(root.scr.scale) : ""
             enabled: !!root.scr
 
@@ -365,7 +435,7 @@ SettingsSurface {
             id: rowRotate
             surface: root
             name: "Rotation"
-            icon: "rotate"
+            icon: "refresh"
             sub: root.scr ? (root.scr.transform === 1 || root.scr.transform === 3 ? "portrait" : "landscape") : ""
             enabled: !!root.scr
 
@@ -399,7 +469,7 @@ SettingsSurface {
             id: rowMirror
             surface: root
             name: "Mirror"
-            icon: "copy"
+            icon: "layers"
             sub: root.scr ? (root.scr.mirror || "none") : ""
             enabled: !!root.scr
 
@@ -443,7 +513,7 @@ SettingsSurface {
             id: rowSave
             surface: root
             name: "Save this layout"
-            icon: "save"
+            icon: "check"
             sub: Screens.profiles.length ? Screens.profiles.length + " saved" : "none saved yet"
 
             Row {

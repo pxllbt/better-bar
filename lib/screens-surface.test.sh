@@ -36,8 +36,11 @@ any() { if [ "$2" -ge 1 ]; then echo yes; else echo no; fi; }
 # -- title ---------------------------------------------------------------
 ok "the surface declares its own SCREENS title" \
     "$(grep -c 'text: "SCREENS"' "$F")" "1"
-ok "the surface passes no glyph (the kanji marks are gone)" \
-    "$(grep -ci 'glyph' "$F")" "0"
+# A `glyph:` property is the kanji mark SettingsRow/SettingsHeader used to take,
+# and it is permanently off -- passing one renders nothing. GlyphIcon is fine
+# (and used across the repo), so this pins the property, not the substring.
+ok "the surface passes no glyph property" \
+    "$(grep -cE '^[[:space:]]*glyph[[:space:]]*:' "$F")" "0"
 
 # -- the Sysmon margins --------------------------------------------------
 ok "canvas top margin is 14" "$(grep -cE 'mTop:[[:space:]]*14$' "$F")" "1"
@@ -88,6 +91,19 @@ ok "the surface is registered as a component" \
     "$(grep -cE '^ScreensSurface[[:space:]]+ScreensSurface\.qml$' "$QMLDIR")" "1"
 
 printf '\n'
+# A GlyphIcon name that is not in GlyphIcon's baked path table renders as
+# nothing, at any size, with no warning -- four of these were invented names and
+# every row but the first two drew blank. So the names are checked against the
+# table itself rather than left to the eye.
+GLYPHS="$ROOT/components/GlyphIcon.qml"
+badicons=$(grep -oE '^[[:space:]]*"[a-z0-9-]+":' "$GLYPHS" | tr -d ' ":' | sort -u)
+for n in $(grep -oE '(icon|name):[[:space:]]*"[a-z0-9-]+"' "$F" | grep -oE '"[a-z0-9-]+"' | tr -d '"' | sort -u); do
+    printf '%s\n' "$badicons" | grep -qx "$n" || printf 'unknown glyph: %s\n' "$n"
+done > /tmp/screens-surface-icons.$$
+ok "every icon name is a real GlyphIcon glyph" \
+    "$(wc -l < /tmp/screens-surface-icons.$$ | tr -d ' ')" "0"
+rm -f /tmp/screens-surface-icons.$$
+
 if [ "$failed" -gt 0 ]; then
     printf '%s failing\n' "$failed"
     exit 1
