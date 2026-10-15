@@ -198,6 +198,14 @@ SettingsSurface {
             // few seconds on someone's behalf.
             Plugins.checkForUpdates();
         }
+        // The search field opens ready to type. Deferred a beat because
+        // forceActiveFocus() is a no-op before the item is in the scene, and
+        // without this the field opens unfocused — a search you have to click
+        // before it accepts a single keystroke.
+        Qt.callLater(function () {
+            if (open)
+                pluginSearch.forceActiveFocus();
+        });
     }
 
     Connections {

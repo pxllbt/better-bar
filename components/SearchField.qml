@@ -243,6 +243,33 @@ Item {
         }
     }
 
+    /**
+     * Click-to-focus.
+     *
+     * `focus: true` only means the item *wants* focus. A plain QQuickItem never
+     * acquires it on a mouse press by itself, and this is a plain QQuickItem on
+     * purpose — that is what keeps the whole bar's input path free of
+     * clipboard reads described in the header. So the click has to be handed to
+     * it explicitly.
+     *
+     * Without this, the only way a field could ever gain focus was a caller
+     * remembering to forceActiveFocus(), which every other consumer does and the
+     * Plugins surface did not — so that was the one field that could not be
+     * typed into, with nothing visibly wrong anywhere in the source.
+     *
+     * Gated on `active` for the same reason the input's `enabled` is: a closed or
+     * hidden surface must never be able to hold focus or eat keys.
+     *
+     * Deliberately not editing anything. Clicking to refocus must not insert a
+     * character or swallow a backspace, so there is no onClicked handler.
+     */
+    MouseArea {
+        anchors.fill: parent
+        enabled: root.active && root.enabled && root.visible
+        cursorShape: Qt.IBeamCursor
+        onClicked: inputProxy.forceActiveFocus()
+    }
+
     // The placeholder sits exactly under the query text, so an empty field
     // prompts in the glyph's own slot rather than a shifted box.
     Text {

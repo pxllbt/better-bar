@@ -34,8 +34,13 @@ any() { if [ "$2" -ge 1 ]; then echo yes; else echo no; fi; }
 [ -f "$F" ] || { echo "no ScreensSurface.qml at $F" >&2; exit 1; }
 
 # -- title ---------------------------------------------------------------
+# Declared through the shared header, not a hand-rolled Text: this page used to
+# draw its own title and no chevron, which made it the one settings surface that
+# opened without saying where you were.
 ok "the surface declares its own SCREENS title" \
-    "$(grep -c 'text: "SCREENS"' "$F")" "1"
+    "$(grep -c 'title: "SCREENS"' "$F")" "1"
+ok "the title is the shared header, with its own back chevron" \
+    "$(grep -A3 'SettingsHeader {' "$F" | grep -c 'showBack: true')" "1"
 # A `glyph:` property is the kanji mark SettingsRow/SettingsHeader used to take,
 # and it is permanently off -- passing one renders nothing. GlyphIcon is fine
 # (and used across the repo), so this pins the property, not the substring.

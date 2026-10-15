@@ -103,6 +103,9 @@ SettingsSurface {
         }
 
         // --- Bar & Dock Layout ---
+        // Both layout concerns together, because that is what the heading says.
+        // Screens sits between them only when it carries a heading of its own,
+        // at which point this group names two things and contains one.
         SettingsRow {
             id: dispTile
             surface: root
@@ -119,8 +122,9 @@ SettingsSurface {
             }
         }
 
-        // --- Displays: the layout editor, next to the pill's own display row
-        // because it is the same concern (what the outputs look like).
+        // Screens and the dock are both layout, and both belong under the
+        // layout heading above rather than under a heading of their own that
+        // split it in two.
         SettingsRow {
             id: screensTile
             surface: root

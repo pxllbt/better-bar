@@ -260,24 +260,27 @@ SettingsSurface {
 
         // -- title ---------------------------------------------------------
 
-        Item {
-            width: parent.width
-            height: 24 * root.s
-
-            Text {
-                id: titleLabel
-                anchors.verticalCenter: parent.verticalCenter
-                text: "SCREENS"
-                color: Theme.subtle
-                font.family: Theme.font
-                font.pixelSize: 10 * root.s
-                font.weight: Font.DemiBold
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing: 1.8 * root.s
-            }
+        /**
+         * The standard header, at last.
+         *
+         * This page used to hand-roll its title block and no chevron, so it was
+         * the one settings surface that opened without saying where you were
+         * and without a way back of its own. The base surface provides the
+         * chevron regardless, so the page worked — which is exactly why it went
+         * unnoticed: nothing errored, the title was just a quieter, differently
+         * positioned word than every sibling's.
+         *
+         * The screen name stays, on the right, because it is the one piece of
+         * context this page uniquely needs and the shared header does not carry.
+         */
+        SettingsHeader {
+            s: root.s
+            title: "SCREENS"
+            showBack: true
 
             Text {
                 anchors.right: parent.right
+                anchors.rightMargin: 12 * root.s
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.scr ? (root.scr.name || "") : "no screen"
                 color: Theme.iconDim
