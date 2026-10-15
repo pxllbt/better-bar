@@ -156,11 +156,60 @@ SettingsSurface {
 
         Item { width: 1; height: 6 * root.s }
 
+        Flickable {
+            id: resultsScroll
+            visible: root.searching
+            width: parent.width
+            height: visible ? Math.min(resultsCol.implicitHeight, 260 * root.s) : 0
+            contentHeight: resultsCol.implicitHeight
+            clip: true
+            boundsBehavior: Flickable.StopAtBounds
+
+            Column {
+                id: resultsCol
+                width: parent.width
+
+                Repeater {
+                    model: root.results
+
+                    delegate: SettingsRow {
+                        id: resultRow
+                        required property var modelData
+                        required property int index
+
+                        property var navEntry: null
+
+                        surface: root
+                        icon: resultRow.modelData && resultRow.modelData.entry && resultRow.modelData.entry.argv
+                            ? "layers" : (resultRow.modelData && resultRow.modelData.entry && resultRow.modelData.entry.plugin
+                                ? "keyboard" : "chevron-right")
+                        name: resultRow.modelData ? resultRow.modelData.entry.title : ""
+                        sub: resultRow.modelData
+                            ? (resultRow.modelData.entry.sub + " · " + resultRow.modelData.entry.cat)
+                            : ""
+                        last: resultRow.index === root.results.length - 1
+
+                        Component.onCompleted: {
+                            resultRow.navEntry = {
+                                item: resultRow,
+                                kind: "toggle",
+                                get: function () { return false; },
+                                activate: function () { root.open(resultRow); }
+                            };
+                            root.registerRow(resultRow.navEntry);
+                        }
+                        Component.onDestruction: root.unregisterRow(resultRow.navEntry)
+                    }
+                }
+            }
+        }
+
         Column {
             id: categoriesCol
             visible: !root.searching
             width: parent.width
 
+            // --- Visuals & Theme ---
             SettingsRow {
                 id: themeTile
                 surface: root
@@ -209,6 +258,7 @@ SettingsSurface {
                 }
             }
 
+            // --- Bar & Dock Layout ---
             SettingsRow {
                 id: dispTile
                 surface: root
@@ -256,6 +306,7 @@ SettingsSurface {
                 }
             }
 
+            // --- System & Extensions ---
             SettingsRow {
                 id: ifaceTile
                 surface: root
@@ -308,52 +359,6 @@ SettingsSurface {
             }
         }
 
-        Flickable {
-            id: resultsScroll
-            visible: root.searching
-            width: parent.width
-            height: visible ? Math.min(resultsCol.implicitHeight, 260 * root.s) : 0
-            contentHeight: resultsCol.implicitHeight
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
 
-            Column {
-                id: resultsCol
-                width: parent.width
-
-                Repeater {
-                    model: root.results
-
-                    delegate: SettingsRow {
-                        id: resultRow
-                        required property var modelData
-                        required property int index
-
-                        property var navEntry: null
-
-                        surface: root
-                        icon: resultRow.modelData && resultRow.modelData.entry && resultRow.modelData.entry.argv
-                            ? "layers" : (resultRow.modelData && resultRow.modelData.entry && resultRow.modelData.entry.plugin
-                                ? "keyboard" : "chevron-right")
-                        name: resultRow.modelData ? resultRow.modelData.entry.title : ""
-                        sub: resultRow.modelData
-                            ? (resultRow.modelData.entry.sub + " · " + resultRow.modelData.entry.cat)
-                            : ""
-                        last: resultRow.index === root.results.length - 1
-
-                        Component.onCompleted: {
-                            resultRow.navEntry = {
-                                item: resultRow,
-                                kind: "toggle",
-                                get: function () { return false; },
-                                activate: function () { root.open(resultRow); }
-                            };
-                            root.registerRow(resultRow.navEntry);
-                        }
-                        Component.onDestruction: root.unregisterRow(resultRow.navEntry)
-                    }
-                }
-            }
-        }
     }
 }

@@ -38,7 +38,7 @@ vm.runInContext(src, ctx);
 
 const out = [];
 out.push("entries:" + ctx.search("").length);
-out.push("keybind:" + (ctx.search("keybind")[0] ? ctx.search("keybind")[0].entry.plugin : ""));
+out.push("keybind:" + (ctx.search("keybind")[0] ? ctx.search("keybind")[0].entry.to : ""));
 out.push("lock:" + (ctx.search("lock").some((r) => r.entry.to === "lockstyle")));
 out.push("plymouth:" + (ctx.search("plymouth").some((r) => r.entry.to === "plymouth")));
 out.push("hide:" + (ctx.search("hide").length > 0));
@@ -54,8 +54,8 @@ else
     ok "the catalog carries a usable settings index" "no" "yes"
 fi
 
-ok "keybindings search opens the keybind plugin" \
-    "$(printf '%s' "$OUT" | sed -n 's/^keybind://p')" "meviusisback.keybinds"
+ok "keybindings search opens the native keybinds surface" \
+    "$(printf '%s' "$OUT" | sed -n 's/^keybind://p')" "keybinds"
 
 ok "lock search opens the lock style surface" \
     "$(printf '%s' "$OUT" | sed -n 's/^lock://p')" "true"

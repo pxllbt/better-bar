@@ -152,7 +152,8 @@ Item {
     readonly property bool updateOpen: surface === "update"
     readonly property bool lockstyleOpen: surface === "lockstyle"
     readonly property bool plymouthOpen: surface === "plymouth"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || plymouthOpen
+    readonly property bool keybindsOpen: surface === "keybinds"
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || plymouthOpen || keybindsOpen
     readonly property bool hasMedia: Players.list.length > 0
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
@@ -599,6 +600,7 @@ Item {
         update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") },
         lockstyle:  { size: () => Qt.size(settingsW, surfaceItem("lockstyle").implicitHeight + 29 * s), ame: () => surfaceItem("lockstyle") },
         plymouth:   { size: () => Qt.size(settingsW, surfaceItem("plymouth").implicitHeight + 29 * s), ame: () => surfaceItem("plymouth") },
+        keybinds:   { size: () => Qt.size(settingsW, surfaceItem("keybinds").implicitHeight + 29 * s), ame: () => surfaceItem("keybinds") },
         plugin:     { size: () => {
                 // Omarchy plug-ins render their UIs as popout layer surfaces;
                 // there is no embeddable content to morph the pill into, so the
@@ -645,6 +647,7 @@ Item {
         update:     () => ldUpdate,
         lockstyle:  () => ldLockstyle,
         plymouth:   () => ldPlymouth,
+        keybinds:   () => ldKeybinds,
         plugin:     () => ldPluginSurface
     })
 
@@ -1217,7 +1220,7 @@ Item {
 
     LiquidGlass {
         id: bud
-        readonly property bool shown: pill.mode === "hover" && pill.hasMedia
+        readonly property bool shown: pill.mode === "hover" && (pill.hasMedia || Flags.mediaAlways)
         property real budR: (budArea.containsMouse ? 15 : 12) * pill.s
         width: budR * 2
         height: budR * 2
@@ -1246,10 +1249,10 @@ Item {
                 const c = width / 2;
                 const R = (budArea.containsMouse ? 5.2 : 4) * pill.s;
                 const hg = ctx.createRadialGradient(c - R * 0.32, c - R * 0.38, 0, c, c, R);
-                hg.addColorStop(0, Theme.flameInk);
+                hg.addColorStop(0, Theme.todayWarm);
                 hg.addColorStop(0.55, Theme.vermLit);
                 hg.addColorStop(0.92, Theme.verm);
-                hg.addColorStop(1, Theme.flameEmber);
+                hg.addColorStop(1, Theme.vermDim);
                 ctx.beginPath();
                 ctx.arc(c, c, R, 0, 7);
                 ctx.fillStyle = hg;
@@ -3926,6 +3929,19 @@ sourceComponent: Media {
         sourceComponent: PlymouthSurface {
             s: pill.s * pill.settingsScale
             open: pill.plymouthOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
+
+    Loader {
+        id: ldKeybinds
+        active: false
+        anchors.fill: parent
+        sourceComponent: KeybindsSurface {
+            s: pill.s * pill.settingsScale
+            open: pill.keybindsOpen
             morphCloseness: pill.morphCloseness
             onRequestClose: pill.requestClose()
             onRequestSurface: (name) => pill.requestSurface(name)
