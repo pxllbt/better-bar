@@ -2220,8 +2220,8 @@ Item {
             id: stripVizFloat
             anchors.centerIn: stripFace
             visible: stripFace.visible && Cava.active && Flags.musicViz && !pill.stripMedia
-            width: stripVizFloatBars.implicitWidth
-            height: stripVizFloatBars.implicitHeight
+            width: stripVizFloatBars.width
+            height: stripVizFloatBars.height
             MusicBars {
                 id: stripVizFloatBars
                 anchors.centerIn: parent

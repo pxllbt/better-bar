@@ -12,53 +12,58 @@ import "../Singletons"
  * Two styles live here, picked by `Flags.musicStyle`:
  *  - "bars": the original ember bars
  *  - "wave": one smooth amplitude wave drawn on a canvas, the same slot but a
- *    different silhouette — try it from Appearance > Visualizer style.
+ *    different silhouette — try it from Appearance > Display > Visualizer style.
  */
-Row {
+Item {
     id: root
 
     property real s: 1
     property real span: 18
     property string style: Flags.musicStyle
+    readonly property real barW: 1.8 * s
+    readonly property real barGap: 1.2 * s
 
+    // Explicit width so the wave canvas has a real size even while the bars
+    // Repaper is hidden (a Row with no sized children would leave it at 0).
+    width: Math.max(1, Cava.bars) * barW + Math.max(0, Math.max(0, Cava.bars - 1)) * barGap
     height: span * s
-    spacing: 1.2 * s
 
-    Repeater {
-        model: Cava.bars
+    // Bars style
+    Row {
+        id: barRow
+        anchors.fill: parent
+        visible: root.style !== "wave"
+        spacing: root.barGap
+        Repeater {
+            model: Cava.bars
 
-        Rectangle {
-            required property int index
+            Rectangle {
+                required property int index
 
-            width: 1.8 * root.s
-            radius: width / 2
-            anchors.bottom: parent.bottom
-            height: Math.max(2 * root.s, (Cava.levels[index] || 0) * root.span * root.s)
+                width: root.barW
+                height: Math.max(2 * root.s, (Cava.levels[index] || 0) * root.span * root.s)
+                radius: width / 2
+                anchors.bottom: parent.bottom
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Theme.accent }
+                    GradientStop { position: 1.0; color: Theme.vermLit }
+                }
 
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: Theme.accent }
-                GradientStop { position: 1.0; color: Theme.vermLit }
-            }
-
-            visible: root.style !== "wave"
-
-            Behavior on height {
-                enabled: root.visible
-                NumberAnimation { duration: Motion.fast; easing.type: Easing.OutQuad }
+                Behavior on height {
+                    enabled: root.visible
+                    NumberAnimation { duration: Motion.fast; easing.type: Easing.OutQuad }
+                }
             }
         }
     }
 
     /* Wavefront style: a single cardinal-spline pass through the band peaks,
-     * filled with the same accent/vermilion gradient as the bars. Canvas is
-     * only repainted when cava hands us a new frame, so the renderer never
-     * chases the 60Hz levels tick while audio is flat. */
+     * filled with the same accent/vermilion gradient as the bars. It repaints on
+     * every cava frame, on first show and on style change. */
     Canvas {
         id: wave
         anchors.fill: parent
         visible: root.style === "wave"
-        z: 1
-
         onPaint: {
             const ctx = getContext("2d");
             const w = width, h = height;
@@ -89,7 +94,6 @@ Row {
 
         Component.onCompleted: if (wave.visible) wave.requestPaint()
         onVisibleChanged: if (wave.visible) wave.requestPaint()
-
         Connections {
             target: Cava
             function onLevelsChanged() { if (wave.visible) wave.requestPaint(); }
