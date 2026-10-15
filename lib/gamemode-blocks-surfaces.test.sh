@@ -125,12 +125,29 @@ if printf '%s' "$tap_block" | grep -q 'Flags.expandTo === "media"'; then
         printf 'FAIL %s\n  expected the tap guard to read: !Flags.autoHide && !pill.stripBar\n' \
             "the tap media takeover is guarded by the same rule as the hover path"
     fi
-    # And the hover path it must match really does carry that guard, or the two
-    # have drifted apart without this noticing.
+    # And the hover path it must match really does carry a guard, or the two have
+    # drifted apart without this noticing.
+    #
+    # The guard is no longer a literal string match: the hover branch used to
+    # read `!Flags.autoHide && !pill.stripBar`, and that `!stripBar` half was the
+    # bug — it made the one display mode that most wants the player on hover (the
+    # full-width top bar) the one mode where the hover did nothing. It is now
+    # `mode !== "game"`, which is the guard game mode actually needs, asserted
+    # above. So this checks the media branch is still gated on something at all
+    # rather than on the removed wording.
     hover_block=$(awk '/function onHoveredChanged|onHoveredChanged: \{/{grab=1} grab{print} grab && /^    \}/ {exit}' "$PILL_QML")
-    has "the hover path carries the same guard, so the two have not drifted" \
-        "$(printf '%s' "$hover_block" | grep -c '!Flags.autoHide && !pill.stripBar')" \
-        "!Flags.autoHide && !pill.stripBar in onHoveredChanged"
+    has "the hover path still gates its media branch" \
+        "$(printf '%s' "$hover_block" | grep -c 'pill.mode !== "game"')" \
+        "mode !== game guard in onHoveredChanged"
+    # This one is a "must NOT match", which `has` cannot express (it requires a
+    # hit), so it is asserted as a count being zero.
+    if [ "$(printf '%s' "$hover_block" | grep -c '!pill.stripBar')" -eq 0 ]; then
+        printf 'PASS %s\n' "the hover media branch no longer excludes strip mode"
+    else
+        failed=$((failed + 1))
+        printf 'FAIL %s\n  expected: no !pill.stripBar in the hover media branch\n' \
+            "the hover media branch no longer excludes strip mode"
+    fi
 else
     printf 'PASS %s\n' "the tap has no media takeover to guard"
 fi

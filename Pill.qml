@@ -1398,6 +1398,14 @@ Item {
         style: "regular"
         legacyOpacity: Flags.pillOpacity
         accent: 0.05
+        /* The bud is a piece of the pill, so it must be built from the same
+         * material: `themeBackgroundFill` sits it on the desktop's own surface
+         * colour rather than a generated card ramp, and `veil` is the body's own
+         * readability lift. Without both the bud drifted to a different tint
+         * from the bar beside it — visible the moment the theme changed, and
+         * invisible in a screenshot of the pill alone. */
+        veil: 0.06
+        themeBackgroundFill: true
         sheenScale: (budArea.containsMouse ? 1.3 : 1)
         hovered: budArea.containsMouse
         Behavior on budR { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
@@ -1421,6 +1429,28 @@ Item {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: pill.requestSurface("media")
+
+            /* Hover opens the player too, but only on a dwell. A bare
+             * onEntered would fire when the pointer sweeps across the bar on its
+             * way somewhere else, which is a player nobody asked for; 260ms is
+             * past a pass-through and short enough to feel like a hover.
+             *
+             * The guard mirrors the pill's own hover-to-media path — a surface
+             * already open, game mode, a drag and a toast all decline — so the
+             * two entry points cannot disagree about when the player appears. */
+            onEntered: budHoverOpen.restart()
+            onExited: budHoverOpen.stop()
+        }
+
+        Timer {
+            id: budHoverOpen
+            interval: 260
+            onTriggered: {
+                if (!budArea.containsMouse || pill.surfaceOpen || pill.dragActive
+                    || pill.mode === "game" || !pill.bootSettled)
+                    return;
+                pill.requestSurface("media");
+            }
         }
     }
 
@@ -1545,19 +1575,82 @@ Item {
      */
     readonly property real inputPadRight: bud.shown ? bud.budR + 2 * s : 0
 
+    /**
+     * MEDIA AUTO-DISMISS — the card is for what is playing, the bud is the
+     * entry point. Those are two different jobs and only one of them should be
+     * persistent.
+     *
+     * The card used to stay open forever. Open it while a track plays, let the
+     * track end, and the pill held a surface reading "Nothing playing" over the
+     * desktop until something else was clicked — the one state where a media
+     * card is actively wrong, left on screen indefinitely.
+     *
+     * So it closes itself a beat after playback stops, and re-opening on a new
+     * track is instant because a restart cancels the pending dismiss.
+     *
+     * The bud is deliberately untouched by this: `Flags.mediaAlways` is about
+     * the entry point staying reachable, and it keeps rendering whatever happens
+     * here. A user who wants the card to persist across a pause still has the
+     * media surface's own open state; this only fires once *nothing* is playing,
+     * which is the state the card cannot say anything useful about.
+     */
+    Timer {
+        id: mediaAutoDismiss
+        interval: 2600
+        onTriggered: {
+            // `Players.has`, not `Players.playing`: a paused track is still media
+            // worth looking at, so the card holds for it. It is the no-player
+            // state — the one reading "Nothing playing" — that has nothing to
+            // say and must not sit over the desktop.
+            if (pill.mediaOpen && !Players.has && pill.mode !== "game")
+                pill.requestClose();
+        }
+    }
+
+    /** Only ever armed while the card is actually open. */
+    onMediaOpenChanged: {
+        if (!mediaOpen)
+            mediaAutoDismiss.stop();
+        else if (!Players.has)
+            mediaAutoDismiss.restart();
+    }
+
+    Connections {
+        target: Players
+        function onPlayingChanged() {
+            // Anything audible cancels a pending dismiss immediately, so
+            // re-opening on a new track is instant rather than waiting out the
+            // timer.
+            if (Players.playing)
+                mediaAutoDismiss.stop();
+            else if (pill.mediaOpen && !Players.has)
+                mediaAutoDismiss.restart();
+        }
+    }
+
     onHoveredChanged: {
         if (!hovered) {
             surfaceDismissLatch = false;
         }
         if (hovered && pill.mode !== "game" && !surfaceDismissLatch) {
-            if (!Flags.autoHide && !pill.stripBar && Flags.expandTo === "media" && pill.hasMedia
+            if (!Flags.autoHide && Flags.expandTo === "media" && pill.hasMedia
                 && !pill.surfaceOpen && !pill.dragActive
                 && bootSettled && !toastActive) {
-                /* expandTo "media" with auto-hide off: a hover grows the pill
-                 * into the player itself instead of the icon face. Auto-hide
-                 * still reveals the normal pill; a click opens the player
-                 * (TapHandler below). Game mode never hands the bar to the
-                 * player, or the exit chip would be buried under it. */
+                /* expandTo "media": a hover grows the pill into the player
+                 * itself instead of the icon face, so the now-playing card
+                 * arrives with the pointer and settles back when it leaves.
+                 *
+                 * This deliberately has no `!stripBar` guard. It used to, which
+                 * meant the one display mode that most wants the player on
+                 * hover — a full-width top bar — was the one mode where the
+                 * hover did nothing at all: strip users had to click. Now the
+                 * strip morphs into the card like every other face. The tap
+                 * below keeps its own guard, so a click still pins/expands the
+                 * pill rather than being stolen by the player.
+                 *
+                 * Auto-hide still reveals the normal pill; game mode never
+                 * hands the bar to the player, or the exit chip would be buried
+                 * under it. */
                 pill.requestSurface("media");
             } else if (Flags.autoHide && !revealSession && !expanded && !surfaceOpen) {
                 revealSession = true;

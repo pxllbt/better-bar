@@ -60,6 +60,9 @@ jobs:
       - name: Run Settings Compact Tests
         run: bash lib/settings-compact.test.sh .
 
+      - name: Run Media Bud Hover And Theme Tests
+        run: bash lib/media-bud-hover-theme.test.sh .
+
       - name: Run Strip Layout Tests
         run: bash lib/strip-layout.test.sh .
 

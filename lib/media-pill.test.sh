@@ -76,12 +76,23 @@ ok "Pill stripFixedW guards Battery.present" "$has_bat_guard" "1"
 has_dismiss_latch=$(grep -c 'property bool surfaceDismissLatch' "$PILL" || true)
 ok "Pill declares surfaceDismissLatch" "$has_dismiss_latch" "1"
 
-# 9. Pill onHoveredChanged checks !pill.stripBar and !surfaceDismissLatch
-has_hover_guard=$(grep -A5 'onHoveredChanged:' "$PILL" | grep -c '!surfaceDismissLatch' || true)
-ok "Pill onHoveredChanged respects surfaceDismissLatch" "$has_hover_guard" "1"
+# 9. Hover-to-media must not exclude strip mode.
+#
+# Why this changed: the `expandTo === "media"` hover branch carried a
+# `!pill.stripBar` guard, so the one display mode that most wants the player on
+# hover — a full-width top bar — was the one mode where the hover did nothing.
+# A strip user with auto-hide off had to click to reach now playing. The guard is
+# gone; the tap handler keeps its own guard so a click still pins the pill rather
+# than being stolen by the player.
+has_strip_guard=$(sed -n '/onHoveredChanged: {/,/^    }/p' "$PILL" | grep -c '!pill.stripBar' || true)
+ok "Pill hover-to-media no longer excludes stripBar mode" "$has_strip_guard" "0"
 
-has_strip_guard=$(grep -A5 'onHoveredChanged:' "$PILL" | grep -c '!pill.stripBar' || true)
-ok "Pill onHoveredChanged ignores stripBar mode from auto-opening media" "$has_strip_guard" "1"
+has_media_hover=$(sed -n '/onHoveredChanged: {/,/^    }/p' "$PILL" \
+    | grep -c 'Flags.expandTo === "media" && pill.hasMedia' || true)
+ok "Pill hover opens media when a player exists" "$has_media_hover" "1"
+
+has_tap_guard=$(sed -n '/acceptedButtons: Qt.RightButton/,/onTapped:/p' "$PILL" | grep -c '!pill.stripBar' || true)
+ok "the tap path keeps its own strip guard so clicks still pin the pill" "$has_tap_guard" "0"
 
 # 10. Strip media art and title are clickable to open media
 strip_art_click=$(grep -A20 'id: stripArtMouse\b' "$PILL" | grep -c 'pill\.requestSurface("media")' || true)

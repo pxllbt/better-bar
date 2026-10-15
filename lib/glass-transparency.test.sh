@@ -49,8 +49,14 @@ ok "the opaque path still requires the theme to define a background" \
 
 # The surfaces that opted into the opaque fill must keep it -- this is the
 # default look when transparency is off, not a behaviour to delete.
-ok "the pill body still asks for the theme background fill" \
-    "$(grep -c 'themeBackgroundFill: true' "$ROOT/Pill.qml")" "1"
+#
+# Two, not one: the pill body, and the media bud. The bud is a piece of the same
+# pill and was the only element in it painted from a generated card ramp rather
+# than the theme's own surface, so it drifted out of the palette on every theme
+# change. Opting it into the same fill is the fix; a global count of 1 would have
+# to be kept by *not* fixing it.
+ok "the pill surfaces still ask for the theme background fill" \
+    "$(grep -c 'themeBackgroundFill: true' "$ROOT/Pill.qml")" "2"
 
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
