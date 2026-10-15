@@ -28,7 +28,7 @@ SettingsSurface {
         { item: glassTile, kind: "nav", surface: "glass" },
         { item: fontColorTile, kind: "nav", surface: "fontcolor" },
         { item: hyprTile, activate: () => Quickshell.execDetached(["omarchy-launch-config-editor", (Quickshell.env("HOME") || "") + "/.config/hypr/looknfeel.lua"]) },
-        { item: lockTile, activate: () => Quickshell.execDetached(["omarchy-plymouth-switcher"]) },
+        { item: lockTile, activate: () => Quickshell.execDetached(["omarchy-shell", "shell", "toggle", "omarchy-lock-style"]) },
         { item: screensaverTile, activate: () => Quickshell.execDetached(["omarchy-branding-screensaver", "text"]) }
     ]
 
@@ -116,7 +116,7 @@ SettingsSurface {
             surface: root
             glyph: "🔒"
             name: "Lock Screen Theme"
-            sub: "Switch unlock style and Plymouth theme"
+            sub: "Open Lock Style: customise lock screen, blur & clock"
 
             GlyphIcon {
                 width: 16 * root.s
