@@ -116,8 +116,16 @@ Rectangle {
      * path is alpha-blended over whatever is behind, so on one workspace it
      * reads as the theme colour and on the next it takes the wallpaper's — the
      * surface changed even though the theme did not.
+     *
+     * That opaque fill is the look when transparency is OFF, which is why it is
+     * gated on `!glassy`. It used to be unconditional, and the consequence was
+     * that "Transparency mode" did nothing at all on the pill: the fill ignored
+     * `glassy` entirely, so the only difference the toggle made anywhere was the
+     * top sheen disappearing. A setting whose label promises a translucent pill
+     * with the desktop showing through has to actually do that when it is on.
      */
-    readonly property bool useThemeBg: themeBackgroundFill && Theme.omarchyBackground !== ""
+    readonly property bool useThemeBg: themeBackgroundFill && !glass.glassy
+        && Theme.omarchyBackground !== ""
 
     readonly property color tintTop: useThemeBg
         ? Theme.omarchyBgAnimated

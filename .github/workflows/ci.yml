@@ -152,3 +152,6 @@ jobs:
 
       - name: Run Toast Layout Tests
         run: bash lib/toast-layout.test.sh .
+
+      - name: Run Glass Transparency Tests
+        run: bash lib/glass-transparency.test.sh .
