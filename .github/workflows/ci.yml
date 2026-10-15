@@ -45,6 +45,9 @@ jobs:
       - name: Run Media Pill Tests
         run: bash lib/media-pill.test.sh .
 
+      - name: Run Plymouth Custom Tests
+        run: bash lib/plymouth-custom.test.sh .
+
       - name: Run Strip Layout Tests
         run: bash lib/strip-layout.test.sh .
 

@@ -90,6 +90,12 @@ Singleton {
     property alias weatherCity: adapter.weatherCity
     //* Visualiser style when cava is active: "bars" (ember bars) or "wave" (smooth amplitude wave).
     property alias musicStyle: adapter.musicStyle
+    //* Plymouth unlock background hex (#RRGGBB), independent of the desktop theme.
+    property alias plymouthBg: adapter.plymouthBg
+    //* Plymouth unlock text hex (#RRGGBB), independent of the desktop theme.
+    property alias plymouthText: adapter.plymouthText
+    //* Plymouth unlock logo path; empty uses the stock Omarchy logo.
+    property alias plymouthLogo: adapter.plymouthLogo
     property alias musicViz: adapter.musicViz
     property alias gameMode: adapter.gameMode
     //* Autonomous GameMode auto-shadowplay: automatically arms Better Recast replay buffer on game launch.
@@ -209,6 +215,12 @@ Singleton {
             property real appGap: 1
             property string weatherCity: ""
             property string musicStyle: "wave"
+            //* Plymouth unlock background hex (#RRGGBB).
+            property string plymouthBg: "#1a1b26"
+            //* Plymouth unlock text hex (#RRGGBB).
+            property string plymouthText: "#ebdbb2"
+            //* Plymouth unlock logo path; empty uses the stock Omarchy logo.
+            property string plymouthLogo: ""
             property bool musicViz: true
             property bool gameMode: false
             property bool autoGameReplay: true

@@ -181,6 +181,10 @@ ok "MusicBars supports a waveform style" "$has_wave_style" "1"
 has_style_row=$(grep -c 'id: vizStyleRow' "$DSURFACE" || true)
 ok "Display surface exposes a visualizer style row" "$has_style_row" "1"
 
+# 20a. Cava runs for non-MPRIS audio (no MPRIS player does not hide the visualizer)
+cava_no_mpris=$(grep -c 'musicPlaying || !Players.has' "$CAVA" || true)
+ok "Cava runs with no MPRIS player so system audio still drives the visualizer" "$cava_no_mpris" "1"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%d media-pill checks failed\n' "$failed" >&2
     exit 1

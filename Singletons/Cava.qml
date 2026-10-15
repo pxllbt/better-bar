@@ -47,7 +47,15 @@ Singleton {
         repeat: false
     }
 
-    readonly property bool wanted: Flags.musicViz && available && (musicPlaying || idleHold.running || root.active)
+    /**
+     * Cava also runs with no MPRIS player at all. The ring buffer's monitor picks
+     * up any default-sink audio, not only players that publish MPRIS, so a
+     * browser tab with no player daemon still animates the visualizer. Once a
+     * track plays through an MPRIS player, the gate narrows again and the shell
+     * stops parsing silent frames when it is not needed.
+     */
+    readonly property bool wanted: Flags.musicViz && available
+        && (musicPlaying || !Players.has || idleHold.running || root.active)
 
     /**
      * autosens is off so a silent browser holding the sink stays at zero bars

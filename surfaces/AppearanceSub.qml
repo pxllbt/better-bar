@@ -133,7 +133,7 @@ SettingsSurface {
             surface: root
             glyph: "▶"
             name: "Plymouth Unlock"
-            sub: "Theme the boot / Plymouth unlock screen"
+            sub: "Custom boot colors and logo, or theme presets"
 
             GlyphIcon {
                 width: 16 * root.s
