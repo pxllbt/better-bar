@@ -47,17 +47,24 @@ SettingsSurface {
      * "weather" finds omarchy.weather and "weather" finds it too.
      */
     readonly property string query: pluginSearch.text
+    // 'all' | 'first-party' | 'third-party'
+    property string filterMode: "all"
 
     readonly property var filtered: {
         var q = root.query.trim().toLowerCase();
-        if (q === "")
-            return root.sorted;
+        var mode = root.filterMode;
         var out = [];
         for (var i = 0; i < root.sorted.length; i++) {
             var p = root.sorted[i];
-            if (String(p.name || p.id).toLowerCase().indexOf(q) !== -1
-                || String(p.id).toLowerCase().indexOf(q) !== -1)
-                out.push(p);
+            if (mode === "first-party" && p.firstParty !== true) continue;
+            if (mode === "third-party" && p.firstParty === true) continue;
+            if (q !== "") {
+                if (String(p.name || p.id).toLowerCase().indexOf(q) === -1
+                    && String(p.id).toLowerCase().indexOf(q) === -1
+                    && (p.kinds || []).join(" ").toLowerCase().indexOf(q) === -1)
+                    continue;
+            }
+            out.push(p);
         }
         return out;
     }
@@ -361,6 +368,45 @@ SettingsSurface {
                     enabled: !root.busy
                     cursorShape: Qt.PointingHandCursor
                     onClicked: Plugins.rescan()
+                }
+            }
+        }
+
+        // ---- filters ----------------------------------------------------
+        Row {
+            width: parent.width
+            height: 28 * root.s
+            spacing: 8 * root.s
+            anchors.left: undefined
+            padding: 12 * root.s
+
+            Repeater {
+                model: ["All", "Omarchy", "Third-party"]
+                delegate: Rectangle {
+                    required property var modelData
+                    readonly property string key: modelData === "Omarchy" ? "first-party"
+                                            : (modelData === "Third-party" ? "third-party" : "all")
+                    height: 22 * root.s
+                    width: 86 * root.s
+                    radius: 11 * root.s
+                    color: root.filterMode === key ? Theme.surfaceHighlight : "transparent"
+                    border.width: 1 * root.s
+                    border.color: root.filterMode === key ? Theme.accent : Theme.borderLight
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: modelData
+                        color: root.filterMode === key ? Theme.text : Theme.iconDim
+                        font.family: Theme.font
+                        font.pixelSize: 10 * root.s
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.filterMode = key
+                    }
                 }
             }
         }
