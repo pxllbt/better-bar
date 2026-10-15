@@ -54,6 +54,9 @@ jobs:
       - name: Run Plugin Service Facade Tests
         run: bash lib/plugin-service-facade.test.sh .
 
+      - name: Run Ambient Aura Tests
+        run: bash lib/ambient-aura.test.sh .
+
       - name: Run Strip Layout Tests
         run: bash lib/strip-layout.test.sh .
 

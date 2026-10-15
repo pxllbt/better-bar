@@ -462,7 +462,7 @@ SettingsSurface {
                     surface: root
                     icon: "download"
                     name: "Auto update check"
-                    sub: "Read-only every 4 hours · fetches refs, never merges"
+                    sub: "Read-only every 4 hours · never merges"
 
                     LinkToggle {
                         s: root.s

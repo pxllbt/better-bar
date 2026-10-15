@@ -1224,6 +1224,103 @@ Item {
      */
     readonly property bool morphing: morphAnimW.running || morphAnimH.running || morphAnimR.running
 
+    /**
+     * AMBIENT AURA — the showpiece.
+     *
+     * A soft accent glow that blooms behind the pill and breathes with whatever
+     * is currently on the speakers. The spectrum peaks come from cava, so the
+     * bar visibly *listens*: a bass hit widens it, a quiet passage lets it
+     * settle, and silence puts it completely to sleep (zero opacity, zero
+     * repaint). It is the one element that makes the bar feel alive in a
+     * screenshot of a quiet desktop, and it is also the one that costs nothing
+     * when the machine is silent.
+     *
+     * One radial fill at the pill's own size, not a blur chain: a soft gradient
+     * has no hard edges, so this reads as an ambient bloom at a fraction of the
+     * per-frame cost of an offscreen Gaussian. It repaints only on a cava
+     * frame, a theme change, or becoming visible — never on a timer.
+     */
+    Item {
+        id: aura
+        anchors.fill: parent
+        // Decoration, not a hit target: it must never eat a click that belongs
+        // to one of the pill's children.
+        enabled: false
+        visible: opacity > 0.005
+        opacity: (Flags.musicViz && Cava.active) ? aura.auraLevel : 0
+        Behavior on opacity { NumberAnimation { duration: Math.round(260 * Motion.mult); easing.type: Easing.OutQuad } }
+
+        /** The glow's tint: the live accent, so it tracks every theme change. */
+        readonly property color glowColor: Theme.vermLit
+
+        /**
+         * 0..1 bloom amount: how loud the current frame is. Quiet frames still
+         * read as a present-but-calm room glow rather than vanishing entirely,
+         * so the pill never looks naked mid-track.
+         */
+        readonly property real auraLevel: {
+            var peak = 0;
+            for (var i = 0; i < Cava.bars; i++)
+                if ((Cava.levels[i] || 0) > peak)
+                    peak = Cava.levels[i];
+            return Math.min(1, Math.max(0.10, peak * 1.15));
+        }
+
+        function repaint() {
+            if (aura.visible)
+                auraCanvas.requestPaint();
+        }
+
+        Canvas {
+            id: auraCanvas
+            anchors.fill: parent
+            smooth: true
+
+            onPaint: {
+                var ctx = getContext("2d");
+                var c = aura.glowColor;
+                var w = width, h = height;
+                var cx = w / 2, cy = h / 2;
+                var rx = Math.max(w / 2, 1);
+                var ry = Math.max(h / 2, 1);
+                // Elliptical so the glow pools under the slab's long edges
+                // instead of forming a circle around a bar that is far wider
+                // than it is tall.
+                var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+                g.addColorStop(0.0, Qt.rgba(c.r, c.g, c.b, 0.55));
+                g.addColorStop(0.50, Qt.rgba(c.r, c.g, c.b, 0.18));
+                g.addColorStop(1.0, Qt.rgba(c.r, c.g, c.b, 0.0));
+                ctx.clearRect(0, 0, w, h);
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.scale(1, ry / rx);
+                ctx.translate(-cx, -cy);
+                ctx.fillStyle = g;
+                ctx.fillRect(0, 0, w, h);
+                ctx.restore();
+            }
+
+            /**
+             * The painted pixels depend only on the tint and the canvas size;
+             * the loudness is applied by the parent's opacity, which the
+             * compositor owns. So this repaints on a morph, a theme change or
+             * becoming visible — never on a cava frame, which would re-fill the
+             * whole gradient 30 times a second to produce the same bitmap.
+             */
+            onWidthChanged: requestPaint()
+            onHeightChanged: requestPaint()
+        }
+
+        // A theme swap changes glowColor, which is baked into the painted
+        // pixels rather than tinted by a layer, so it needs its own repaint.
+        Connections {
+            target: Theme
+            function onVermLitChanged() { aura.repaint(); }
+        }
+
+        Component.onCompleted: aura.repaint()
+    }
+
     LiquidGlass {
         id: bud
         // The media bud stays available whenever a track is actually playing,

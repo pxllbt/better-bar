@@ -370,6 +370,7 @@ Item { width: 1; height: 10 * root.s }
             id: confirmRow
             visible: root.updateRisky && !root.busy
             surface: root
+            icon: "trash"
             name: root.localDirty ? "Discard changes and update?" : "Discard local commits and update?"
             sub: root.localDirty
                 ? "This install has uncommitted changes. Updating resets it and deletes them."

@@ -102,6 +102,11 @@ Item {
             font.pixelSize: 10.5 * srow.s
             wrapMode: Text.WordWrap
             lineHeight: 1.2
+            /* Two lines, elided. A caption that runs to a third line makes its
+             * row taller than every neighbour, and a settings list of ragged
+             * heights reads as broken even when each row is correct. */
+            maximumLineCount: 2
+            elide: Text.ElideRight
         }
     }
 
