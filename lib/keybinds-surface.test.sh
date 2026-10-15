@@ -14,7 +14,7 @@ set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 QMLDIR="$ROOT/surfaces/qmldir"
 PILL="$ROOT/Pill.qml"
-INTERFACE="$ROOT/surfaces/InterfaceSurface.qml"
+INTERFACE="$ROOT/surfaces/DisplaySurface.qml"
 SURFACE="$ROOT/surfaces/KeybindsSurface.qml"
 SINGLETON="$ROOT/Singletons/Keybinds.qml"
 SEARCH="$ROOT/lib/settings-search.js"

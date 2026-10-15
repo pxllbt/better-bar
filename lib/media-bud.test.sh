@@ -11,7 +11,7 @@ set -uo pipefail
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 FLAGS="$ROOT/Singletons/Flags.qml"
 PILL="$ROOT/Pill.qml"
-SURFACE="$ROOT/surfaces/InterfaceSurface.qml"
+SURFACE="$ROOT/surfaces/DisplaySurface.qml"
 
 failed=0
 ok() {

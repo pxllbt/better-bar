@@ -12,7 +12,7 @@ ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 SCRIPT="$ROOT/scripts/omarchy-guard.sh"
 SINGLETON="$ROOT/Singletons/OmarchyGuard.qml"
 FLAGS="$ROOT/Singletons/Flags.qml"
-SURFACE="$ROOT/surfaces/InterfaceSurface.qml"
+SURFACE="$ROOT/surfaces/DisplaySurface.qml"
 QMLDIR="$ROOT/Singletons/qmldir"
 
 failed=0

@@ -32,6 +32,12 @@ SettingsSurface {
     /** Live result rows, registered and unregistered by the Repeater below. */
     property var resultRows: []
 
+    /**
+     * The index, grouped by what it is for rather than by where the code lives.
+     * INTERFACE used to sit here as its own tile for eight rows that are all
+     * "how does this bar behave" — those are on the DISPLAY page now, so this is
+     * one hop shorter and no row is orphaned on a page of its own.
+     */
     readonly property var categoryRows: [
         { item: themeTile, kind: "nav", surface: "theme" },
         { item: appearTile, kind: "nav", surface: "appcat" },
@@ -40,7 +46,6 @@ SettingsSurface {
         { item: screensTile, kind: "nav", surface: "screens" },
         { item: dockTile, kind: "nav", surface: "dock" },
         { item: keyboardTile, kind: "nav", surface: "keybinds" },
-        { item: ifaceTile, kind: "nav", surface: "interface" },
         { item: pluginsTile, kind: "nav", surface: "plugins" },
         { item: updateTile, kind: "nav", surface: "update" }
     ]
@@ -264,8 +269,8 @@ SettingsSurface {
                 id: dispTile
                 surface: root
                 glyph: "◫"
-                name: "Display & Pill"
-                sub: "Pill layout · time format · glyphs"
+                name: "Display & Bar"
+                sub: "Pill layout · visualizer · scale · auto-hide"
 
                 GlyphIcon {
                     width: 16 * root.s
@@ -325,22 +330,6 @@ SettingsSurface {
             }
 
             // --- System & Extensions ---
-            SettingsRow {
-                id: ifaceTile
-                surface: root
-                glyph: "⚙"
-                name: "Interface"
-                sub: "Scale · motion · auto-hide"
-
-                GlyphIcon {
-                    width: 16 * root.s
-                    height: 16 * root.s
-                    name: "chevron-right"
-                    color: root.focusRowItem === ifaceTile ? Theme.cream : Theme.iconDim
-                    stroke: 1.9
-                }
-            }
-
             SettingsRow {
                 id: pluginsTile
                 surface: root

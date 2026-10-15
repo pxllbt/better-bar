@@ -81,7 +81,7 @@ ok "the Bar & Dock Layout heading names more than one surface" \
 ok "the Visuals & Theme heading names more than one surface" \
     "$(group_rows 'Visuals & Theme' '--- ')" "3"
 ok "the System & Extensions heading names more than one surface" \
-    "$(sed -n '/--- System & Extensions ---/,$p' "$INDEX" | grep -c 'SettingsRow {')" "3"
+    "$(sed -n '/--- System & Extensions ---/,$p' "$INDEX" | grep -c 'SettingsRow {')" "2"
 
 # Dock Settings is what the layout heading names, so it has to sit inside that
 # group -- and not under a heading of its own, which is what made the group a
