@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
-import Quickshell
 import Quickshell.Hyprland
 import "../Singletons"
 
@@ -62,9 +61,6 @@ Item {
 
     property string activeWs: ""
     property var wsList: []
-    property var wsClients: []
-    property var classesByWs: ({})
-    property var iconCache: ({})
 
     function refreshData() {
         if (!workspaces.watch)
@@ -106,45 +102,12 @@ Item {
         var a = parseInt(workspaces.activeWs);
         if (a >= 1 && !seen[a])
             out.push(a);
-        // Group classes by workspace so the dot can show what is on it.
-        var map = {};
-        var cls = workspaces.wsClients;
-        for (var ci = 0; ci < cls.length; ci++) {
-            var c = cls[ci];
-            if (!map[c.id]) map[c.id] = [];
-            if (map[c.id].indexOf(c.cls) === -1) map[c.id].push(c.cls);
-        }
-        workspaces.classesByWs = map;
-
         out.sort(function (x, y) { return x - y; });
         activeName = workspaces.activeWs;
         if (!rangesEqual(range, out))
             range = out;
         if (hoverIndex >= range.length)
             hoverIndex = -1;
-    }
-
-    function iconFor(cls) {
-        if (!cls) return "";
-        if (workspaces.iconCache[cls] !== undefined)
-            return workspaces.iconCache[cls];
-        var names = [cls, cls.toLowerCase(), cls.replace(/\./g, "-")];
-        // Reverse-domain classes (org.gnome.Foo) almost never share a name with
-        // their icon; the icon is named after the last segment. Try that before
-        // giving up, so the dots show real apps instead of blank glyphs where
-        // possible.
-        var parts = cls.split(".");
-        if (parts.length > 1) {
-            names.push(parts[parts.length - 1]);
-            names.push(parts[parts.length - 1].toLowerCase());
-        }
-        var p = "";
-        for (var i = 0; i < names.length; i++) {
-            p = Quickshell.iconPath(names[i], true);
-            if (p && p.length) break;
-        }
-        workspaces.iconCache[cls] = p;
-        return p;
     }
 
     function rangesEqual(a, b) {
@@ -262,16 +225,13 @@ Item {
 
     Process {
         id: proc
-        command: ["sh", "-c", "hyprctl monitors -j; printf '@@@'; hyprctl workspaces -j; printf '@@@'; hyprctl clients -j"]
+        command: ["sh", "-c", "hyprctl monitors -j; printf '@@@'; hyprctl workspaces -j"]
         stdout: StdioCollector {
             onStreamFinished: {
                 var text = this.text;
-                var sep1 = text.indexOf("@@@");
-                var monJson = sep1 >= 0 ? text.slice(0, sep1) : "[]";
-                var rest = sep1 >= 0 ? text.slice(sep1 + 3) : "";
-                var sep2 = rest.indexOf("@@@");
-                var wsJson = sep2 >= 0 ? rest.slice(0, sep2) : rest;
-                var cliJson = sep2 >= 0 ? rest.slice(sep2 + 3) : "[]";
+                var sep = text.indexOf("@@@");
+                var monJson = sep >= 0 ? text.slice(0, sep) : "[]";
+                var wsJson = sep >= 0 ? text.slice(sep + 3) : text;
                 var act = "";
                 try {
                     var mons = JSON.parse(monJson);
@@ -286,21 +246,8 @@ Item {
                     for (var w = 0; w < arr.length; w++)
                         list.push({ id: arr[w].id, monitor: arr[w].monitor || "" });
                 } catch (e) { }
-                var clients = [];
-                try {
-                    var carr = JSON.parse(cliJson);
-                    for (var c = 0; c < carr.length; c++) {
-                        var cl = carr[c];
-                        if (!cl || cl.workspace === undefined || cl.workspace === null) continue;
-                        var wsid = cl.workspace.id !== undefined ? cl.workspace.id
-                                 : (typeof cl.workspace === "number" ? cl.workspace : -1);
-                        if (wsid < 1) continue;
-                        clients.push({ id: wsid, cls: cl.class || "", title: cl.title || "" });
-                    }
-                } catch (e) { }
                 workspaces.activeWs = act;
                 workspaces.wsList = list;
-                workspaces.wsClients = clients;
                 workspaces.rebuild();
             }
         }
@@ -401,94 +348,6 @@ Item {
                     }
                 }
 
-
-                // Per-workspace app icons. Tiny, leaning into the dot on hover
-                // or when the workspace is active; hidden at rest to keep the
-                // strip calm. First three distinct apps, overlapped.
-                // chips sit in a soft surface-colored pill, which keeps the
-                // hover state from bleeding into the workspace strip even when
-                // a lot of apps are open -- it reads as one object rather than
-                // a pile of tiny fall-out images.
-                Rectangle {
-                    id: iconFrame
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    width: appIcons.implicitWidth + 10 * workspaces.s
-                    height: appIcons.implicitHeight + 6 * workspaces.s
-                    radius: 999
-                    color: Theme.surface
-                    border.width: 1 * workspaces.s
-                    border.color: Theme.borderLight
-                    visible: appIcons.classes.length > 0 && appIcons.hovering
-                    opacity: appIcons.hovering ? 1 : 0
-                    Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-
-                    Row {
-                        id: appIcons
-                    spacing: workspaces.hoverIndex === slot.index ? 8 * workspaces.s : -2 * workspaces.s
-                    // Only on hover now; resting on its own it reads as clutter.
-                    visible: appIcons.classes.length > 0 && appIcons.hovering
-
-                    readonly property bool hovering: workspaces.hoverIndex === slot.index
-                    readonly property real iconPx: appIcons.hovering ? 24 * workspaces.s : 0
-                    Behavior on spacing { NumberAnimation { duration: Motion.fast } }
-
-                    readonly property var classes: workspaces.classesByWs[slot.wsName] || []
-                    Repeater {
-                        model: Math.min(4, appIcons.classes.length)
-                        delegate: Item {
-                            required property int index
-                            width: appIcons.iconPx
-                            height: appIcons.iconPx
-                            property string cls: appIcons.classes[index]
-                            property bool hovered: false
-                            MouseArea { anchors.fill: parent; hoverEnabled: true; onEntered: parent.hovered = true; onExited: parent.hovered = false }
-                            opacity: appIcons.hovering ? 1.0 : 0.0
-                            scale: 1.0
-                            transformOrigin: Item.Center
-                            Behavior on width  { NumberAnimation { duration: Motion.fast } }
-                            Behavior on height { NumberAnimation { duration: Motion.fast } }
-                            Behavior on scale  { NumberAnimation { duration: Motion.fast } }
-                            Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 3 * workspaces.s
-                                color: hovered ? Theme.accent : Theme.surfaceHighlight
-                                border.width: 1 * workspaces.s
-                                border.color: Theme.borderLight
-                                visible: img.status !== Image.Ready
-                            }
-                            Text {
-                                anchors.centerIn: parent
-                                text: cls.length ? cls.charAt(0).toUpperCase() : ""
-                                visible: img.status !== Image.Ready
-                                color: Theme.text
-                                font.family: Theme.font
-                                font.weight: Font.Bold
-                                font.pixelSize: Math.max(7, appIcons.iconPx * 0.7)
-                            }
-                            Image {
-                                id: img
-                                anchors.fill: parent
-                                smooth: true
-                                mipmap: true
-                                fillMode: Image.PreserveAspectFit
-                                source: workspaces.iconFor(cls)
-                            }
-                        }
-                    }
-                    Text {
-                        visible: appIcons.classes.length > 4
-                        text: "+" + (appIcons.classes.length - 4)
-                        color: Theme.text
-                        font.family: Theme.font
-                        font.pixelSize: Math.max(9, appIcons.iconPx * 0.6)
-                        font.weight: Font.Bold
-                    }
-                }
-                }
-
                 MouseArea {
                     id: area
                     anchors.fill: parent
@@ -514,5 +373,5 @@ Item {
          }
      }
 }
-}
+    }
 }
