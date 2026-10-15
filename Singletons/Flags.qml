@@ -161,6 +161,16 @@ Singleton {
             property real pillOpacity: 1
             //* Transparency mode: translucent tinted slab over the desktop. Off restores the exact legacy flat gradient.
             property bool glass: true
+            /**
+             * Let Hyprland decide the material instead of the bar deciding alone.
+             *
+             * The bar used to pick its own transparency regardless of the
+             * compositor, so the pill could be blurry and translucent over
+             * windows that were sharp and solid. Following makes three things
+             * agree — whether anything is glassy, how solid, and how round.
+             * Off restores the bar's own switch untouched.
+             */
+            property bool glassFollowHypr: false
             //* Text-visibility boost when glass is on (0..1): lifts the readability veil behind copy so text keeps contrast on bright wallpapers. Persisted in the settings file like every other flag.
             property real glassText: 0
             property bool autoHide: true

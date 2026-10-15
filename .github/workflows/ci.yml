@@ -173,3 +173,6 @@ jobs:
 
       - name: Run Recast Countdown Tests
         run: bash lib/recast-countdown.test.sh .
+
+      - name: Run Hyprland Glass Tests
+        run: bash lib/hypr-glass.test.sh .

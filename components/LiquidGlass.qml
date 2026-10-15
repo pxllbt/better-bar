@@ -66,8 +66,29 @@ Rectangle {
     property bool pressed: false
     property bool active: false
 
-    /// Master switch: the glass material is on.
-    readonly property bool glassy: Flags.glass
+    /**
+     * Master switch: the glass material is on.
+     *
+     * Following Hyprland overrides this, and the direction is the point. The
+     * compositor's blur is a statement about how much of the desktop every
+     * surface is allowed to smear; a bar that blurs while the windows behind it
+     * are sharp is the artifact that setting exists to prevent, so when following
+     * is on the compositor decides. `Flags.glassFollowHypr` off restores the bar's
+     * own switch untouched, which is what makes this a choice rather than a
+     * takeover.
+     */
+    readonly property bool glassy: (Flags.glassFollowHypr && HyprGlass.usable)
+        ? HyprGlass.blurEnabled
+        : Flags.glass
+
+    /**
+     * How solid the fill is, as the compositor would draw it.
+     *
+     * The active value, not the inactive: the pill is what you are looking at,
+     * and matching the unfocused number would make the bar dimmer than every
+     * window you are working in.
+     */
+    readonly property real followOpacity: HyprGlass.pillOpacity
 
     /// The veil actually painted when glassy: the surface baseline plus the
     /// user's text-visibility boost (up to +0.12), capped so it never becomes a
@@ -84,12 +105,15 @@ Rectangle {
     readonly property real tintAlpha: {
         if (!glass.glassy)
             return glass.legacyOpacity;
-        var a = glass.styleTint * Flags.pillOpacity;
+        var a = glass.styleTint * (glass.following ? glass.followOpacity : Flags.pillOpacity);
         if (glass.hovered) a += 0.05;
         if (glass.pressed) a -= 0.06;
         if (glass.active)  a += 0.02;
         return Math.max(0.35, Math.min(0.95, a));
     }
+
+    /** True while the compositor, not the bar, is choosing the material. */
+    readonly property bool following: (Flags.glassFollowHypr || false) && HyprGlass.usable
 
     /// RGB mix toward `b`, preserving `a`'s alpha. Used for tint and edge tints.
     function blend(a, b, t) {

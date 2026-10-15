@@ -85,12 +85,17 @@ Item { width: 1; height: 10 * root.s }
         // The pill's own background, independent of the material switch above:
         // it applies whether transparency is on or off, because it is the fill
         // alpha rather than the glass treatment.
+        //
+        // Disabled while following, because Hyprland now owns the value. Leaving
+        // it live would let you set an opacity that is silently overridden on the
+        // next read — a control that does nothing is worse than a missing one.
         SettingsRow {
             id: bgRow
             surface: root
             name: "Background"
             icon: "layers"
             sub: ""
+            enabled: !root.following
 
             SettingsSeg {
                 s: root.s
@@ -99,6 +104,42 @@ Item { width: 1; height: 10 * root.s }
                 onPicked: (v) => Flags.pillOpacity = v
             }
         }
+
+        /**
+         * Follow Hyprland instead of the bar's own opinion.
+         *
+         * This is the row that makes the disagreement go away. Hyprland's blur is
+         * what the whole desktop gets to smear under, so a bar that picks its own
+         * translucency disagrees with every window behind it — and on a box where
+         * blur is off, the glassy pill is precisely the artifact that setting was
+         * disabled to avoid.
+         *
+         * The sub says what following would do right now rather than describing
+         * the feature in the abstract, so "solid · 100% opaque" is a decidable
+         * answer instead of a promise.
+         */
+        SettingsRow {
+            id: followRow
+            surface: root
+            icon: "droplet"
+            name: "Match Hyprland"
+            sub: {
+                if (!HyprGlass.usable)
+                    return "Hyprland is not being read, so the bar keeps its own setting";
+                var v = [HyprGlass.blurEnabled ? "blurred" : "solid"];
+                v.push(Math.round(HyprGlass.pillOpacity * 100) + "% opaque");
+                return v.join(" · ");
+            }
+
+            LinkToggle {
+                s: root.s
+                on: Flags.glassFollowHypr
+                onToggled: Flags.glassFollowHypr = !Flags.glassFollowHypr
+            }
+        }
+
+        /** True while the compositor, not the bar, is choosing the material. */
+        readonly property bool following: (Flags.glassFollowHypr || false) && HyprGlass.usable
 
         SettingsRow {
             id: glassTextRow
