@@ -670,6 +670,28 @@ SettingsSurface {
                                 }
                             }
 
+                            // Open this plugin's own window/panel from settings.
+                            // This is the route that makes a panel-only plugin
+                            // (the keybindings manager, for example) reachable
+                            // without its own strip entry.
+                            GlyphIcon {
+                                width: 13 * root.s
+                                height: 13 * root.s
+                                name: "app-window"
+                                color: openArea.containsMouse ? Theme.cream : Theme.iconDim
+                                stroke: 1.8
+
+                                MouseArea {
+                                    id: openArea
+                                    anchors.fill: parent
+                                    anchors.margins: -5 * root.s
+                                    hoverEnabled: true
+                                    enabled: !root.busy
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: Plugins.openOrEnable(prow.modelData.id)
+                                }
+                            }
+
                             GlyphIcon {
                                 width: 13 * root.s
                                 height: 13 * root.s

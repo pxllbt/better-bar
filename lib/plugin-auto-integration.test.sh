@@ -81,6 +81,11 @@ ok "auto-update has a settings row" \
 ok "repair now is wired to healAll" \
     "$(grep -c 'activate: Plugins.healAll' "$SURFACE")" "1"
 
+# A panel-only plugin has no strip entry, so the settings surface's open control
+# is the difference between "installed" and "reachable".
+ok "a plugin can be opened from settings" \
+    "$(grep -c 'Plugins.openOrEnable(prow.modelData.id)' "$SURFACE")" "1"
+
 printf '\n'
 if [ "$failed" -gt 0 ]; then
     printf '%s failing\n' "$failed"
