@@ -617,8 +617,9 @@ SettingsSurface {
             surface: root
             glyph: "◌"
             name: root.busy ? "Working" : "Status"
-            sub: Plugins.lastError ? Plugins.lastError
-                : (root.busy ? Plugins.busyWith + "…" : "the host shell owns plugin state")
+            sub: Plugins.lastError ? (Plugins.lastError + (Plugins.lastOutput.length ? ": " + Plugins.lastOutput : ""))
+                : (Plugins.lastOutput.length ? Plugins.lastOutput
+                    : (root.busy ? Plugins.busyWith + "…" : "the host shell owns plugin state"))
             last: true
 
             GlyphIcon {
