@@ -77,6 +77,47 @@ QtObject {
             ]);
         }
 
+        /**
+         * A plugin service lookup, answered from this bar.
+         *
+         * Better Bar is a replacement bar, not the plugin process: the plugin's
+         * service singleton is owned by the Omarchy host shell and there is no
+         * shared object between them. Answering null keeps a bar widget's
+         * `bar.shell.serviceFor(...)` guard intact — OmaSpotify's bar widget
+         * reads its service that way and throws on a missing member — instead
+         * of the whole strip entry dying at load. An icon-only entry remains
+         * correct; the full panel still reaches the host on a click.
+         */
+        function serviceFor() {
+            return null;
+        }
+
+        /** IPC passthrough: hide a plugin's host-mounted surface. */
+        function hide(target) {
+            if (!target)
+                return false;
+            Quickshell.execDetached([
+                "omarchy-shell", "-q", "shell", "hide", String(target)
+            ]);
+            return true;
+        }
+
+        /** IPC passthrough: toggle a plugin's host-mounted surface. */
+        function toggle(target, payload) {
+            if (!target)
+                return false;
+            Quickshell.execDetached([
+                "omarchy-shell", "-q", "shell", "toggle", String(target),
+                payload || "{}"
+            ]);
+            return true;
+        }
+
+        /** Better Bar has no plugin registry of its own to answer from. */
+        function isPluginOpen() {
+            return false;
+        }
+
         // The stock shell rewrites the widget's layout entry
         // with the given keys; setBarWidget writes one key per
         // call, which adds up to the same entry.
@@ -208,6 +249,24 @@ QtObject {
     }
 
     function switchPanelFrom(identity, direction) {
+        return false;
+    }
+
+    /* OmaSpotify's bar widget asks these before it uses the host shell path.
+     * Better Bar does not mount that plugin's mini-player, so the answers are
+     * honest no-ops: "not open here", "cannot hide here", "cannot summon
+     * here". The widget then falls back to `bar.shell.summon`, which reaches
+     * the real Omarchy host that owns the panel. */
+
+    function isBarWidgetOpen() {
+        return false;
+    }
+
+    function hideBarWidget() {
+        return false;
+    }
+
+    function summonBarWidget() {
         return false;
     }
 

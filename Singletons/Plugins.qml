@@ -509,7 +509,7 @@ Singleton {
         { re: "reboot|restart", name: "reboot" },
         { re: "audio|sound|volume|mixer", name: "mixer" },
         { re: "volume|mute", name: "speaker" },
-        { re: "music|media|player", name: "music" },
+        { re: "music|media|player|spotify", name: "music" },
         { re: "bluetooth|bt", name: "bluetooth" },
         { re: "wifi|wireless", name: "wifi" },
         { re: "network|ethernet|net", name: "ethernet" },

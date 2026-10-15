@@ -51,6 +51,9 @@ jobs:
       - name: Run Plugins Surface Compact Tests
         run: bash lib/plugins-surface-compact.test.sh .
 
+      - name: Run Plugin Service Facade Tests
+        run: bash lib/plugin-service-facade.test.sh .
+
       - name: Run Strip Layout Tests
         run: bash lib/strip-layout.test.sh .
 
