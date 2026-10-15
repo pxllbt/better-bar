@@ -155,3 +155,12 @@ jobs:
 
       - name: Run Glass Transparency Tests
         run: bash lib/glass-transparency.test.sh .
+
+      - name: Run Agent Pipeline Tests
+        run: bash lib/agents.test.sh .
+
+      - name: Run Agent State Machine Tests
+        run: node lib/agents-state.test.mjs
+
+      - name: Run OpenCode Reporter Tests
+        run: node lib/opencode-agents.test.mjs
