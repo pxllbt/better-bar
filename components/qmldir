@@ -19,6 +19,7 @@ SettingsRow SettingsRow.qml
 SettingsRows SettingsRows.qml
 SettingsSeg SettingsSeg.qml
 SettingsSurface SettingsSurface.qml
+ScreensCanvas ScreensCanvas.qml
 Tooltip Tooltip.qml
 Tray Tray.qml
 VFader VFader.qml

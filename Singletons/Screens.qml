@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Hyprland
 
 /**
  * SCREENS -- the model behind the monitor-layout surface.
@@ -31,6 +32,16 @@ Singleton {
 
     readonly property string stateFile: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/better/screens.json"
     readonly property string scriptPath: Config.hyprPath("scripts", "screens.sh")
+
+    /**
+     * The reflowed footprint of every draft screen, as
+     * [{ name, x, y, width, height, ew, eh, scale, transform }]. It recomputes
+     * whenever the draft changes, which is what makes a scale or rotation edit
+     * move the neighbours' cards: the arrangement is the layout's target state,
+     * so repositioning is a consequence of the footprint changing, not a second
+     * bookkeeping step that can drift from it.
+     */
+    readonly property var layout: refit(draft)
 
     // The spec hyprctl wants: a desc: rule when the panel reports a make/model,
     // otherwise the bare connector name.
@@ -66,6 +77,8 @@ Singleton {
             scale: mon.scale, x: mon.x, y: mon.y,
             transform: mon.transform || 0,
             vrr: mon.vrr, mirror: mon.mirror || "",
+            activeWsName: (mon.activeWorkspace && mon.activeWorkspace.name !== undefined)
+                ? String(mon.activeWorkspace.name) : "",
             disabled: !!a.disabled,
             modes: modes,
             workspaces: ws
@@ -184,6 +197,142 @@ Singleton {
             }
         }
         return false;
+    }
+
+    /** Drop a saved profile. The draft is untouched. */
+    function forgetProfile(id) {
+        var next = [];
+        var dropped = false;
+        for (var i = 0; i < profiles.length; i++) {
+            if (profiles[i] && profiles[i].id === id)
+                dropped = true;
+            else if (profiles[i])
+                next.push(profiles[i]);
+        }
+        if (!dropped)
+            return false;
+        profiles = next;
+        writeProfiles();
+        return true;
+    }
+
+    // ---- draft editing ----
+    // Everything here mutates `draft` only. Screens.live is never written, so a
+    // patch that Hyprland rejects leaves the canvas and reality in agreement --
+    // which is the whole reason the draft exists as a separate property.
+
+    function focusScreen() {
+        if (root.focusIndex < 0 || root.focusIndex >= draft.length)
+            return null;
+        return draft[root.focusIndex];
+    }
+
+    function enabledCount() {
+        var n = 0;
+        for (var i = 0; i < draft.length; i++) {
+            if (draft[i] && draft[i].enabled)
+                n++;
+        }
+        return n;
+    }
+
+    function setFocus(i) {
+        root.focusIndex = (i >= 0 && i < draft.length) ? i : -1;
+    }
+
+    /** Cycle focus to the next screen. */
+    function focusNext() {
+        if (!draft.length)
+            return;
+        setFocus((root.focusIndex + 1) % draft.length);
+    }
+
+    /**
+     * Patch fields on one draft screen, reflow the layout so nothing overlaps,
+     * and apply once. Returns false when the index or patch is unusable.
+     */
+    function updateDraft(i, patch) {
+        if (i < 0 || i >= draft.length || !patch)
+            return false;
+        var next = draft.slice();
+        var scr = Object.assign({}, next[i] || {});
+        var keys = Object.keys(patch);
+        for (var k = 0; k < keys.length; k++) {
+            if (patch[keys[k]] !== undefined)
+                scr[keys[k]] = patch[keys[k]];
+        }
+        next[i] = scr;
+        draft = next;
+        refit(draft);
+        applyDraft();
+        return true;
+    }
+
+    /** Arrow-key nudge: step by 8, or by 1 while Shift is held for fine work. */
+    function nudge(dx, dy, fine) {
+        var scr = focusScreen();
+        if (!scr)
+            return false;
+        var step = fine ? 1 : 8;
+        var x = Math.max(0, (scr.x || 0) + dx * step);
+        var y = Math.max(0, (scr.y || 0) + dy * step);
+        return updateDraft(root.focusIndex, { position: x + "x" + y });
+    }
+
+    /**
+     * Ctrl-snap: flush the focused screen against the edge of its nearest
+     * neighbour rather than nudging by a step, so a hand-tightened layout does
+     * not need pixel dragging.
+     */
+    function snapEdge(dir) {
+        var scr = focusScreen();
+        if (!scr)
+            return false;
+        var boxes = refit(draft);
+        var mine = null;
+        for (var i = 0; i < boxes.length; i++) {
+            if (boxes[i].name === scr.name)
+                mine = boxes[i];
+        }
+        if (!mine)
+            return false;
+        var x = Math.max(0, scr.x || 0);
+        var y = Math.max(0, scr.y || 0);
+        for (var j = 0; j < boxes.length; j++) {
+            var other = boxes[j];
+            if (other.name === scr.name)
+                continue;
+            if (dir === "left")
+                x = Math.min(x, other.x - mine.ew);
+            else if (dir === "right")
+                x = Math.max(x, other.x + other.ew);
+            else if (dir === "up")
+                y = Math.min(y, other.y - mine.eh);
+            else if (dir === "down")
+                y = Math.max(y, other.y + other.eh);
+        }
+        return updateDraft(root.focusIndex, { position: Math.max(0, x) + "x" + Math.max(0, y) });
+    }
+
+    /** The live field value a screen diverged from, for a per-field reset. */
+    function liveValue(name, field) {
+        for (var i = 0; i < live.length; i++) {
+            if (live[i] && live[i].name === name)
+                return live[i][field];
+        }
+        return undefined;
+    }
+
+    function resetField(field) {
+        var scr = focusScreen();
+        if (!scr)
+            return false;
+        var v = liveValue(scr.name, field);
+        if (v === undefined)
+            return false;
+        var patch = {};
+        patch[field] = v;
+        return updateDraft(root.focusIndex, patch);
     }
 
     // ---- pure helpers (lifted by lib/screens-model.test.mjs) ----
