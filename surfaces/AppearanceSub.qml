@@ -27,12 +27,20 @@ SettingsSurface {
         { item: accentTile, kind: "nav", surface: "accent" },
         { item: glassTile, kind: "nav", surface: "glass" },
         { item: fontColorTile, kind: "nav", surface: "fontcolor" },
-        { item: hyprTile, activate: () => Quickshell.execDetached(["omarchy-launch-config-editor", (Quickshell.env("HOME") || "") + "/.config/hypr/looknfeel.lua"]) },
         { item: lockTile, kind: "nav", surface: "lockstyle" },
         { item: plymouthTile, kind: "nav", surface: "plymouth" },
+        { item: hyprTile, activate: () => Quickshell.execDetached(["omarchy-launch-config-editor", (Quickshell.env("HOME") || "") + "/.config/hypr/looknfeel.lua"]) },
         { item: screensaverTile, activate: () => Quickshell.execDetached(["omarchy-branding-screensaver", "text"]) }
     ]
 
+    /**
+     * The page is split into two labelled halves. It used to be one flat run of
+     * seven tiles under the single heading APPEARANCE, mixing two different
+     * questions — "what colour is this" and "what happens when I lock or boot".
+     * Nobody looking for the Plymouth theme would guess it sat between "Font
+     * colour" and a Hyprland editor link. The labels are what make the group
+     * names mean something.
+     */
     Column {
         id: content
         anchors.top: parent.top
@@ -42,11 +50,24 @@ SettingsSurface {
 
         SettingsHeader {
             s: root.s
-            title: "APPEARANCE & STYLE"
+            title: "LOOK & SCREEN"
             showBack: true
         }
 
         Item { width: 1; height: 7 * root.s }
+
+        Text {
+            text: "COLOUR & MATERIAL"
+            color: Theme.faint
+            font.family: Theme.font
+            font.pixelSize: 9.5 * root.s
+            font.weight: Font.DemiBold
+            font.letterSpacing: 1.4
+            anchors.left: parent.left
+            anchors.leftMargin: 15 * root.s
+            topPadding: 2 * root.s
+            bottomPadding: 3 * root.s
+        }
 
         SettingsRow {
             id: accentTile
@@ -110,6 +131,26 @@ SettingsSurface {
                 color: root.focusRowItem === hyprTile ? Theme.cream : Theme.iconDim
                 stroke: 1.9
             }
+        }
+
+        /**
+         * The second section: what happens when the machine is locked, booting,
+         * or left idle. Nothing here is "appearance" in the colour sense, which
+         * is exactly why it gets its own label.
+         */
+        Item { width: 1; height: 9 * root.s }
+
+        Text {
+            text: "LOCK · BOOT · IDLE"
+            color: Theme.faint
+            font.family: Theme.font
+            font.pixelSize: 9.5 * root.s
+            font.weight: Font.DemiBold
+            font.letterSpacing: 1.4
+            anchors.left: parent.left
+            anchors.leftMargin: 15 * root.s
+            topPadding: 2 * root.s
+            bottomPadding: 3 * root.s
         }
 
         SettingsRow {

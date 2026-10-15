@@ -558,11 +558,26 @@ Item {
             Qt.callLater(function () {
                 if (!ld.active) {
                     ld.active = true;
-                    pill.cancelUnload(name);
-                }
+                    pill.cancelUnload(name);                }
             });
         }
         return ld.item;
+    }
+
+    /**
+     * Null-safe height for a settings surface's size entry.
+     *
+     * `surfaceItem()` returns null on the very first evaluation of the size map,
+     * before the loader has created its item, and a settings surface opens as the
+     * default page — so the unguarded `surfaceItem("appearance").implicitHeight`
+     * threw once per boot at startup. Baseline measured it 2 runs in 3. The
+     * answer is the same fallback the other map entries already carry: a nominal
+     * height that renders one honest frame, after which the real item binds and
+     * the size becomes live. A size entry is a thunk, so it re-evaluates.
+     */
+    function settingsSurfaceH(name) {
+        const it = surfaceItem(name);
+        return it ? it.implicitHeight + 29 * s : 260 * s;
     }
 
     /**
@@ -591,20 +606,20 @@ Item {
         // The monitor-layout surface is a settings surface (SettingsSeg rows
         // need the settings scale), so it is sized like the others rather than
         // like the dials; its own content drives the height.
-        screens:   { size: () => Qt.size(settingsW, surfaceItem("screens").implicitHeight + 29 * s), ame: () => surfaceItem("screens") },
-        appearance: { size: () => Qt.size(settingsW, surfaceItem("appearance").implicitHeight + 29 * s), ame: () => surfaceItem("appearance") },
-        appcat:     { size: () => Qt.size(settingsW, surfaceItem("appcat").implicitHeight + 29 * s), ame: () => surfaceItem("appcat") },
-        display:    { size: () => Qt.size(settingsW, surfaceItem("display").implicitHeight + 29 * s), ame: () => surfaceItem("display") },
-        theme:      { size: () => Qt.size(settingsW, surfaceItem("theme").implicitHeight + 29 * s), ame: () => surfaceItem("theme") },
-        accent:     { size: () => Qt.size(settingsW, surfaceItem("accent").implicitHeight + 29 * s), ame: () => surfaceItem("accent") },
-        glass:      { size: () => Qt.size(settingsW, surfaceItem("glass").implicitHeight + 29 * s), ame: () => surfaceItem("glass") },
-        fontcolor:  { size: () => Qt.size(settingsW, surfaceItem("fontcolor").implicitHeight + 29 * s), ame: () => surfaceItem("fontcolor") },
-        fontpicker: { size: () => Qt.size(fontpickerW, surfaceItem("fontpicker").implicitHeight + 29 * s), ame: () => surfaceItem("fontpicker") },
-        plugins:    { size: () => Qt.size(settingsW, surfaceItem("plugins").implicitHeight + 29 * s), ame: () => surfaceItem("plugins") },
-        update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") },
-        lockstyle:  { size: () => Qt.size(settingsW, surfaceItem("lockstyle").implicitHeight + 29 * s), ame: () => surfaceItem("lockstyle") },
-        plymouth:   { size: () => Qt.size(settingsW, surfaceItem("plymouth").implicitHeight + 29 * s), ame: () => surfaceItem("plymouth") },
-        keybinds:   { size: () => Qt.size(settingsW, surfaceItem("keybinds").implicitHeight + 29 * s), ame: () => surfaceItem("keybinds") },
+        screens:   { size: () => Qt.size(settingsW, settingsSurfaceH("screens")), ame: () => surfaceItem("screens") },
+        appearance: { size: () => Qt.size(settingsW, settingsSurfaceH("appearance")), ame: () => surfaceItem("appearance") },
+        appcat:     { size: () => Qt.size(settingsW, settingsSurfaceH("appcat")), ame: () => surfaceItem("appcat") },
+        display:    { size: () => Qt.size(settingsW, settingsSurfaceH("display")), ame: () => surfaceItem("display") },
+        theme:      { size: () => Qt.size(settingsW, settingsSurfaceH("theme")), ame: () => surfaceItem("theme") },
+        accent:     { size: () => Qt.size(settingsW, settingsSurfaceH("accent")), ame: () => surfaceItem("accent") },
+        glass:      { size: () => Qt.size(settingsW, settingsSurfaceH("glass")), ame: () => surfaceItem("glass") },
+        fontcolor:  { size: () => Qt.size(settingsW, settingsSurfaceH("fontcolor")), ame: () => surfaceItem("fontcolor") },
+        fontpicker: { size: () => Qt.size(fontpickerW, settingsSurfaceH("fontpicker")), ame: () => surfaceItem("fontpicker") },
+        plugins:    { size: () => Qt.size(settingsW, settingsSurfaceH("plugins")), ame: () => surfaceItem("plugins") },
+        update:     { size: () => Qt.size(settingsW, settingsSurfaceH("update")), ame: () => surfaceItem("update") },
+        lockstyle:  { size: () => Qt.size(settingsW, settingsSurfaceH("lockstyle")), ame: () => surfaceItem("lockstyle") },
+        plymouth:   { size: () => Qt.size(settingsW, settingsSurfaceH("plymouth")), ame: () => surfaceItem("plymouth") },
+        keybinds:   { size: () => Qt.size(settingsW, settingsSurfaceH("keybinds")), ame: () => surfaceItem("keybinds") },
         plugin:     { size: () => {
                 // Omarchy plug-ins render their UIs as popout layer surfaces;
                 // there is no embeddable content to morph the pill into, so the

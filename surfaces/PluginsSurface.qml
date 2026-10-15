@@ -583,41 +583,34 @@ SettingsSurface {
         }
 
         // ---- filters ----------------------------------------------------
-        Row {
+        /**
+         * The filter is a SettingsSeg, not a hand-rolled set of chips.
+         *
+         * It used to be its own Rectangle-per-option block whose selected fill
+         * read `Theme.surfaceHighlight` — a token that does not exist in Theme
+         * at all. QML resolves a missing property to undefined, so the fill fell
+         * through to the browser's default white and the "All" chip shipped as a
+         * bright white pill in a dark bar. Reusing the real segmented control
+         * makes these filters identical to every other seg in the app (the
+         * translucent flame tint, the hover tile, the same label metrics), and it
+         * deletes the duplicated chip code that had drifted from it.
+         */
+        Item {
             width: parent.width
-            height: 28 * root.s
-            spacing: 8 * root.s
-            anchors.left: undefined
-            padding: 12 * root.s
+            height: 30 * root.s
 
-            Repeater {
-                model: ["All", "Omarchy", "Third-party"]
-                delegate: Rectangle {
-                    required property var modelData
-                    readonly property string key: modelData === "Omarchy" ? "first-party"
-                                            : (modelData === "Third-party" ? "third-party" : "all")
-                    height: 22 * root.s
-                    width: 86 * root.s
-                    radius: 11 * root.s
-                    color: root.filterMode === key ? Theme.surfaceHighlight : "transparent"
-                    border.width: 1 * root.s
-                    border.color: root.filterMode === key ? Theme.accent : Theme.borderLight
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: modelData
-                        color: root.filterMode === key ? Theme.text : Theme.iconDim
-                        font.family: Theme.font
-                        font.pixelSize: 10 * root.s
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.filterMode = key
-                    }
-                }
+            SettingsSeg {
+                anchors.left: parent.left
+                anchors.leftMargin: 12 * root.s
+                anchors.verticalCenter: parent.verticalCenter
+                s: root.s
+                options: [
+                    { label: "All", value: "all" },
+                    { label: "Omarchy", value: "first-party" },
+                    { label: "Third-party", value: "third-party" }
+                ]
+                value: root.filterMode
+                onPicked: (v) => root.filterMode = v
             }
         }
 
