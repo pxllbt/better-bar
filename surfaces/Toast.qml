@@ -196,13 +196,16 @@ Item {
             }
         }
 
+        // No anchors here. A child that anchors to its own positioner is a
+        // conflict: the Column can no longer resolve where any of its children
+        // go, so the eyebrow, the summary and the body all collapsed onto y=0
+        // and drew on top of each other. This is the last child, so the Column
+        // already flows it below the action pills.
         Row {
             visible: root.notif.urgency !== NotificationUrgency.Critical
+            width: parent.width
             spacing: 4 * root.s
             topPadding: 4 * root.s
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
 
             property var options: [5, 15, 60]
 
