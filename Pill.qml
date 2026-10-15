@@ -150,7 +150,8 @@ Item {
     readonly property bool fontpickerOpen: surface === "fontpicker"
     readonly property bool pluginsOpen: surface === "plugins"
     readonly property bool updateOpen: surface === "update"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen
+    readonly property bool lockstyleOpen: surface === "lockstyle"
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen
     readonly property bool hasMedia: Players.list.length > 0
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
@@ -595,6 +596,7 @@ Item {
         fontpicker: { size: () => Qt.size(fontpickerW, surfaceItem("fontpicker").implicitHeight + 29 * s), ame: () => surfaceItem("fontpicker") },
         plugins:    { size: () => Qt.size(settingsW, surfaceItem("plugins").implicitHeight + 29 * s), ame: () => surfaceItem("plugins") },
         update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") },
+        lockstyle:  { size: () => Qt.size(settingsW, surfaceItem("lockstyle").implicitHeight + 29 * s), ame: () => surfaceItem("lockstyle") },
         plugin:     { size: () => {
                 // Omarchy plug-ins render their UIs as popout layer surfaces;
                 // there is no embeddable content to morph the pill into, so the
@@ -639,6 +641,7 @@ Item {
         fontpicker: () => ldFontpicker,
         plugins:    () => ldPlugins,
         update:     () => ldUpdate,
+        lockstyle:  () => ldLockstyle,
         plugin:     () => ldPluginSurface
     })
 
@@ -3894,6 +3897,19 @@ sourceComponent: Media {
         sourceComponent: UpdateSurface {
             s: pill.s * pill.settingsScale
             open: pill.updateOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
+
+    Loader {
+        id: ldLockstyle
+        active: false
+        anchors.fill: parent
+        sourceComponent: LockStyleSurface {
+            s: pill.s * pill.settingsScale
+            open: pill.lockstyleOpen
             morphCloseness: pill.morphCloseness
             onRequestClose: pill.requestClose()
             onRequestSurface: (name) => pill.requestSurface(name)

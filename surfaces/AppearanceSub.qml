@@ -28,7 +28,7 @@ SettingsSurface {
         { item: glassTile, kind: "nav", surface: "glass" },
         { item: fontColorTile, kind: "nav", surface: "fontcolor" },
         { item: hyprTile, activate: () => Quickshell.execDetached(["omarchy-launch-config-editor", (Quickshell.env("HOME") || "") + "/.config/hypr/looknfeel.lua"]) },
-        { item: lockTile, activate: () => Quickshell.execDetached(["omarchy-shell", "shell", "toggle", "omarchy-lock-style"]) },
+        { item: lockTile, kind: "nav", surface: "lockstyle" },
         { item: screensaverTile, activate: () => Quickshell.execDetached(["omarchy-branding-screensaver", "text"]) }
     ]
 
