@@ -410,20 +410,32 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     bottomPadding: 0
-                    spacing: -2 * workspaces.s
-                    visible: appIcons.classes.length > 0 && (slot.isActive || workspaces.hoverIndex === slot.index)
+                    spacing: workspaces.hoverIndex === slot.index ? 3 * workspaces.s : -3 * workspaces.s
+                    visible: appIcons.classes.length > 0
+
+                    readonly property bool hovering: workspaces.hoverIndex === slot.index
+                    readonly property real iconPx: appIcons.hovering
+                        ? 14 * workspaces.s
+                        : (slot.isActive ? 10 * workspaces.s : 5 * workspaces.s)
+                    Behavior on spacing { NumberAnimation { duration: Motion.fast } }
 
                     readonly property var classes: workspaces.classesByWs[slot.wsName] || []
                     Repeater {
-                        model: Math.min(3, appIcons.classes.length)
+                        model: Math.min(4, appIcons.classes.length)
                         delegate: Image {
                             required property int index
-                            width: 9 * workspaces.s
-                            height: 9 * workspaces.s
+                            width: appIcons.iconPx
+                            height: appIcons.iconPx
                             smooth: true
                             mipmap: true
                             source: workspaces.iconFor(appIcons.classes[index])
-                            // soft fallback badge when no icon resolves
+                            opacity: appIcons.hovering ? 1.0 : (index === 0 ? 0.95 : 0.0)
+                            scale: appIcons.hovering ? 1.0 : 0.6
+                            transformOrigin: Item.Center
+                            Behavior on width  { NumberAnimation { duration: Motion.fast } }
+                            Behavior on height { NumberAnimation { duration: Motion.fast } }
+                            Behavior on scale  { NumberAnimation { duration: Motion.fast } }
+                            Behavior on opacity { NumberAnimation { duration: Motion.fast } }
                             onStatusChanged: if (status === Image.Error) source = ""
                         }
                     }
