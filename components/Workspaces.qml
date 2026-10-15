@@ -411,12 +411,11 @@ Item {
                     anchors.bottom: parent.bottom
                     bottomPadding: 0
                     spacing: workspaces.hoverIndex === slot.index ? 3 * workspaces.s : -3 * workspaces.s
-                    visible: appIcons.classes.length > 0
+                    // Only on hover now; resting on its own it reads as clutter.
+                    visible: appIcons.classes.length > 0 && appIcons.hovering
 
                     readonly property bool hovering: workspaces.hoverIndex === slot.index
-                    readonly property real iconPx: appIcons.hovering
-                        ? 14 * workspaces.s
-                        : (slot.isActive ? 10 * workspaces.s : 5 * workspaces.s)
+                    readonly property real iconPx: appIcons.hovering ? 20 * workspaces.s : 0
                     Behavior on spacing { NumberAnimation { duration: Motion.fast } }
 
                     readonly property var classes: workspaces.classesByWs[slot.wsName] || []
@@ -427,8 +426,8 @@ Item {
                             width: appIcons.iconPx
                             height: appIcons.iconPx
                             property string cls: appIcons.classes[index]
-                            opacity: appIcons.hovering ? 1.0 : (index === 0 ? 0.95 : 0.0)
-                            scale: appIcons.hovering ? 1.0 : 0.6
+                            opacity: appIcons.hovering ? 1.0 : 0.0
+                            scale: 1.0
                             transformOrigin: Item.Center
                             Behavior on width  { NumberAnimation { duration: Motion.fast } }
                             Behavior on height { NumberAnimation { duration: Motion.fast } }
