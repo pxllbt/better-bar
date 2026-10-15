@@ -31,6 +31,7 @@ SettingsSurface {
         { item: appearTile, kind: "nav", surface: "appcat" },
         { item: fontTile, kind: "nav", surface: "fontpicker" },
         { item: dispTile, kind: "nav", surface: "display" },
+        { item: screensTile, kind: "nav", surface: "screens" },
         { item: dockTile, kind: "nav", surface: "dock" },
         { item: ifaceTile, kind: "nav", surface: "interface" },
         { item: pluginsTile, kind: "nav", surface: "plugins" },
@@ -114,6 +115,23 @@ SettingsSurface {
                 height: 16 * root.s
                 name: "chevron-right"
                 color: root.focusRowItem === dispTile ? Theme.cream : Theme.iconDim
+                stroke: 1.9
+            }
+        }
+
+        // --- Displays: the layout editor, next to the pill's own display row
+        // because it is the same concern (what the outputs look like).
+        SettingsRow {
+            id: screensTile
+            surface: root
+            name: "Screens"
+            sub: "Arrangement · scale · rotation · mirror"
+
+            GlyphIcon {
+                width: 16 * root.s
+                height: 16 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === screensTile ? Theme.cream : Theme.iconDim
                 stroke: 1.9
             }
         }
