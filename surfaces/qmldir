@@ -29,4 +29,5 @@ WeatherSurface WeatherSurface.qml
 WifiSurface WifiSurface.qml
 PluginsSurface PluginsSurface.qml
 LockStyleSurface LockStyleSurface.qml
+PlymouthSurface PlymouthSurface.qml
 PluginHostSurface PluginHostSurface.qml

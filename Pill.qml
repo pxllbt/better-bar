@@ -151,7 +151,8 @@ Item {
     readonly property bool pluginsOpen: surface === "plugins"
     readonly property bool updateOpen: surface === "update"
     readonly property bool lockstyleOpen: surface === "lockstyle"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen
+    readonly property bool plymouthOpen: surface === "plymouth"
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || plymouthOpen
     readonly property bool hasMedia: Players.list.length > 0
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
@@ -597,6 +598,7 @@ Item {
         plugins:    { size: () => Qt.size(settingsW, surfaceItem("plugins").implicitHeight + 29 * s), ame: () => surfaceItem("plugins") },
         update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") },
         lockstyle:  { size: () => Qt.size(settingsW, surfaceItem("lockstyle").implicitHeight + 29 * s), ame: () => surfaceItem("lockstyle") },
+        plymouth:   { size: () => Qt.size(settingsW, surfaceItem("plymouth").implicitHeight + 29 * s), ame: () => surfaceItem("plymouth") },
         plugin:     { size: () => {
                 // Omarchy plug-ins render their UIs as popout layer surfaces;
                 // there is no embeddable content to morph the pill into, so the
@@ -642,6 +644,7 @@ Item {
         plugins:    () => ldPlugins,
         update:     () => ldUpdate,
         lockstyle:  () => ldLockstyle,
+        plymouth:   () => ldPlymouth,
         plugin:     () => ldPluginSurface
     })
 
@@ -3910,6 +3913,19 @@ sourceComponent: Media {
         sourceComponent: LockStyleSurface {
             s: pill.s * pill.settingsScale
             open: pill.lockstyleOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
+
+    Loader {
+        id: ldPlymouth
+        active: false
+        anchors.fill: parent
+        sourceComponent: PlymouthSurface {
+            s: pill.s * pill.settingsScale
+            open: pill.plymouthOpen
             morphCloseness: pill.morphCloseness
             onRequestClose: pill.requestClose()
             onRequestSurface: (name) => pill.requestSurface(name)

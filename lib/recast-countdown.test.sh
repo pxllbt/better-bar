@@ -41,7 +41,7 @@ ok() {
 ok "the tick driver runs during the pre-roll" \
     "$(grep -c 'root.recording || root.paused || root.countdownPending' "$RECAST")" "1"
 ok "the tick driver still runs during a live capture" \
-    "$(grep -B1 -A1 'onTriggered: {' "$RECAST" | grep -c 'recording || root.paused || root.countdownPending')" "1"
+    "$(grep -c 'running:.*root.recording || root.paused || root.countdownPending' "$RECAST")" "1"
 
 # The countdown's own poll cadence must stay ahead of, or at least level with,
 # the tick: a slower poll than the display makes the re-anchor arrive after the
@@ -54,7 +54,7 @@ ok "the poll is quick while the countdown is running" \
 # so it must stay; the countdown's end is signalled by countdownPending
 # clearing, not by the number hitting zero.
 ok "the projection still clamps so 0 never shows mid-countdown" \
-    "$(grep -c 'Math.max(1, root.serviceCountdownRemaining - diff)' "$RECAST")" "1"
+    "$(grep -c 'Math.max(1, root.countdownBase - diff)' "$RECAST")" "1"
 
 # --- the visible behaviour, where a Wayland session is available -----------
 if [ -z "${WAYLAND_DISPLAY:-}" ] || ! command -v qs >/dev/null 2>&1; then

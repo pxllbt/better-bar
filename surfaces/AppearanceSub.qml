@@ -29,6 +29,7 @@ SettingsSurface {
         { item: fontColorTile, kind: "nav", surface: "fontcolor" },
         { item: hyprTile, activate: () => Quickshell.execDetached(["omarchy-launch-config-editor", (Quickshell.env("HOME") || "") + "/.config/hypr/looknfeel.lua"]) },
         { item: lockTile, kind: "nav", surface: "lockstyle" },
+        { item: plymouthTile, kind: "nav", surface: "plymouth" },
         { item: screensaverTile, activate: () => Quickshell.execDetached(["omarchy-branding-screensaver", "text"]) }
     ]
 
@@ -116,13 +117,29 @@ SettingsSurface {
             surface: root
             glyph: "🔒"
             name: "Lock Screen Theme"
-            sub: "Open Lock Style: customise lock screen, blur & clock"
+            sub: "Customise the session lock screen, clock & blur"
 
             GlyphIcon {
                 width: 16 * root.s
                 height: 16 * root.s
                 name: "chevron-right"
                 color: root.focusRowItem === lockTile ? Theme.cream : Theme.iconDim
+                stroke: 1.9
+            }
+        }
+
+        SettingsRow {
+            id: plymouthTile
+            surface: root
+            glyph: "▶"
+            name: "Plymouth Unlock"
+            sub: "Theme the boot / Plymouth unlock screen"
+
+            GlyphIcon {
+                width: 16 * root.s
+                height: 16 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === plymouthTile ? Theme.cream : Theme.iconDim
                 stroke: 1.9
             }
         }
