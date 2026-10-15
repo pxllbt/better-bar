@@ -244,7 +244,17 @@ Item {
             root.countdownPending = data.countdownPending === true;
             var readCountdown = typeof data.countdownRemaining === "number" ? data.countdownRemaining : 0;
             if (root.countdownPending) {
-                if (!prevCountdownPending || readCountdown !== root.serviceCountdownRemaining) {
+                // Anchor exactly once, when the pre-roll starts. Re-anchoring on
+                // every poll (the old `readCountdown !== stored` rule) made the
+                // chip re-start from the service's latest number each time it
+                // landed, so the display went 3 -> 2 -> 1 -> 2 -> 1 and then
+                // sat, because the local clock had just been thrown back. The
+                // service and the local clock disagree on the phase on purpose --
+                // the service publishes once a second and the local clock ticks
+                // every second -- so the only correction allowed is when the
+                // service's number is HIGHER than the last one, i.e. a genuine
+                // reset/restart, never a lower "in-progress" value.
+                if (!prevCountdownPending || readCountdown > root.serviceCountdownRemaining) {
                     root.serviceCountdownRemaining = readCountdown;
                     root.serviceCountdownAtMs = Date.now();
                 }
