@@ -410,7 +410,7 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.bottom: parent.bottom
                     bottomPadding: 0
-                    spacing: workspaces.hoverIndex === slot.index ? 3 * workspaces.s : -3 * workspaces.s
+                    spacing: workspaces.hoverIndex === slot.index ? 6 * workspaces.s : -2 * workspaces.s
                     // Only on hover now; resting on its own it reads as clutter.
                     visible: appIcons.classes.length > 0 && appIcons.hovering
 
