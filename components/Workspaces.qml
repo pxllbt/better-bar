@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Layouts
 import Quickshell.Io
+import Quickshell
 import Quickshell.Hyprland
 import "../Singletons"
 
@@ -61,6 +62,9 @@ Item {
 
     property string activeWs: ""
     property var wsList: []
+    property var wsClients: []
+    property var classesByWs: ({})
+    property var iconCache: ({})
 
     function refreshData() {
         if (!workspaces.watch)
@@ -102,12 +106,36 @@ Item {
         var a = parseInt(workspaces.activeWs);
         if (a >= 1 && !seen[a])
             out.push(a);
+        // Group classes by workspace so the dot can show what is on it.
+        var map = {};
+        var cls = workspaces.wsClients;
+        for (var ci = 0; ci < cls.length; ci++) {
+            var c = cls[ci];
+            if (!map[c.id]) map[c.id] = [];
+            if (map[c.id].indexOf(c.cls) === -1) map[c.id].push(c.cls);
+        }
+        workspaces.classesByWs = map;
+
         out.sort(function (x, y) { return x - y; });
         activeName = workspaces.activeWs;
         if (!rangesEqual(range, out))
             range = out;
         if (hoverIndex >= range.length)
             hoverIndex = -1;
+    }
+
+    function iconFor(cls) {
+        if (!cls) return "";
+        if (workspaces.iconCache[cls] !== undefined)
+            return workspaces.iconCache[cls];
+        var names = [cls, cls.toLowerCase(), cls.replace(/\./g, "-")];
+        var p = "";
+        for (var i = 0; i < names.length; i++) {
+            p = Quickshell.iconPath(names[i], true);
+            if (p && p.length) break;
+        }
+        workspaces.iconCache[cls] = p;
+        return p;
     }
 
     function rangesEqual(a, b) {
@@ -225,13 +253,16 @@ Item {
 
     Process {
         id: proc
-        command: ["sh", "-c", "hyprctl monitors -j; printf '@@@'; hyprctl workspaces -j"]
+        command: ["sh", "-c", "hyprctl monitors -j; printf '@@@'; hyprctl workspaces -j; printf '@@@'; hyprctl clients -j"]
         stdout: StdioCollector {
             onStreamFinished: {
                 var text = this.text;
-                var sep = text.indexOf("@@@");
-                var monJson = sep >= 0 ? text.slice(0, sep) : "[]";
-                var wsJson = sep >= 0 ? text.slice(sep + 3) : text;
+                var sep1 = text.indexOf("@@@");
+                var monJson = sep1 >= 0 ? text.slice(0, sep1) : "[]";
+                var rest = sep1 >= 0 ? text.slice(sep1 + 3) : "";
+                var sep2 = rest.indexOf("@@@");
+                var wsJson = sep2 >= 0 ? rest.slice(0, sep2) : rest;
+                var cliJson = sep2 >= 0 ? rest.slice(sep2 + 3) : "[]";
                 var act = "";
                 try {
                     var mons = JSON.parse(monJson);
@@ -246,8 +277,21 @@ Item {
                     for (var w = 0; w < arr.length; w++)
                         list.push({ id: arr[w].id, monitor: arr[w].monitor || "" });
                 } catch (e) { }
+                var clients = [];
+                try {
+                    var carr = JSON.parse(cliJson);
+                    for (var c = 0; c < carr.length; c++) {
+                        var cl = carr[c];
+                        if (!cl || cl.workspace === undefined || cl.workspace === null) continue;
+                        var wsid = cl.workspace.id !== undefined ? cl.workspace.id
+                                 : (typeof cl.workspace === "number" ? cl.workspace : -1);
+                        if (wsid < 1) continue;
+                        clients.push({ id: wsid, cls: cl.class || "", title: cl.title || "" });
+                    }
+                } catch (e) { }
                 workspaces.activeWs = act;
                 workspaces.wsList = list;
+                workspaces.wsClients = clients;
                 workspaces.rebuild();
             }
         }
@@ -348,6 +392,34 @@ Item {
                     }
                 }
 
+
+                // Per-workspace app icons. Tiny, leaning into the dot on hover
+                // or when the workspace is active; hidden at rest to keep the
+                // strip calm. First three distinct apps, overlapped.
+                Row {
+                    id: appIcons
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    bottomPadding: 0
+                    spacing: -2 * workspaces.s
+                    visible: slot.classes.length > 0 && (slot.isActive || workspaces.hoverIndex === slot.index)
+
+                    readonly property var classes: workspaces.classesByWs[slot.wsName] || []
+                    Repeater {
+                        model: Math.min(3, appIcons.classes.length)
+                        delegate: Image {
+                            required property int index
+                            width: 9 * workspaces.s
+                            height: 9 * workspaces.s
+                            smooth: true
+                            mipmap: true
+                            source: workspaces.iconFor(appIcons.classes[index])
+                            // soft fallback badge when no icon resolves
+                            onStatusChanged: if (status === Image.Error) source = ""
+                        }
+                    }
+                }
+
                 MouseArea {
                     id: area
                     anchors.fill: parent
@@ -374,4 +446,59 @@ Item {
      }
 }
     }
+
+    Item {
+        id: wsPreviewHost
+        anchors.top: row.bottom
+        anchors.left: parent.left
+        width: workspaces.width
+        visible: workspaces.hoverIndex >= 0
+
+        function hoveredWsId() {
+            if (workspaces.hoverIndex < 0 || workspaces.hoverIndex >= workspaces.range.length)
+                return -1;
+            return workspaces.range[workspaces.hoverIndex];
+        }
+        function windowsForHovered() {
+            var id = hoveredWsId();
+            if (id < 0) return [];
+            var out = [];
+            for (var i = 0; i < workspaces.wsClients.length; i++) {
+                if (workspaces.wsClients[i].id === id)
+                    out.push(workspaces.wsClients[i]);
+            }
+            return out;
+        }
+
+        Rectangle {
+            id: wsPreview
+            x: Math.max(0, workspaces.slotCenterX(Math.max(0, workspaces.hoverIndex)) - width / 2)
+            y: 4 * workspaces.s
+            width: Math.min(260 * workspaces.s, Math.max(140 * workspaces.s, col.implicitWidth + 18 * workspaces.s))
+            height: col.implicitHeight + 13 * workspaces.s
+            radius: 8 * workspaces.s
+            color: Theme.surface
+            border.color: Theme.borderLight
+            border.width: 1 * workspaces.s
+            opacity: workspaces.hoverIndex >= 0 ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+            Column {
+                id: col
+                anchors.centerIn: parent
+                spacing: 2 * workspaces.s
+                Repeater {
+                    id: prevRepeater
+                    model: wsPreview._wins
+                    delegate: Row { spacing: 6 * workspaces.s
+                        Image { width: 12 * workspaces.s; height: 12 * workspaces.s; source: workspaces.iconFor(modelData.cls) }
+                        Text { text: modelData.title || modelData.cls; color: Theme.text; font.family: Theme.font; font.pixelSize: 11 * workspaces.s; elide: Text.ElideRight; width: Math.min(220*workspaces.s, 260*workspaces.s) }
+                    }
+                }
+            }
+            // feed repeater model reactively
+            property var _wins: wsPreviewHost.windowsForHovered()
+        }
+    }
+
 }
