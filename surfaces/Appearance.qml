@@ -27,6 +27,7 @@ SettingsSurface {
     implicitHeight: content.implicitHeight
 
     rows: [
+        { item: searchTile, kind: "nav", surface: "search" },
         { item: themeTile, kind: "nav", surface: "theme" },
         { item: appearTile, kind: "nav", surface: "appcat" },
         { item: fontTile, kind: "nav", surface: "fontpicker" },
@@ -52,6 +53,23 @@ SettingsSurface {
         }
 
         Item { width: 1; height: 8 * root.s }
+
+        // --- Search ----------------------------------------------------------
+        SettingsRow {
+            id: searchTile
+            surface: root
+            glyph: "⌕"
+            name: "Search Settings"
+            sub: "Find any setting by name or keyword"
+
+            GlyphIcon {
+                width: 16 * root.s
+                height: 16 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === searchTile ? Theme.cream : Theme.iconDim
+                stroke: 1.9
+            }
+        }
 
         // --- Visuals & Theme ---
         SettingsRow {

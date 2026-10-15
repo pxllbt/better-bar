@@ -152,7 +152,8 @@ Item {
     readonly property bool updateOpen: surface === "update"
     readonly property bool lockstyleOpen: surface === "lockstyle"
     readonly property bool plymouthOpen: surface === "plymouth"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || plymouthOpen
+    readonly property bool searchOpen: surface === "search"
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || interfaceOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || plymouthOpen || searchOpen
     readonly property bool hasMedia: Players.list.length > 0
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
@@ -599,6 +600,7 @@ Item {
         update:     { size: () => Qt.size(settingsW, surfaceItem("update").implicitHeight + 29 * s), ame: () => surfaceItem("update") },
         lockstyle:  { size: () => Qt.size(settingsW, surfaceItem("lockstyle").implicitHeight + 29 * s), ame: () => surfaceItem("lockstyle") },
         plymouth:   { size: () => Qt.size(settingsW, surfaceItem("plymouth").implicitHeight + 29 * s), ame: () => surfaceItem("plymouth") },
+        search:     { size: () => Qt.size(settingsW, surfaceItem("search").implicitHeight + 29 * s), ame: () => surfaceItem("search") },
         plugin:     { size: () => {
                 // Omarchy plug-ins render their UIs as popout layer surfaces;
                 // there is no embeddable content to morph the pill into, so the
@@ -645,6 +647,7 @@ Item {
         update:     () => ldUpdate,
         lockstyle:  () => ldLockstyle,
         plymouth:   () => ldPlymouth,
+        search:     () => ldSearch,
         plugin:     () => ldPluginSurface
     })
 
@@ -3926,6 +3929,19 @@ sourceComponent: Media {
         sourceComponent: PlymouthSurface {
             s: pill.s * pill.settingsScale
             open: pill.plymouthOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
+
+    Loader {
+        id: ldSearch
+        active: false
+        anchors.fill: parent
+        sourceComponent: SettingsSearchSurface {
+            s: pill.s * pill.settingsScale
+            open: pill.searchOpen
             morphCloseness: pill.morphCloseness
             onRequestClose: pill.requestClose()
             onRequestSurface: (name) => pill.requestSurface(name)

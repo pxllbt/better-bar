@@ -30,4 +30,5 @@ WifiSurface WifiSurface.qml
 PluginsSurface PluginsSurface.qml
 LockStyleSurface LockStyleSurface.qml
 PlymouthSurface PlymouthSurface.qml
+SettingsSearchSurface SettingsSearchSurface.qml
 PluginHostSurface PluginHostSurface.qml

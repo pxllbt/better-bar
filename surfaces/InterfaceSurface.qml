@@ -23,7 +23,7 @@ SettingsSurface {
         { item: motionRow, kind: "toggle", get: function () { return Flags.reduceMotion; }, set: function (v) { Flags.reduceMotion = v; } },
         { item: autoHideRow, kind: "toggle", get: function () { return Flags.autoHide; }, set: function (v) { Flags.autoHide = v; } },
         { item: cursorFollowRow, kind: "toggle", get: function () { return Flags.cursorFollow; }, set: function (v) { Flags.cursorFollow = v; } },
-
+        { item: keybindsRow, kind: "toggle", get: function () { return false; }, activate: function () { Plugins.openOrEnable("meviusisback.keybinds"); } },
         { item: saverRow, kind: "toggle", get: function () { return Flags.memorySaver; }, set: function (v) { Flags.memorySaver = v; } }
     ]
 
@@ -91,6 +91,22 @@ Item { width: 1; height: 10 * root.s }
                 s: root.s
                 on: Flags.cursorFollow
                 onToggled: Flags.cursorFollow = !Flags.cursorFollow
+            }
+        }
+
+        SettingsRow {
+            id: keybindsRow
+            surface: root
+            icon: "keyboard"
+            name: "Keybindings"
+            sub: "Open the Hyprland keybinding manager"
+
+            GlyphIcon {
+                width: 16 * root.s
+                height: 16 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === keybindsRow ? Theme.cream : Theme.iconDim
+                stroke: 1.9
             }
         }
 
