@@ -27,6 +27,7 @@ SettingsSurface {
         { item: expandRow, kind: "seg", vals: ["media", "pill"], get: function () { return Flags.expandTo; }, set: function (v) { Flags.expandTo = v; } },
         { item: timeRow, kind: "seg", vals: [false, true], get: function () { return Flags.time12h; }, set: function (v) { Flags.time12h = v; } },
         { item: secRow, kind: "toggle", get: function () { return Flags.clockSeconds; }, set: function (v) { Flags.clockSeconds = v; } },
+        { item: vizStyleRow, kind: "seg", vals: ["bars", "wave"], get: function () { return Flags.musicStyle; }, set: function (v) { Flags.musicStyle = v; } },
         { item: vizRow, kind: "toggle", get: function () { return Flags.musicViz; }, set: function (v) { Flags.musicViz = v; } },
         { item: dockRow, kind: "toggle", get: function () { return Flags.dockEnabled; }, set: function (v) { Flags.dockEnabled = v; } },
         { item: clockIconRow, kind: "toggle", get: function () { return Flags.clockIcon; }, set: function (v) { Flags.clockIcon = v; } }
@@ -122,6 +123,20 @@ Item { width: 1; height: 10 * root.s }
                 s: root.s
                 on: Flags.clockIcon
                 onToggled: Flags.clockIcon = !Flags.clockIcon
+            }
+        }
+
+        SettingsRow {
+            id: vizStyleRow
+            surface: root
+            name: "Visualizer style"
+            icon: "music"
+
+            SettingsSeg {
+                s: root.s
+                options: [{ label: "Bars", value: "bars" }, { label: "Waveform", value: "wave" }]
+                value: Flags.musicStyle
+                onPicked: (v) => Flags.musicStyle = v
             }
         }
 

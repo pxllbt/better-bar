@@ -88,6 +88,8 @@ Singleton {
     property alias topGap: adapter.topGap
     property alias appGap: adapter.appGap
     property alias weatherCity: adapter.weatherCity
+    //* Visualiser style when cava is active: "bars" (ember bars) or "wave" (smooth amplitude wave).
+    property alias musicStyle: adapter.musicStyle
     property alias musicViz: adapter.musicViz
     property alias gameMode: adapter.gameMode
     //* Autonomous GameMode auto-shadowplay: automatically arms Better Recast replay buffer on game launch.
@@ -206,6 +208,7 @@ Singleton {
             //* Pill-to-window band as a fraction of the shipped 12px. 0 tucks the windows flush under the pill.
             property real appGap: 1
             property string weatherCity: ""
+            property string musicStyle: "wave"
             property bool musicViz: true
             property bool gameMode: false
             property bool autoGameReplay: true

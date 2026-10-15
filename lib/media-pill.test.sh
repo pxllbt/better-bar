@@ -9,6 +9,9 @@ STRIP_LAYOUT_FILE="$ROOT/Singletons/StripLayout.qml"
 LINK_FILE="$ROOT/surfaces/Link.qml"
 TOAST_FILE="$ROOT/surfaces/Toast.qml"
 NOTIFS_FILE="$ROOT/Singletons/Notifs.qml"
+FLAGS="$ROOT/Singletons/Flags.qml"
+MB="$ROOT/components/MusicBars.qml"
+DSURFACE="$ROOT/surfaces/DisplaySurface.qml"
 
 failed=0
 ok() {
@@ -167,6 +170,16 @@ ok "Floating visualizer is centered over the strip face" "$float_center" "1"
 
 float_cond=$(grep -A8 'id: stripVizFloat' "$PILL" | grep -c 'Cava.active && Flags.musicViz && !pill.stripMedia' || true)
 ok "Floating visualizer only appears while audio is active" "$float_cond" "1"
+
+# 20. Visualizer style flag + wave style render path + settings row
+has_style_flag=$(grep -c 'property alias musicStyle' "$FLAGS" || true)
+ok "Visualizer style flag is persisted" "$has_style_flag" "1"
+
+has_wave_style=$(grep -c 'visible: root.style === "wave"' "$MB" || true)
+ok "MusicBars supports a waveform style" "$has_wave_style" "1"
+
+has_style_row=$(grep -c 'id: vizStyleRow' "$DSURFACE" || true)
+ok "Display surface exposes a visualizer style row" "$has_style_row" "1"
 
 if [ "$failed" -gt 0 ]; then
     printf '\n%d media-pill checks failed\n' "$failed" >&2
