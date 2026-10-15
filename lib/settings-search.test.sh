@@ -9,7 +9,7 @@ set -uo pipefail
 
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 CATALOG="$ROOT/lib/settings-search.js"
-SURFACE="$ROOT/surfaces/SettingsSearchSurface.qml"
+SURFACE="$ROOT/surfaces/Appearance.qml"
 
 failed=0
 ok() {

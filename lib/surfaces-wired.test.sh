@@ -35,11 +35,10 @@ ok() {
 
 [ -f "$PILL" ] || { echo "no Pill.qml at $PILL" >&2; exit 1; }
 
-# The surfaces Appearance's nav rows navigate to, in declaration order.
-# The property is `rows:`, and the block ends at the first line that is only
-# a closing bracket -- matching on `navRows` silently found nothing and made
-# every check below it vacuously pass.
-navigated=$(sed -n '/^[[:space:]]*rows:[[:space:]]*\[/,/^[[:space:]]*\]/p' "$APPEARANCE" \
+# The nav rows Appearance navigates to. These are the category rows; the live
+# search rows are generated from the search catalog and registered by the
+# Repeater, so the static destination contract lives in `categoryRows`.
+navigated=$(sed -n '/readonly property var categoryRows: \[/,/^[[:space:]]*\]/p' "$APPEARANCE" \
     | grep -oE 'surface:[[:space:]]*"[a-z]+"' | grep -oE '"[a-z]+"' | tr -d '"')
 
 # One of the nav rows is deliberately not a pill surface, so it is not held to
