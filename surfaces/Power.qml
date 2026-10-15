@@ -49,7 +49,7 @@ PillSurface {
     amePoint: Qt.point(heatX, heatY)
 
     readonly property var actions: [
-        { key: "lock",        glyph: "lock",     label: "Lock",        confirm: false, dispatch: "",             argv: [Config.hyprPath("scripts", "lock.sh")] },
+        { key: "lock",        glyph: "lock",     label: "Lock",        confirm: false, dispatch: "",             argv: ["omarchy-system-lock"] },
         { key: "screensaver", glyph: "sparkles", label: "Screensaver", confirm: false, dispatch: "",             argv: ["omarchy-launch-screensaver", "force"] },
         { key: "suspend",     glyph: "suspend",  label: "Sleep",       confirm: false, dispatch: "",             argv: ["systemctl", "suspend"] },
         { key: "logout",      glyph: "logout",   label: "Logout",      confirm: true,  dispatch: "hl.dsp.exit()", argv: [] },
