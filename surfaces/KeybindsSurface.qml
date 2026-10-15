@@ -118,19 +118,21 @@ SettingsSurface {
 
     Component.onCompleted: Keybinds.surfaceOpen = root.open
 
-    SettingsHeader {
-        s: root.s
-        glyph: "keyboard"
-        title: "KEYBINDS"
-        showBack: true
-    }
-
     Column {
         id: content
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         spacing: 0
+
+        SettingsHeader {
+            s: root.s
+            glyph: "keyboard"
+            title: "KEYBINDS"
+            showBack: true
+        }
+
+        Item { width: 1; height: 10 * root.s }
 
         Rectangle {
             width: parent.width
@@ -144,7 +146,7 @@ SettingsSurface {
                 id: tabRow
                 x: 14 * root.s
                 y: 8 * root.s
-                spacing: 8 * root.s
+                spacing: 6 * root.s
 
                 Repeater {
                     model: [
@@ -158,7 +160,7 @@ SettingsSurface {
                         required property var modelData
                         readonly property bool current: Keybinds.tab === modelData.value
 
-                        width: Math.max(64 * root.s, tabLabel.implicitWidth + 14 * root.s)
+                        width: Math.max(48 * root.s, tabLabel.implicitWidth + 12 * root.s)
                         height: 24 * root.s
                         radius: 8 * root.s
                         color: current ? Qt.alpha(Theme.accent, 0.18) : "transparent"
