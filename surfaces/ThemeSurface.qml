@@ -191,7 +191,7 @@ SettingsSurface {
             showBack: true
         }
 
-        Item { width: 1; height: 8 * root.s }
+        Item { width: 1; height: 6 * root.s }
 
         // Search Bar
         Rectangle {
@@ -263,7 +263,7 @@ SettingsSurface {
             }
         }
 
-        Item { width: 1; height: 10 * root.s }
+        Item { width: 1; height: 7 * root.s }
 
         // Theme Cards Grid
         Item {
@@ -382,7 +382,7 @@ SettingsSurface {
             }
         }
 
-        Item { width: 1; height: 10 * root.s }
+        Item { width: 1; height: 7 * root.s }
 
         // Accordion for Custom Hue & Wallpaper Folder
         Rectangle {

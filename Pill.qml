@@ -1227,18 +1227,23 @@ Item {
     /**
      * AMBIENT AURA — the showpiece.
      *
-     * A soft accent glow that blooms behind the pill and breathes with whatever
-     * is currently on the speakers. The spectrum peaks come from cava, so the
-     * bar visibly *listens*: a bass hit widens it, a quiet passage lets it
-     * settle, and silence puts it completely to sleep (zero opacity, zero
-     * repaint). It is the one element that makes the bar feel alive in a
-     * screenshot of a quiet desktop, and it is also the one that costs nothing
-     * when the machine is silent.
+     * A soft accent glow that blooms behind the pill and *listens* to whatever
+     * is on the speakers, using the full cava spectrum rather than a single
+     * loudness number: a bass hit widens the whole bloom, while the individual
+     * band pools shimmer across the bar so the glow moves *within* a track
+     * instead of pulsing as one mass. Silence puts it completely to sleep —
+     * zero opacity, zero repaints.
      *
-     * One radial fill at the pill's own size, not a blur chain: a soft gradient
-     * has no hard edges, so this reads as an ambient bloom at a fraction of the
-     * per-frame cost of an offscreen Gaussian. It repaints only on a cava
-     * frame, a theme change, or becoming visible — never on a timer.
+     * Two modes, because it must respect `Flags.reduceMotion`:
+     *   - default: one gradient plus per-band pools, repainted per cava frame.
+     *     The canvas is the pill's own size (~460×34), so a frame is a handful
+     *     of small radial fills — cheap, and only ever while audio is active.
+     *   - reduced motion: a single static bloom modulated purely by opacity,
+     *     which the compositor owns, so nothing shimmers at all.
+     *
+     * In both modes the tint is the live accent, so a theme swap carries the
+     * glow with it, and `Flags.auraIntensity` scales every alpha the canvas
+     * paints — 0 turns the aura off without touching the visualizer.
      */
     Item {
         id: aura
@@ -1247,16 +1252,16 @@ Item {
         // to one of the pill's children.
         enabled: false
         visible: opacity > 0.005
-        opacity: (Flags.musicViz && Cava.active) ? aura.auraLevel : 0
-        Behavior on opacity { NumberAnimation { duration: Math.round(260 * Motion.mult); easing.type: Easing.OutQuad } }
 
-        /** The glow's tint: the live accent, so it tracks every theme change. */
-        readonly property color glowColor: Theme.vermLit
+        /** Shimmer needs repainting; a calm bloom does not. */
+        readonly property bool shimmer: !Flags.reduceMotion && Cava.active
+
+        /** 0..1, clamped, straight from the flag — every painted alpha scales by it. */
+        readonly property real intensity: Math.max(0, Math.min(1, Flags.auraIntensity))
 
         /**
-         * 0..1 bloom amount: how loud the current frame is. Quiet frames still
-         * read as a present-but-calm room glow rather than vanishing entirely,
-         * so the pill never looks naked mid-track.
+         * The current frame's loudest band, floored so a quiet passage reads as
+         * a present-but-calm room glow instead of the pill looking naked.
          */
         readonly property real auraLevel: {
             var peak = 0;
@@ -1266,8 +1271,16 @@ Item {
             return Math.min(1, Math.max(0.10, peak * 1.15));
         }
 
+        opacity: (aura.intensity > 0 && Flags.musicViz && Cava.active)
+            ? (aura.shimmer ? 1 : aura.auraLevel)
+            : 0
+        Behavior on opacity { NumberAnimation { duration: Math.round(260 * Motion.mult); easing.type: Easing.OutQuad } }
+
+        /** The glow's tint: the live accent, so it tracks every theme change. */
+        readonly property color glowColor: Theme.vermLit
+
         function repaint() {
-            if (aura.visible)
+            if (aura.visible && aura.shimmer)
                 auraCanvas.requestPaint();
         }
 
@@ -1279,18 +1292,29 @@ Item {
             onPaint: {
                 var ctx = getContext("2d");
                 var c = aura.glowColor;
+                var k = aura.intensity;
                 var w = width, h = height;
+                if (w < 2 || h < 2)
+                    return;
+
                 var cx = w / 2, cy = h / 2;
                 var rx = Math.max(w / 2, 1);
                 var ry = Math.max(h / 2, 1);
-                // Elliptical so the glow pools under the slab's long edges
-                // instead of forming a circle around a bar that is far wider
-                // than it is tall.
-                var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-                g.addColorStop(0.0, Qt.rgba(c.r, c.g, c.b, 0.55));
-                g.addColorStop(0.50, Qt.rgba(c.r, c.g, c.b, 0.18));
-                g.addColorStop(1.0, Qt.rgba(c.r, c.g, c.b, 0.0));
+                var n = Cava.bars;
+                var lvl = aura.auraLevel;
+
+                /** Quiet-passage alphas still smear a visible haze. */
+                var calm = aura.shimmer ? (0.35 + 0.65 * lvl) : 1;
+                var blur = aura.shimmer ? 0.35 + 0.65 * lvl : 1;
+
                 ctx.clearRect(0, 0, w, h);
+
+                // Base elliptical bloom, shaped to the slab so the glow pools
+                // under the bar's long edges instead of forming a circle.
+                var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+                g.addColorStop(0.00, Qt.rgba(c.r, c.g, c.b, 0.55 * k * calm));
+                g.addColorStop(0.50, Qt.rgba(c.r, c.g, c.b, 0.18 * k * blur));
+                g.addColorStop(1.00, Qt.rgba(c.r, c.g, c.b, 0.0));
                 ctx.save();
                 ctx.translate(cx, cy);
                 ctx.scale(1, ry / rx);
@@ -1298,27 +1322,52 @@ Item {
                 ctx.fillStyle = g;
                 ctx.fillRect(0, 0, w, h);
                 ctx.restore();
+
+                // Per-band pools. Each is a small radial fill clipped to the
+                // vertical span it can touch, so a frame is a handful of cheap
+                // fills rather than a full-canvas blur.
+                for (var i = 0; i < n; i++) {
+                    var v = Cava.levels[i] || 0;
+                    if (v <= 0.015)
+                        continue;
+                    var bx = w * (i + 0.5) / n;
+                    var br = rx * (0.16 + 0.40 * v);
+                    var ba = Math.pow(v, 1.6) * 0.55 * k;
+                    if (ba < 0.01)
+                        continue;
+                    var pg = ctx.createRadialGradient(bx, cy, 0, bx, cy, br);
+                    pg.addColorStop(0.00, Qt.rgba(c.r, c.g, c.b, ba));
+                    pg.addColorStop(1.00, Qt.rgba(c.r, c.g, c.b, 0.0));
+                    ctx.save();
+                    ctx.fillStyle = pg;
+                    ctx.fillRect(bx - br, 0, br * 2, h);
+                    ctx.restore();
+                }
             }
 
             /**
-             * The painted pixels depend only on the tint and the canvas size;
-             * the loudness is applied by the parent's opacity, which the
-             * compositor owns. So this repaints on a morph, a theme change or
-             * becoming visible — never on a cava frame, which would re-fill the
-             * whole gradient 30 times a second to produce the same bitmap.
+             * The painted pixels depend on the tint and the canvas size; the
+             * loudness is applied by the parent's opacity when shimmering is
+             * off. So size changes always repaint, while shimmer mode repaints
+             * per cava frame through `aura.repaint()`.
              */
             onWidthChanged: requestPaint()
             onHeightChanged: requestPaint()
+        }
+
+        Connections {
+            target: Cava
+            function onLevelsChanged() { aura.repaint(); }
         }
 
         // A theme swap changes glowColor, which is baked into the painted
         // pixels rather than tinted by a layer, so it needs its own repaint.
         Connections {
             target: Theme
-            function onVermLitChanged() { aura.repaint(); }
+            function onVermLitChanged() { if (aura.visible) auraCanvas.requestPaint(); }
         }
 
-        Component.onCompleted: aura.repaint()
+        Component.onCompleted: if (aura.visible) auraCanvas.requestPaint()
     }
 
     LiquidGlass {

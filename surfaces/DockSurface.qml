@@ -300,7 +300,7 @@ DockPanel {
             onClicked: root.requestClose()
         }
 
-        Item { width: 1; height: 10 * root.s }
+        Item { width: 1; height: 7 * root.s }
 
         SettingsRow {
             id: dockRow
@@ -466,7 +466,7 @@ DockPanel {
                     }
                 }
 
-                Item { width: 1; height: 8 * root.s }
+                Item { width: 1; height: 6 * root.s }
 
                 Item {
                     id: appListFrame

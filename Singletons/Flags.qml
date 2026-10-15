@@ -90,6 +90,8 @@ Singleton {
     property alias weatherCity: adapter.weatherCity
     //* Visualiser style when cava is active: "bars" (ember bars) or "wave" (smooth amplitude wave).
     property alias musicStyle: adapter.musicStyle
+    //* Ambient aura strength behind the pill: 0 = off, 1 = full bloom.
+    property alias auraIntensity: adapter.auraIntensity
     //* Plymouth unlock background hex (#RRGGBB), independent of the desktop theme.
     property alias plymouthBg: adapter.plymouthBg
     //* Plymouth unlock text hex (#RRGGBB), independent of the desktop theme.
@@ -215,6 +217,8 @@ Singleton {
             property real appGap: 1
             property string weatherCity: ""
             property string musicStyle: "wave"
+            //* Ambient aura strength behind the pill: 0 = off, 1 = full bloom.
+            property real auraIntensity: 0.75
             //* Plymouth unlock background hex (#RRGGBB).
             property string plymouthBg: "#1a1b26"
             //* Plymouth unlock text hex (#RRGGBB).

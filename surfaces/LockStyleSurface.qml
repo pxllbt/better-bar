@@ -248,7 +248,7 @@ SettingsSurface {
             showBack: true
         }
 
-        Item { width: 1; height: 10 * root.s }
+        Item { width: 1; height: 7 * root.s }
 
         SettingsRow {
             id: modernTile
@@ -295,7 +295,7 @@ SettingsSurface {
             GlyphIcon { width: 16 * root.s; height: 16 * root.s; name: "chevron-right"; color: root.focusRowItem === stockTile ? Theme.cream : Theme.iconDim; stroke: 1.9 }
         }
 
-        Item { width: 1; height: 8 * root.s }
+        Item { width: 1; height: 6 * root.s }
 
         SettingsRow {
             id: clockEnabledRow
@@ -378,7 +378,7 @@ SettingsSurface {
             }
         }
 
-        Item { width: 1; height: 8 * root.s }
+        Item { width: 1; height: 6 * root.s }
 
         SettingsRow {
             id: pinModeRow
@@ -427,7 +427,7 @@ SettingsSurface {
             }
         }
 
-        Item { width: 1; height: 8 * root.s }
+        Item { width: 1; height: 6 * root.s }
 
         SettingsRow {
             id: layoutRow
@@ -471,7 +471,7 @@ SettingsSurface {
             }
         }
 
-        Item { width: 1; height: 8 * root.s }
+        Item { width: 1; height: 6 * root.s }
 
         SettingsRow {
             id: avatarRow
@@ -509,7 +509,7 @@ SettingsSurface {
             LinkToggle { s: root.s; on: root.section("visuals").animations !== false; onToggled: { root.setValue("visuals", "animations", !on, "Animations") } }
         }
 
-        Item { width: 1; height: 8 * root.s }
+        Item { width: 1; height: 6 * root.s }
 
         SettingsRow {
             id: restoreTile

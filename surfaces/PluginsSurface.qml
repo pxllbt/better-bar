@@ -25,7 +25,7 @@ SettingsSurface {
     backSurface: "appearance"
 
     /** Bounded list height; the inventory scrolls below the fold. */
-    readonly property real listCap: 280 * root.s
+    readonly property real listCap: 240 * root.s
 
     /** Live plugin rows, kept in step with the Repeater below. */
     property var pluginRows: []
@@ -326,7 +326,7 @@ SettingsSurface {
         anchors.right: parent.right
         spacing: 0
 
-        Item { width: 1; height: 10 * root.s }
+        Item { width: 1; height: 7 * root.s }
 
         /**
          * The auto part: the bar notices updates instead of you noticing them.

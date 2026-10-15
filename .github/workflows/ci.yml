@@ -57,6 +57,9 @@ jobs:
       - name: Run Ambient Aura Tests
         run: bash lib/ambient-aura.test.sh .
 
+      - name: Run Settings Compact Tests
+        run: bash lib/settings-compact.test.sh .
+
       - name: Run Strip Layout Tests
         run: bash lib/strip-layout.test.sh .
 

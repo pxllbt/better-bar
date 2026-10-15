@@ -278,7 +278,7 @@ SettingsSurface {
             showBack: true
         }
 
-Item { width: 1; height: 10 * root.s }
+Item { width: 1; height: 7 * root.s }
         SettingsRow {
             id: updateRow
             surface: root
@@ -395,7 +395,7 @@ Item { width: 1; height: 10 * root.s }
          * consecutive lines with two of them suddenly carrying a caption. The
          * extra space is what turns the rule into a division.
         */
-        Item { width: 1; height: 10 * root.s }
+        Item { width: 1; height: 7 * root.s }
 
         SettingsRow {
             id: depsRow

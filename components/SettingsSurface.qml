@@ -21,10 +21,10 @@ import "../Singletons"
 PillSurface {
     id: root
 
-    mTop: 15
-    mLeft: 19
-    mRight: 19
-    mBottom: 14
+    mTop: 12
+    mLeft: 16
+    mRight: 16
+    mBottom: 11
 
     property string backSurface: ""
     signal requestSurface(string name)

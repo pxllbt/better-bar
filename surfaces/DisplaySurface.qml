@@ -28,6 +28,7 @@ SettingsSurface {
         { item: timeRow, kind: "seg", vals: [false, true], get: function () { return Flags.time12h; }, set: function (v) { Flags.time12h = v; } },
         { item: secRow, kind: "toggle", get: function () { return Flags.clockSeconds; }, set: function (v) { Flags.clockSeconds = v; } },
         { item: vizStyleRow, kind: "seg", vals: ["bars", "wave"], get: function () { return Flags.musicStyle; }, set: function (v) { Flags.musicStyle = v; } },
+        { item: auraRow, kind: "toggle", get: function () { return Flags.auraIntensity > 0; }, set: function (v) { Flags.auraIntensity = v ? 0.75 : 0; } },
         { item: vizRow, kind: "toggle", get: function () { return Flags.musicViz; }, set: function (v) { Flags.musicViz = v; } },
         { item: dockRow, kind: "toggle", get: function () { return Flags.dockEnabled; }, set: function (v) { Flags.dockEnabled = v; } },
         { item: clockIconRow, kind: "toggle", get: function () { return Flags.clockIcon; }, set: function (v) { Flags.clockIcon = v; } }
@@ -46,7 +47,7 @@ SettingsSurface {
             showBack: true
         }
 
-Item { width: 1; height: 10 * root.s }
+Item { width: 1; height: 7 * root.s }
         SettingsRow {
             id: mainRow
             surface: root
@@ -137,6 +138,28 @@ Item { width: 1; height: 10 * root.s }
                 options: [{ label: "Bars", value: "bars" }, { label: "Waveform", value: "wave" }]
                 value: Flags.musicStyle
                 onPicked: (v) => Flags.musicStyle = v
+            }
+        }
+
+        /**
+         * The ambient aura behind the pill: a soft accent bloom that tracks the
+         * live audio spectrum. It is a switch rather than a slider because the
+         * one thing a user needs to be able to do from here is turn it off — and
+         * 0.75 is the value measured to read as a glow rather than a lamp.
+         * Reduced motion is honoured on the pill's side: with it on the aura
+         * becomes a single static bloom, so this row stays honest.
+         */
+        SettingsRow {
+            id: auraRow
+            surface: root
+            icon: "music"
+            name: "Ambient aura"
+            sub: "Pill glows with the music · follows the accent colour"
+
+            LinkToggle {
+                s: root.s
+                on: Flags.auraIntensity > 0
+                onToggled: Flags.auraIntensity = Flags.auraIntensity > 0 ? 0 : 0.75
             }
         }
 

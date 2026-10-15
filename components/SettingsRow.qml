@@ -40,7 +40,13 @@ Item {
     readonly property color hair: srow.pal ? srow.pal.hair : Theme.hairSoft
 
     width: parent ? parent.width : 0
-    height: Math.max(textCol.implicitHeight, controlSlot.childrenRect.height) + 12 * srow.s
+    /**
+     * Tighter vertical padding than the shipped 12. A settings list is read
+     * line-by-line, so the row's job is separation, not breathing room: at 12
+     * a fourteen-row page ran to a scroll when it fit comfortably. 9 keeps
+     * every row a finger-target while taking a third of the slack out.
+     */
+    height: Math.max(textCol.implicitHeight, controlSlot.childrenRect.height) + 9 * srow.s
 
     HoverHandler {
         id: srowHover

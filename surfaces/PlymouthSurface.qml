@@ -31,7 +31,7 @@ SettingsSurface {
     implicitHeight: content.implicitHeight
 
     /** The preset list is long; keep the surface pill-sized and scroll only it. */
-    readonly property real listCap: 260 * root.s
+    readonly property real listCap: 220 * root.s
 
     property var availableThemes: []
     property string currentTheme: ""
@@ -309,7 +309,7 @@ SettingsSurface {
             showBack: true
         }
 
-        Item { width: 1; height: 10 * root.s }
+        Item { width: 1; height: 7 * root.s }
 
         SettingsRow {
             id: bgRow
@@ -444,7 +444,7 @@ SettingsSurface {
             }
         }
 
-        Item { width: 1; height: 8 * root.s }
+        Item { width: 1; height: 6 * root.s }
 
         Flickable {
             width: parent.width
