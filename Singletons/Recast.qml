@@ -33,47 +33,25 @@ Item {
     // read. The displayed count is derived from these, not assigned by them.
     property int serviceElapsed: 0
     property double serviceElapsedAtMs: 0
-    // Pre-roll countdown, mirrored from the service and ticked locally so the
-    // chip smoothly counts 3… 2… 1… without freezing between file polls.
+    /**
+     * Pre-roll countdown, mirrored straight from the recorder.
+     *
+     * This shell does not derive the countdown from its own clock. The
+     * recorder publishes each remaining second itself, so "trust the service
+     * and watch the file while the pre-roll is running" is both simpler and
+     * immune to the local re-anchor bugs that made the display run backwards.
+     * The countdown is short (3/5/10s), so the inotify cost is bounded and the
+     * 500ms poll below is the fallback when inotify misses a write.
+     */
     property bool countdownPending: false
     property int serviceCountdownRemaining: 0
     property double serviceCountdownAtMs: 0
-    // Local clocks. The service's stamped counts are only used as the starting
-    // point: the displayed value from then on runs from the wall clock, so it
-    // cannot freeze, rewind or jump because of a slow or out-of-order poll.
-    property int countdownBase: 0
-    property double countdownStartAtMs: 0
-    property bool countdownCompleted: false
     property int liveBase: 0
     property double liveStartAtMs: 0
 
     readonly property int countdownRemaining: {
         root._tick
-        // Pure read. The latch above is armed by the completion timer below, not
-        // assigned from inside this binding: a binding that writes is exactly the
-        // pattern that turned `elapsed` into a binding loop before.
-        if (root.countdownCompleted) return 1;
-        if (root.countdownPending && root.countdownStartAtMs > 0) {
-            var diff = Math.floor((Date.now() - root.countdownStartAtMs) / 1000);
-            return Math.max(1, root.countdownBase - diff);
-        }
         return root.serviceCountdownRemaining;
-    }
-
-    // Once the pre-roll has displayed its last "1", keep it there until the
-    // service clears `countdownPending`. Timer, not a binding: it owns the only
-    // write to `countdownCompleted`, so no property dependency can re-run it.
-    Timer {
-        id: countdownCompleteTimer
-        interval: 200
-        repeat: root.countdownPending && !root.countdownCompleted
-        running: root.countdownPending && !root.countdownCompleted
-        triggeredOnStart: true
-        onTriggered: {
-            var secs = root.countdownStartAtMs > 0 ? Math.floor((Date.now() - root.countdownStartAtMs) / 1000) : 0;
-            if (secs >= Math.max(0, root.countdownBase - 1))
-                root.countdownCompleted = true;
-        }
     }
 
     function projectedElapsed() {
@@ -160,22 +138,13 @@ Item {
 
     property int _tick: 0
 
-    // Ticks the derived displays once a second. `elapsed` no longer depends on
-    // this — the ratchet is advanced by refreshElapsed() — so the timer drives
-    // an assignment rather than re-evaluating a property that writes.
-    //
-    // countdownPending is in that condition, and must be: the countdown's number
-    // is a binding over Date.now(), which is not reactive, and root._tick is the
-    // only thing that re-evaluates it. The timer used to run during recording and
-    // paused only, so during a pre-roll nothing re-evaluated and the number read
-    // once and froze — the chip sat at "STARTING 3…" until the service finished
-    // and cleared the pending flag, at which point it jumped straight to REC.
-    // The elapsed count is unaffected: refreshElapsed() only ever advances, and
-    // during a pre-roll it projects 0, which it also writes through.
+    // Drives the elapsed ratchet. The countdown does NOT come from here: the
+    // service owns each remaining second, and this shell watches the state file
+    // while the pre-roll is live instead of deriving a second local count.
     Timer {
-        interval: root.countdownPending ? 250 : 1000
+        interval: 1000
         repeat: true
-        running: root.recording || root.paused || root.countdownPending
+        running: root.recording || root.paused
         triggeredOnStart: true
         onTriggered: {
             root._tick = root._tick + 1;
@@ -183,21 +152,23 @@ Item {
         }
     }
 
-    // watchChanges stays OFF, and that is deliberate — it looks wrong.
+    // watchChanges is OFF while idle/recording and turns itself ON for the
+    // countdown, which is the bounded case worth watching.
     //
-    // With it on, every write the plugin makes to state.json (one per second
-    // while recording) costs ~70ms inside Quickshell's FileView change path:
-    // measured 7% CPU during a recording, which stalls input on this box (the
-    // mouse drops for a moment and comes back). With it off, the poll below
-    // re-reads through reload() — a plain read — and measures 0%.
+    // With it on during recording, every write the plugin makes to state.json
+    // (one per second while recording) costs ~70ms inside Quickshell's FileView
+    // change path: measured 7% CPU during a recording, which stalls input on
+    // this box (the mouse drops for a moment and comes back). With it off, the
+    // poll below re-reads through reload() — a plain read — and measures 0%.
     //
-    // The event path is not needed: the poll already runs at 5s while a
-    // recording is live, so the latency of losing the instant event is nil.
+    // The pre-roll is different: it lasts 3/5/10 seconds and writes once a
+    // second, so watching it costs nothing measurable and makes each countdown
+    // tick immediate. The 500ms poll below is the fallback for inotify misses.
     FileView {
         id: stateFile
         path: root.stateFilePath
         blockLoading: false
-        watchChanges: false
+        watchChanges: root.countdownPending
         printErrors: false
 
         onLoaded: root.updateState()
@@ -272,8 +243,12 @@ Item {
             var wasPaused = root.paused;
             root.recording = (st === "recording");
             root.paused = (st === "paused");
-            var prevCountdownPending = root.countdownPending;
-            root.countdownPending = data.countdownPending === true;
+            root.recording = (st === "recording");
+            root.paused = (st === "paused");
+            // A countdown is only drawn before a live take; a stale pending flag
+            // after recording has started is ignored rather than shown.
+            root.countdownPending = (data.countdownPending === true)
+                && st !== "recording" && st !== "paused";
             var readCountdown = typeof data.countdownRemaining === "number" ? data.countdownRemaining : 0;
             if (st === "recording" || st === "paused") {
                 if (!wasRecording && !wasPaused) {
@@ -295,27 +270,12 @@ Item {
                 root.liveBase = 0;
                 root.liveStartAtMs = 0;
             }
+            // Trust the recorder exactly. No local anchor, no projection, no
+            // descending latch: if the service has moved on, so does the chip.
             if (root.countdownPending) {
-                // Local start: only reset when the countdown leaves and comes back.
-                if (!prevCountdownPending) {
-                    root.countdownBase = readCountdown;
-                    root.countdownStartAtMs = Date.now();
-                    root.countdownCompleted = false;
-                } else if (readCountdown > root.countdownBase) {
-                    root.countdownBase = readCountdown;
-                    root.countdownStartAtMs = Date.now();
-                    root.countdownCompleted = false;
-                }
-                // Keep the older service values in sync, though the display no
-                // longer depends on them.
-                if (!prevCountdownPending || readCountdown > root.serviceCountdownRemaining) {
-                    root.serviceCountdownRemaining = readCountdown;
-                    root.serviceCountdownAtMs = Date.now();
-                }
+                root.serviceCountdownRemaining = readCountdown;
+                root.serviceCountdownAtMs = Date.now();
             } else {
-                root.countdownBase = 0;
-                root.countdownStartAtMs = 0;
-                root.countdownCompleted = false;
                 root.serviceCountdownRemaining = 0;
                 root.serviceCountdownAtMs = 0;
             }
@@ -325,14 +285,12 @@ Item {
         }
     }
 
-    // 1s while countdown is pending, 1s while live, 2s while idle.
-    // The countdown cadence has to stay ahead of, or level with, the display, and
-    // live capture is throttled only slightly harder: a 5s remote read is what
-    // made the face wait for a hover/click before the first live count appeared,
-    // even though the local count itself was already fine.
+    // 500ms while countdown is pending (the fallback if inotify misses a write),
+    // 1s while live, 2s while idle. A slow live poll cannot starve the live face:
+    // `elapsed` is derived locally from the recorded anchor, not from this poll.
     Timer {
         id: pollTimer
-        interval: (root.recording || root.paused || root.countdownPending) ? 1000 : 2000
+        interval: root.countdownPending ? 500 : (root.recording ? 1000 : 2000)
         repeat: true
         running: true
         onTriggered: stateFile.reload()
