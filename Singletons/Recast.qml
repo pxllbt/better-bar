@@ -38,14 +38,40 @@ Item {
     property bool countdownPending: false
     property int serviceCountdownRemaining: 0
     property double serviceCountdownAtMs: 0
+    // Local clocks. The service's stamped counts are only used as the starting
+    // point: the displayed value from then on runs from the wall clock, so it
+    // cannot freeze, rewind or jump because of a slow or out-of-order poll.
+    property int countdownBase: 0
+    property double countdownStartAtMs: 0
+    property int liveBase: 0
+    property double liveStartAtMs: 0
 
     readonly property int countdownRemaining: {
         root._tick
-        if (root.countdownPending && root.serviceCountdownAtMs > 0) {
-            var diff = Math.floor((Date.now() - root.serviceCountdownAtMs) / 1000);
-            return Math.max(1, root.serviceCountdownRemaining - diff);
+        if (root.countdownPending && root.countdownStartAtMs > 0) {
+            var diff = Math.floor((Date.now() - root.countdownStartAtMs) / 1000);
+            return Math.max(1, root.countdownBase - diff);
         }
         return root.serviceCountdownRemaining;
+    }
+
+    function projectedElapsed() {
+        if (!(root.recording || root.paused))
+            return 0;
+        // Prefer the local wall-clock basis; it advances every second regardless
+        // of how often the service writes.
+        if (root.liveStartAtMs > 0) {
+            var projected = root.liveBase + Math.max(0, Math.floor((Date.now() - root.liveStartAtMs) / 1000));
+            if (projected <= root._maxPlausibleElapsed)
+                return projected;
+        }
+        if (!(root.serviceElapsedAtMs > 0) || root.serviceElapsed <= 0)
+            return root.serviceElapsed || 0;
+        var proj = root.serviceElapsed
+            + Math.max(0, Math.floor((Date.now() - root.serviceElapsedAtMs) / 1000));
+        if (proj > root._maxPlausibleElapsed)
+            return root.serviceElapsed;
+        return proj;
     }
 
     readonly property string formattedTime: {
@@ -59,30 +85,6 @@ Item {
         return h > 0 ? (h + ":" + mm + ":" + ss) : (mm + ":" + ss);
     }
 
-    /**
-     * What the service's own clock says the count should be right now. Pure:
-     * it reads the anchored (count, stamp) pair and nothing else, so it can be
-     * called from any slot without re-entering itself.
-     */
-    function projectedElapsed() {
-        if (!(root.recording || root.paused))
-            return 0;
-        // Guard the anchor. Until the first stamped snapshot arrives
-        // `serviceElapsedAtMs` is 0, and projecting from it means dividing the
-        // current epoch by 1000 -- ~1.79e9 seconds, which formattedTime()
-        // rendered as "497743:59:21". The raw count is the honest answer until
-        // there is something to project from.
-        if (!(root.serviceElapsedAtMs > 0))
-            return root.serviceElapsed;
-        var projected = root.serviceElapsed
-            + Math.max(0, Math.floor((Date.now() - root.serviceElapsedAtMs) / 1000));
-        // Belt and braces. A take is minutes to hours; anything beyond this is a
-        // bad anchor rather than a long recording, and rendering it as a huge
-        // count is worse than showing the number we actually have.
-        if (projected > _maxPlausibleElapsed)
-            return root.serviceElapsed;
-        return projected;
-    }
 
     /**
      * The running maximum actually on screen.
@@ -239,27 +241,53 @@ Item {
                 // survive a reset that arrives some other way.
                 root._lastShownElapsed = 0;
             }
+            var wasRecording = root.recording;
+            var wasPaused = root.paused;
             root.recording = (st === "recording");
             root.paused = (st === "paused");
             var prevCountdownPending = root.countdownPending;
             root.countdownPending = data.countdownPending === true;
             var readCountdown = typeof data.countdownRemaining === "number" ? data.countdownRemaining : 0;
+            if (st === "recording" || st === "paused") {
+                if (!wasRecording && !wasPaused) {
+                    root.liveBase = readElapsed;
+                    root.liveStartAtMs = readAt > 0 ? readAt : Date.now();
+                }
+                if (root.liveStartAtMs <= 0) {
+                    root.liveBase = readElapsed;
+                    root.liveStartAtMs = readAt > 0 ? readAt : Date.now();
+                }
+                var nowMs = Date.now();
+                var serviceProjectedLive = readElapsed + Math.max(0, Math.floor((nowMs - readAt) / 1000));
+                var localProjectedLive = root.liveBase + Math.max(0, Math.floor((nowMs - root.liveStartAtMs) / 1000));
+                if (serviceProjectedLive > localProjectedLive + 2) {
+                    root.liveBase = readElapsed;
+                    root.liveStartAtMs = nowMs;
+                }
+            } else {
+                root.liveBase = 0;
+                root.liveStartAtMs = 0;
+            }
             if (root.countdownPending) {
-                // Anchor exactly once, when the pre-roll starts. Re-anchoring on
-                // every poll (the old `readCountdown !== stored` rule) made the
-                // chip re-start from the service's latest number each time it
-                // landed, so the display went 3 -> 2 -> 1 -> 2 -> 1 and then
-                // sat, because the local clock had just been thrown back. The
-                // service and the local clock disagree on the phase on purpose --
-                // the service publishes once a second and the local clock ticks
-                // every second -- so the only correction allowed is when the
-                // service's number is HIGHER than the last one, i.e. a genuine
-                // reset/restart, never a lower "in-progress" value.
+                // Local start: only reset when the countdown leaves and comes back.
+                if (!prevCountdownPending) {
+                    root.countdownBase = readCountdown;
+                    root.countdownStartAtMs = Date.now();
+                } else if (readCountdown > root.countdownBase) {
+                    root.countdownBase = readCountdown;
+                    root.countdownStartAtMs = Date.now();
+                }
+                // Keep the older service values in sync, though the display no
+                // longer depends on them.
                 if (!prevCountdownPending || readCountdown > root.serviceCountdownRemaining) {
                     root.serviceCountdownRemaining = readCountdown;
                     root.serviceCountdownAtMs = Date.now();
                 }
             } else {
+                root.countdownBase = 0;
+                root.countdownStartAtMs = 0;
+                root.serviceCountdownRemaining = 0;
+                root.serviceCountdownAtMs = 0;
                 root.serviceCountdownRemaining = 0;
                 root.serviceCountdownAtMs = 0;
             }
