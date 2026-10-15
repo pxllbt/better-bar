@@ -426,6 +426,8 @@ Item {
                             width: appIcons.iconPx
                             height: appIcons.iconPx
                             property string cls: appIcons.classes[index]
+                            property bool hovered: false
+                            MouseArea { anchors.fill: parent; hoverEnabled: true; onEntered: parent.hovered = true; onExited: parent.hovered = false }
                             opacity: appIcons.hovering ? 1.0 : 0.0
                             scale: 1.0
                             transformOrigin: Item.Center
@@ -437,7 +439,7 @@ Item {
                             Rectangle {
                                 anchors.fill: parent
                                 radius: 3 * workspaces.s
-                                color: Theme.surfaceHighlight
+                                color: hovered ? Theme.accent : Theme.surfaceHighlight
                                 border.width: 1 * workspaces.s
                                 border.color: Theme.borderLight
                                 visible: img.status !== Image.Ready
