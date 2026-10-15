@@ -129,6 +129,15 @@ Item {
         if (workspaces.iconCache[cls] !== undefined)
             return workspaces.iconCache[cls];
         var names = [cls, cls.toLowerCase(), cls.replace(/\./g, "-")];
+        // Reverse-domain classes (org.gnome.Foo) almost never share a name with
+        // their icon; the icon is named after the last segment. Try that before
+        // giving up, so the dots show real apps instead of blank glyphs where
+        // possible.
+        var parts = cls.split(".");
+        if (parts.length > 1) {
+            names.push(parts[parts.length - 1]);
+            names.push(parts[parts.length - 1].toLowerCase());
+        }
         var p = "";
         for (var i = 0; i < names.length; i++) {
             p = Quickshell.iconPath(names[i], true);
@@ -402,7 +411,7 @@ Item {
                     anchors.bottom: parent.bottom
                     bottomPadding: 0
                     spacing: -2 * workspaces.s
-                    visible: slot.classes.length > 0 && (slot.isActive || workspaces.hoverIndex === slot.index)
+                    visible: appIcons.classes.length > 0 && (slot.isActive || workspaces.hoverIndex === slot.index)
 
                     readonly property var classes: workspaces.classesByWs[slot.wsName] || []
                     Repeater {
