@@ -422,13 +422,11 @@ Item {
                     readonly property var classes: workspaces.classesByWs[slot.wsName] || []
                     Repeater {
                         model: Math.min(4, appIcons.classes.length)
-                        delegate: Image {
+                        delegate: Item {
                             required property int index
                             width: appIcons.iconPx
                             height: appIcons.iconPx
-                            smooth: true
-                            mipmap: true
-                            source: workspaces.iconFor(appIcons.classes[index])
+                            property string cls: appIcons.classes[index]
                             opacity: appIcons.hovering ? 1.0 : (index === 0 ? 0.95 : 0.0)
                             scale: appIcons.hovering ? 1.0 : 0.6
                             transformOrigin: Item.Center
@@ -436,7 +434,32 @@ Item {
                             Behavior on height { NumberAnimation { duration: Motion.fast } }
                             Behavior on scale  { NumberAnimation { duration: Motion.fast } }
                             Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-                            onStatusChanged: if (status === Image.Error) source = ""
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 3 * workspaces.s
+                                color: Theme.surfaceHighlight
+                                border.width: 1 * workspaces.s
+                                border.color: Theme.borderLight
+                                visible: img.status !== Image.Ready
+                            }
+                            Text {
+                                anchors.centerIn: parent
+                                text: cls.length ? cls.charAt(0).toUpperCase() : ""
+                                visible: img.status !== Image.Ready
+                                color: Theme.text
+                                font.family: Theme.font
+                                font.weight: Font.Bold
+                                font.pixelSize: Math.max(7, appIcons.iconPx * 0.7)
+                            }
+                            Image {
+                                id: img
+                                anchors.fill: parent
+                                smooth: true
+                                mipmap: true
+                                fillMode: Image.PreserveAspectFit
+                                source: workspaces.iconFor(cls)
+                            }
                         }
                     }
                 }
@@ -512,7 +535,10 @@ Item {
                     id: prevRepeater
                     model: wsPreview._wins
                     delegate: Row { spacing: 6 * workspaces.s
-                        Image { width: 12 * workspaces.s; height: 12 * workspaces.s; source: workspaces.iconFor(modelData.cls) }
+                        Item { width: 14 * workspaces.s; height: 14 * workspaces.s
+                            Rectangle { anchors.fill: parent; radius: 3 * workspaces.s; color: Theme.surfaceHighlight; border.width: 1 * workspaces.s; border.color: Theme.borderLight; visible: pv.status !== Image.Ready }
+                            Text { anchors.centerIn: parent; text: modelData.cls && modelData.cls.length ? modelData.cls.charAt(0).toUpperCase() : ""; visible: pv.status !== Image.Ready; color: Theme.text; font.family: Theme.font; font.weight: Font.Bold; font.pixelSize: 9 * workspaces.s }
+                            Image { id: pv; anchors.fill: parent; smooth: true; mipmap: true; fillMode: Image.PreserveAspectFit; source: workspaces.iconFor(modelData.cls) } }
                         Text { text: modelData.title || modelData.cls; color: Theme.text; font.family: Theme.font; font.pixelSize: 11 * workspaces.s; elide: Text.ElideRight; width: Math.min(220*workspaces.s, 260*workspaces.s) }
                     }
                 }
