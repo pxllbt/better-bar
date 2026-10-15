@@ -138,6 +138,7 @@ Item {
     readonly property bool btOpen: surface === "bt"
     readonly property bool batteryOpen: surface === "battery"
     readonly property bool sysmonOpen: surface === "sysmon"
+    readonly property bool screensOpen: surface === "screens"
     readonly property bool appearanceOpen: surface === "appearance"
     readonly property bool appcatOpen: surface === "appcat"
     readonly property bool displayOpen: surface === "display"
@@ -563,6 +564,10 @@ Item {
         bt:        { size: () => Qt.size(btW, surfaceItem("bt").implicitHeight + 26 * s), ame: () => surfaceItem("bt") },
         battery:   { size: () => Qt.size(batteryW, surfaceItem("battery").implicitHeight + 26 * s), ame: () => surfaceItem("battery") },
         sysmon:    { size: () => Qt.size(sysmonW, surfaceItem("sysmon").implicitHeight + 33 * s), ame: () => surfaceItem("sysmon") },
+        // The monitor-layout surface is a settings surface (SettingsSeg rows
+        // need the settings scale), so it is sized like the others rather than
+        // like the dials; its own content drives the height.
+        screens:   { size: () => Qt.size(settingsW, surfaceItem("screens").implicitHeight + 29 * s), ame: () => surfaceItem("screens") },
         appearance: { size: () => Qt.size(settingsW, surfaceItem("appearance").implicitHeight + 29 * s), ame: () => surfaceItem("appearance") },
         appcat:     { size: () => Qt.size(settingsW, surfaceItem("appcat").implicitHeight + 29 * s), ame: () => surfaceItem("appcat") },
         display:    { size: () => Qt.size(settingsW, surfaceItem("display").implicitHeight + 29 * s), ame: () => surfaceItem("display") },
@@ -606,6 +611,7 @@ Item {
         bt:         () => ldBt,
         battery:    () => ldBattery,
         sysmon:     () => ldSysmon,
+        screens:    () => ldScreens,
         appearance: () => ldAppearance,
         appcat:     () => ldAppcat,
         display:    () => ldDisplay,
@@ -3619,6 +3625,18 @@ sourceComponent: Media {
         sourceComponent: SysmonSurface {
             s: pill.s
             open: pill.sysmonOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+        }
+    }
+
+    Loader {
+        id: ldScreens
+        active: false
+        anchors.fill: parent
+        sourceComponent: ScreensSurface {
+            s: pill.s * pill.settingsScale
+            open: pill.screensOpen
             morphCloseness: pill.morphCloseness
             onRequestClose: pill.requestClose()
         }

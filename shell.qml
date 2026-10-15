@@ -436,6 +436,15 @@ ShellRoot {
         function gameMode(mon: string): void { Flags.gameMode = !Flags.gameMode; }
         function sysmon(mon: string): void { root.toggleSurface(mon, "sysmon"); }
         function system(mon: string): void { root.toggleSurface(mon, "sysmon"); }
+        function screens(mon: string): void { root.toggleSurface(mon, "screens"); }
+        /**
+         * Restore the last-known-good layout. Its own command, and deliberately
+         * NOT routed through toggleSurface: rescue exists for the case where the
+         * layout is already wrong, and toggleSurface's game-mode gate would
+         * refuse it exactly when a black screen needs it. It must never open the
+         * surface -- only repair what the writer last recorded as good.
+         */
+        function screensrescue(mon: string): void { Screens.rescue(); }
         function clipboard(mon: string): void { root.toggleSurface(mon, "clipboard"); }
         function wallpaper(mon: string): void { root.toggleSurface(mon, "wallpaper"); }
         function media(mon: string): void {

@@ -144,6 +144,26 @@ else
         "the tap toggles hoverLatch, which is how auto-hide expands" "hoverLatch = !hoverLatch"
 fi
 
+# 9. screens: the monitor-layout surface. Opening it must be blocked while game
+#    mode is on, which it is by routing through toggleSurface; but its rescue
+#    command must NOT be, because rescue exists for the case where the layout is
+#    already wrong (a black screen) and the game-mode gate would refuse it at
+#    exactly the moment it is needed. So: `screens` goes through the gate,
+#    `screensrescue` deliberately bypasses it and only repairs the layout --
+#    it never opens the surface.
+has "the screens opener routes through the game-mode-gated toggleSurface" \
+    "$(grep -cE 'function[[:space:]]+screens\(mon:[[:space:]]*string\)[^{]*\{[^}]*toggleSurface\(mon,[[:space:]]*"screens"\)' "$SHELL_QML")" \
+    "screens -> toggleSurface"
+rescue_fn=$(grep -E 'function[[:space:]]+screensrescue\(' "$SHELL_QML")
+has "the screens rescue calls Screens.rescue()" \
+    "$(printf '%s\n' "$rescue_fn" | grep -c 'Screens\.rescue()')" \
+    "Screens.rescue() in screensrescue"
+# Negative assertions: count must be exactly zero, so `ok` (equality), not `has`.
+ok "the screens rescue is not game-mode gated" \
+    "$(printf '%s\n' "$rescue_fn" | grep -cE 'Flags\.gameMode|!Flags\.gameMode')" "0"
+ok "the screens rescue never opens a surface" \
+    "$(printf '%s\n' "$rescue_fn" | grep -c 'toggleSurface')" "0"
+
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"
     exit 1

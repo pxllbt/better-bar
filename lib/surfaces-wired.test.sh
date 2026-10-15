@@ -89,6 +89,47 @@ done
 ok "every navigated surface resolves to a registered type whose file exists" \
     "$(printf '%s' "$unresolved" | sed 's/^ *//')" ""
 
+# --- screens: the monitor-layout surface ---------------------------------
+# Not reachable from an Appearance nav row, so the generic walked checks above
+# never cover it; these are the same four declarations, asserted by name. The
+# surface is `ScreensSurface`, not `Screens`: the Screens singleton owns that
+# type name, so a Loader asking for `Screens` resolves to the singleton and the
+# surface silently never mounts.
+ok "the screens surface has a loader" \
+    "$(grep -cE 'id:[[:space:]]*ldScreens\b' "$PILL")" "1"
+ok "the screens surface has a loader-map entry" \
+    "$(grep -cE '^[[:space:]]*screens:[[:space:]]*\(\)[[:space:]]*=>[[:space:]]*ldScreens\b' "$PILL")" "1"
+ok "the screens surface has a surfaces-map entry" \
+    "$(grep -cE '^[[:space:]]*screens:[[:space:]]*\{' "$PILL")" "1"
+ok "the screens surface has an open property" \
+    "$(grep -cE 'screensOpen:[[:space:]]*surface === \"screens\"' "$PILL")" "1"
+# Both thunks, or the surface opens with no size and never morphs.
+ok "the screens surface map entry carries a size and an ame thunk" \
+    "$(sed -n '/^[[:space:]]*screens:[[:space:]]*{/p' "$PILL" | grep -c 'size:')" "1"
+ok "the screens surface map entry has an ame thunk" \
+    "$(sed -n '/^[[:space:]]*screens:[[:space:]]*{/p' "$PILL" | grep -c 'ame:')" "1"
+ok "the screens loader mounts the registered surface type" \
+    "$(sed -n '/id:[[:space:]]*ldScreens\b/,/^[[:space:]]*}/p' "$PILL" \
+        | grep -oE 'sourceComponent:[[:space:]]*[A-Za-z]+' | head -1 | awk '{print $2}')" "ScreensSurface"
+ok "the screens surface type is registered with a file behind it" \
+    "$(grep -cE '^ScreensSurface[[:space:]]+ScreensSurface\.qml$' "$QMLDIR")" "1"
+[ -f "$ROOT/surfaces/ScreensSurface.qml" ] \
+    || { echo "no surfaces/ScreensSurface.qml" >&2; exit 1; }
+
+# --- the rescue door ------------------------------------------------------
+# Two commands, two functions. `screensrescue` must not be routed through
+# toggleSurface: rescue exists for the case where the layout is already wrong,
+# and the game-mode gate inside toggleSurface would refuse it exactly when a
+# black screen needs it most.
+ok "the screens opener is an IPC function" \
+    "$(grep -cE 'function[[:space:]]+screens\(mon:[[:space:]]*string\)' "$ROOT/shell.qml")" "1"
+ok "the screens rescue is its own IPC function" \
+    "$(grep -cE 'function[[:space:]]+screensrescue\(mon:[[:space:]]*string\)' "$ROOT/shell.qml")" "1"
+ok "the screens opener routes through toggleSurface" \
+    "$(grep -cE 'function[[:space:]]+screens\(mon:[[:space:]]*string\)[^{]*\{[^}]*toggleSurface\(mon,[[:space:]]*"screens"\)' "$ROOT/shell.qml")" "1"
+ok "the screens rescue is not routed through toggleSurface" \
+    "$(grep -E 'function[[:space:]]+screensrescue\(' "$ROOT/shell.qml" | grep -c 'toggleSurface')" "0"
+
 # Plugins: the strip's Repeater, the layout model it renders, and the
 # delegate that hosts PluginButton.
 ok "the strip renders plugin entries with a Repeater" \
