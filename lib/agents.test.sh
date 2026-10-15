@@ -97,6 +97,48 @@ ok "the workspace strip badges from the singleton" \
 ok "the singleton is registered" \
     "$(grep -cE '^singleton[[:space:]]+Agents[[:space:]]+Agents\.qml$' "$ROOT/Singletons/qmldir")" "1"
 
+# --- the chip lives where you can actually see it ------------------------
+# The workspace strip sits in the pill's `hover` face, which fades to 0 at rest,
+# so a badge that only lives there is a badge you never see while you work.
+# `waiting` therefore also gets a chip on the resting face, and where that chip
+# sits matters as much as whether it exists at all.
+PILL="$ROOT/Pill.qml"
+ok "the resting pill carries an agent chip" \
+    "$(grep -c 'id: restAgentChip' "$PILL")" "1"
+ok "the chip is gated on the agent needing attention, nothing else" \
+    "$(grep -A2 'id: restAgentChip' "$PILL" | grep -c 'visible: Agents.urgent > 0')" "1"
+ok "the chip means waiting, not merely working" \
+    "$(grep -c 'Agents.urgent > 0' "$PILL")" "3"
+
+# Placement. `restRow` is the face shown at rest; `stripRecordingBox` is hidden
+# unless a recording is live. A chip dropped in the latter is invisible, which
+# is precisely the bug this guards: it looked right, validated, and every other
+# check passed, because it was sitting inside a hidden box.
+CHIP_AT=$(grep -n 'id: restAgentChip' "$PILL" | cut -d: -f1)
+RESTROW_AT=$(grep -n 'id: restRow' "$PILL" | cut -d: -f1)
+RECBOX_AT=$(grep -n 'id: stripRecordingBox' "$PILL" | cut -d: -f1)
+ok "the chip sits in the resting row" \
+    "$([ "$CHIP_AT" -gt "$RESTROW_AT" ] && echo yes || echo no)" "yes"
+ok "the chip is not buried in the recording box, which is hidden by default" \
+    "$([ "$CHIP_AT" -gt "$RESTROW_AT" ] && [ "$CHIP_AT" -gt "$RECBOX_AT" ] && echo safe || echo buried)" "safe"
+
+# Two faces, two chips, never both on screen — or they would draw over each
+# other. `pill.stripBar` and `!pill.stripBar` partition the two.
+ok "the strip face's chip is gated on strip mode" \
+    "$(grep -A3 'id: stripAgentBox' "$PILL" | grep -c 'pill.stripBar')" "1"
+ok "the resting row is gated on not-strip mode" \
+    "$(grep -A2 'id: restRow' "$PILL" | grep -c '!pill.stripBar')" "1"
+
+# The breath needs a driver that is alive at rest: the workspace strip's tick
+# only runs while the pill is expanded, which is the wrong lifetime for a chip
+# whose whole job is to be seen without touching anything.
+ok "the pill drives its own agent tick" \
+    "$(grep -c 'property int agentTick' "$PILL")" "1"
+ok "the pill's agent tick only runs while something is waiting" \
+    "$(grep -A4 'property int agentTick' "$PILL" | grep -c 'running: Agents.urgent > 0')" "1"
+ok "the workspace strip keeps its own tick for the expanded face" \
+    "$(grep -c 'property int agentTick' "$WORKSPACES")" "1"
+
 printf '\n'
 if [ "$failed" -gt 0 ]; then
     printf '%s failing\n' "$failed"

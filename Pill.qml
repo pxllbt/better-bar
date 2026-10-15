@@ -214,6 +214,22 @@ Item {
     readonly property bool expanded: surfaceOpen || held || hoverLatch || expandLatch || stripMenuOpen
 
     /**
+     * Drives the resting agent chip's breath. Separate from the workspace
+     * strip's own tick because that one only exists while the pill is expanded,
+     * and this chip has to keep beating at rest — that is the whole reason it
+     * exists. Only runs while something is actually waiting, so an idle bar pays
+     * nothing for it.
+     */
+    property int agentTick: 0
+    Timer {
+        interval: 90
+        repeat: true
+        running: Agents.urgent > 0
+        triggeredOnStart: true
+        onTriggered: pill.agentTick += 1
+    }
+
+    /**
      * First expansion (hover, latch, held, or any surface) marks weather as
      * actually wanted, so its refresh/fetch network work starts only then. The
      * chip itself is always built and renders the cached forecast instantly.
@@ -2366,6 +2382,64 @@ Item {
             }
         }
 
+        /**
+          * Agent needs you — the strip face's copy of the badge.
+          *
+          * The workspace strip already carries the badge, but that strip only
+          * exists while the pill is expanded (the `hover` face fades to 0 at
+          * rest). That is the wrong place for the one signal that is supposed
+          * to interrupt you: you would have to already be looking at the bar to
+          * find out that something was waiting. So `waiting` gets a chip on the
+          * resting pill in whichever face it happens to be using.
+          *
+          * Only `waiting` qualifies. A `working` agent is not news, and a badge
+          * for it would sit on the bar all day training you to ignore the chip.
+          *
+          * Suppressed while recasting, because both are centred in the same
+          * face and a recording is the louder claim on that space.
+          *
+          * Wrapped in an Item for the same reason the recording chip is: a Row
+          * drops its layout entirely if you anchor its children.
+          */
+        Item {
+            id: stripAgentBox
+            visible: !pill.recastActive && pill.stripBar && Agents.urgent > 0
+            anchors.centerIn: parent
+            width: stripAgentFace.implicitWidth
+            height: stripAgentFace.implicitHeight
+
+            Row {
+                id: stripAgentFace
+                anchors.centerIn: parent
+                spacing: 8 * pill.s
+
+                Rectangle {
+                    id: agentChip
+                    width: 18 * pill.s
+                    height: 18 * pill.s
+                    radius: 9 * pill.s
+                    color: Qt.rgba(0.95, 0.18, 0.22, 0.22)
+                    border.width: 1
+                    border.color: Qt.rgba(0.95, 0.22, 0.28, 0.6)
+
+                    // The same breath the workspace badge uses, so the two read
+                    // as one signal rather than two unrelated decorations.
+                    readonly property real beat: 0.5 + 0.5 * Math.sin(pill.agentTick * 0.85)
+                    opacity: 0.45 + 0.55 * agentChip.beat
+                    Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "!"
+                        color: Theme.vermLit
+                        font.family: Theme.font
+                        font.pixelSize: 11 * pill.s
+                        font.weight: Font.Bold
+                    }
+                }
+            }
+        }
+
         Row {
             id: restRow
             visible: !pill.stripBar
@@ -2580,6 +2654,47 @@ Item {
                             Recast.toggleRecording();
                         }
                     }
+                }
+            }
+
+            /**
+              * Agent needs you — this face's copy of the badge, and the one you
+              * will actually see, since the workspace strip it also appears on
+              * only exists while the pill is expanded.
+              *
+              * Two faces means two copies of the chip, but they are not showing
+              * at once: this row is `!pill.stripBar` and the other chip is
+              * `pill.stripBar`. Keeping them in their own faces is what lets
+              * each stay simple — a centred chip in this row would sit right on
+              * top of the clock, so this one is appended and let the Row lay it
+              * out after everything else.
+              *
+              * Only `waiting` earns a chip. A working agent is not news, and a
+              * badge for it would sit on the bar all day teaching you to ignore
+              * the one thing that does matter.
+              */
+            Rectangle {
+                id: restAgentChip
+                anchors.verticalCenter: parent.verticalCenter
+                visible: Agents.urgent > 0
+                width: 18 * pill.s
+                height: 18 * pill.s
+                radius: 9 * pill.s
+                color: Qt.rgba(0.95, 0.18, 0.22, 0.22)
+                border.width: 1
+                border.color: Qt.rgba(0.95, 0.22, 0.28, 0.6)
+
+                readonly property real beat: 0.5 + 0.5 * Math.sin(pill.agentTick * 0.85)
+                opacity: 0.45 + 0.55 * restAgentChip.beat
+                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "!"
+                    color: Theme.vermLit
+                    font.family: Theme.font
+                    font.pixelSize: 11 * pill.s
+                    font.weight: Font.Bold
                 }
             }
         }
