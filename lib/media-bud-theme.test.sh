@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-# Asserts the media bud bead follows the active theme.
+# Asserts the media bud follows the active theme.
 #
-# Why this exists: the bead's gradient used `Theme.flameInk` and
-# `Theme.flameEmber`. Those are flame-canvas tokens with warm fallbacks, and
-# they do not consult the omarchy accent in a static palette. The two middle
-# stops used `verm`/`vermLit`, which do. The result was a bud whose centre was
-# blue and whose ends were orange/red on the same pill: not synced.
-#
-# The bud is small, but it sits directly on the pill's edge, so a wrong one is
-# exactly the sort of "why is only this colour off" detail this bar cannot
-# carry. The fix uses theme-aware tokens for every stop.
+# Why this exists: the bud bead used to paint its own warm flame endpoints
+# (`Theme.flameInk`/`Theme.flameEmber`) instead of theme-aware tokens, so its
+# centre went blue while its ends stayed orange on a static palette. The bead is
+# gone now — the bud is a liquid-glass edge around the same `MediaDisc` the
+# media surface uses — so the check has moved to that link: the bud must embed
+# the shared disc and must not paint with flame tokens at all.
 set -uo pipefail
 
 ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -35,19 +32,16 @@ hasnt() {
 
 [ -f "$PILL" ] || { echo "no Pill.qml at $PILL" >&2; exit 1; }
 
-# The bead canvas only. A global grep would match the broken-plugin icons above
-# it, which legitimately use the verm family.
-bead=$(sed -n '/id: budBead/,/^        }$/p' "$PILL")
-[ -n "$bead" ] || { echo "could not locate the media bud bead" >&2; exit 1; }
+# The bud glass pane only. A global grep would match the broken-plugin icons
+# above it, which legitimately use the verm family.
+bud=$(sed -n '/id: bud$/,/id: budArea/p' "$PILL")
+[ -n "$bud" ] || { echo "could not locate the media bud" >&2; exit 1; }
 
-hasnt "the bead no longer uses the warm flame endpoints" \
-    "$(printf '%s\n' "$bead" | grep -cE 'Theme\.(flameInk|flameEmber)')" "0"
+hasnt "the bud no longer paints warm flame endpoints" \
+    "$(printf '%s\n' "$bud" | grep -cE 'Theme\.(flameInk|flameEmber)')" "0"
 
-has "the bead paints its inner stop from the theme accent" \
-    "$(printf '%s\n' "$bead" | grep -c 'Theme.todayWarm')" "1"
-
-has "the bead paints its dark stops from the theme verm family" \
-    "$(printf '%s\n' "$bead" | grep -c 'Theme.vermDim')" "1"
+has "the bud embeds the shared media disc" \
+    "$(printf '%s\n' "$bud" | grep -c 'MediaDisc {')" "1"
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then
