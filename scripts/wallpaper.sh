@@ -33,6 +33,11 @@ STATE="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper"
 # pick that landed inside a theme's own backgrounds folder still counts as the
 # user's -- see the note there.
 PICK_MARKER="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-picks"
+# Which theme the pick was made under, one theme name. This is what separates a
+# wallpaper you chose for the theme you are on from one you chose two themes ago:
+# the first is yours to keep, the second is the old theme's to lose. Absent means
+# "predates this record", which counts as the second -- see should_apply.
+PICK_THEME="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-pick-theme"
 MAP="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-map"
 BAG="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-bag"
 STILL="${XDG_STATE_HOME:-$HOME/.local/state}/better-wallpaper-still.png"
@@ -688,6 +693,15 @@ mark_pick() {
     fi
     printf '%s\n' "$resolved" >> "$keep"
     mv -f "$keep" "$PICK_MARKER" 2>/dev/null || rm -f "$keep"
+
+    # Record the theme this pick was made under, in the same move as the pick
+    # itself. A separate step would let the two disagree -- a pick recorded
+    # against the theme that followed it, which would protect a wallpaper under
+    # exactly the theme it was not chosen for.
+    local picked_theme
+    picked_theme=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null) || picked_theme=""
+    [ -n "$picked_theme" ] && printf '%s\n' "$picked_theme" > "$PICK_THEME" 2>/dev/null
+    return 0
 }
 
 # May $1 replace the wallpaper currently on screen? Exit 0 for yes.
@@ -701,7 +715,7 @@ mark_pick() {
 # that choice deliberately, and it must not be second-guessed here; only the
 # wallpaper arriving on its own, from a theme switch, is ever refused.
 should_apply() {
-    local candidate="$1" force="${2:-}" current
+    local candidate="$1" force="${2:-}" current picked_theme current_theme
 
     [ "$force" = "--force" ] && return 0
 
@@ -710,6 +724,37 @@ should_apply() {
     current=$(cat "$STATE" 2>/dev/null) || current=""
     [ -n "$current" ] || return 0
     [ "$(wallpaper_owner "$current")" = "user" ] || return 0
+
+    # A wallpaper you picked is yours while you are on the theme you picked it
+    # on. Change the theme and the switch wins, because that is what a theme
+    # change is for -- and refusing it is what left the wallpaper sitting on the
+    # old theme after every switch, which is the bug this is.
+    #
+    # Which theme counts as "the one you picked it on" is the whole question, so
+    # it is answered rather than assumed:
+    #
+    #   same theme      -> refuse. This is the snapping-back case the guard was
+    #                      built for: a theme wallpaper arriving unasked, which
+    #                      made the wallpaper look like it kept reverting.
+    #   different theme -> apply. The user asked for the change.
+    #   none recorded   -> apply. A pick made before this rule existed says
+    #                      nothing about its theme, and reading that as "this
+    #                      theme" would freeze every existing install on its
+    #                      current wallpaper forever.
+    picked_theme=$(cat "$PICK_THEME" 2>/dev/null) || picked_theme=""
+
+    # A wallpaper on screen that nobody ever picked is not a pick, and keeps the
+    # original protection: the marker's absence is what separates "predates this
+    # rule" from "never picked at all", and only the former yields.
+    [ -s "$PICK_MARKER" ] || return 1
+
+    # None recorded means the pick was made before this rule existed, and reading
+    # that as "this theme" would freeze every existing install on its current
+    # wallpaper forever -- which is the complaint this is fixing.
+    [ -n "$picked_theme" ] || return 0
+
+    current_theme=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null) || current_theme=""
+    [ "$picked_theme" != "$current_theme" ] && return 0
 
     return 1
 }

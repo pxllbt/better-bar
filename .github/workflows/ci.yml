@@ -176,3 +176,6 @@ jobs:
 
       - name: Run Hyprland Glass Tests
         run: bash lib/hypr-glass.test.sh .
+
+      - name: Run Theme Wallpaper Tests
+        run: bash lib/theme-wallpaper.test.sh .
