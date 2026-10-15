@@ -517,19 +517,32 @@ Item {
             id: wsPreview
             x: Math.max(0, workspaces.slotCenterX(Math.max(0, workspaces.hoverIndex)) - width / 2)
             y: 4 * workspaces.s
-            width: Math.min(260 * workspaces.s, Math.max(140 * workspaces.s, col.implicitWidth + 18 * workspaces.s))
-            height: col.implicitHeight + 13 * workspaces.s
-            radius: 8 * workspaces.s
+            width: 250 * workspaces.s
+            height: (28 + prevRepeater.count * 18) * workspaces.s
+            radius: 12 * workspaces.s
             color: Theme.surface
             border.color: Theme.borderLight
             border.width: 1 * workspaces.s
-            opacity: workspaces.hoverIndex >= 0 ? 1 : 0
+            opacity: workspaces.hoverIndex >= 0 ? 0.96 : 0
             Behavior on opacity { NumberAnimation { duration: Motion.fast } }
 
             Column {
-                id: col
-                anchors.centerIn: parent
-                spacing: 2 * workspaces.s
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.topMargin: 14 * workspaces.s
+                anchors.leftMargin: 14 * workspaces.s
+                anchors.rightMargin: 14 * workspaces.s
+                spacing: 4 * workspaces.s
+                Text {
+                    text: "Workspace  " + workspaces.range[Math.max(0, workspaces.hoverIndex)]
+                    color: Theme.subtle
+                    font.family: Theme.font
+                    font.pixelSize: 10 * workspaces.s
+                    font.weight: Font.DemiBold
+                    font.letterSpacing: 1 * workspaces.s
+                }
+                Rectangle { height: 1 * workspaces.s; width: 222 * workspaces.s; color: Theme.borderLight; opacity: 0.5 }
                 Repeater {
                     id: prevRepeater
                     model: wsPreview._wins
@@ -538,7 +551,7 @@ Item {
                             Rectangle { anchors.fill: parent; radius: 3 * workspaces.s; color: Theme.surfaceHighlight; border.width: 1 * workspaces.s; border.color: Theme.borderLight; visible: pv.status !== Image.Ready }
                             Text { anchors.centerIn: parent; text: modelData.cls && modelData.cls.length ? modelData.cls.charAt(0).toUpperCase() : ""; visible: pv.status !== Image.Ready; color: Theme.text; font.family: Theme.font; font.weight: Font.Bold; font.pixelSize: 9 * workspaces.s }
                             Image { id: pv; anchors.fill: parent; smooth: true; mipmap: true; fillMode: Image.PreserveAspectFit; source: workspaces.iconFor(modelData.cls) } }
-                        Text { text: modelData.title || modelData.cls; color: Theme.text; font.family: Theme.font; font.pixelSize: 11 * workspaces.s; elide: Text.ElideRight; width: Math.min(220*workspaces.s, 260*workspaces.s) }
+                        Text { text: modelData.title || modelData.cls; color: Theme.text; font.family: Theme.font; font.pixelSize: 12 * workspaces.s; font.weight: Font.Medium; elide: Text.ElideRight; width: Math.min(220*workspaces.s, 260*workspaces.s) }
                     }
                 }
             }
