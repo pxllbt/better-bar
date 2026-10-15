@@ -80,6 +80,12 @@ Item {
         return proj;
     }
 
+    readonly property string formattedCountdown: {
+        var n = root.countdownRemaining;
+        var ss = n < 10 ? "0" + n : "" + n;
+        return "00:" + ss;
+    }
+
     readonly property string formattedTime: {
         var s = root.elapsed % 60;
         var m = Math.floor(root.elapsed / 60) % 60;

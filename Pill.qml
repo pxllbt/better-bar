@@ -2360,7 +2360,7 @@ Item {
 
                 Text {
                     id: stripRecordingTimer
-                    text: Recast.countdownPending ? (Recast.countdownRemaining + "\u2026") : Recast.formattedTime
+                    text: Recast.countdownPending ? (Recast.formattedCountdown + "\u2026") : Recast.formattedTime
                     font.family: Theme.font
                     font.pixelSize: 12.5 * pill.s
                     font.weight: Font.Bold
@@ -2634,7 +2634,7 @@ Item {
 
                     Text {
                         text: Recast.countdownPending
-                            ? ("STARTING " + Recast.countdownRemaining + "…")
+                            ? ("STARTING " + Recast.formattedCountdown + "…")
                             : ((Recast.paused ? "PAUSED " : "REC ") + Recast.formattedTime)
                         font.family: Theme.font
                         font.pixelSize: 13 * pill.s
