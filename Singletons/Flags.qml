@@ -81,6 +81,8 @@ Singleton {
     property alias dockStyle: adapter.dockStyle
     //* Minimal dock: icon-only chips with the small active dot, no inline title label.
     property alias dockMinimal: adapter.dockMinimal
+    //* Keep the media entry point on the pill even with nothing playing.
+    property alias mediaAlways: adapter.mediaAlways
     property alias topGap: adapter.topGap
     property alias appGap: adapter.appGap
     property alias weatherCity: adapter.weatherCity
@@ -194,6 +196,8 @@ Singleton {
             property string dockStyle: "transparent"
             //* Minimal dock: icon-only chips with the small active dot, no inline title label.
             property bool dockMinimal: false
+            //* Keep the media bud entry point available with no player; the pill still shows the real player detail whenever one exists.
+            property bool mediaAlways: true
             //* Top margin as a fraction of the shipped 8px. 0 sits the pill flush to the screen edge.
             property real topGap: 1
             //* Pill-to-window band as a fraction of the shipped 12px. 0 tucks the windows flush under the pill.
