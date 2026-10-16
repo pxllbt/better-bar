@@ -271,7 +271,17 @@ Item {
     Timer {
         interval: 3000
         running: true
-        onTriggered: pill.bootSettled = true
+        onTriggered: {
+            pill.bootSettled = true;
+            // Media that was already playing when the bar mapped never produced a
+            // transition, so its now-playing island would never have surfaced.
+            if (Players.playing && !pill.surfaceOpen && pill.stripBar
+                && !pill.pluginSurfaceOpen && !Flags.gameMode && pill.mode !== "game"
+                && !pill.dragActive && !toastActive && !pill.hidden) {
+                surfaceDismissLatch = false;
+                pill.requestSurface("media");
+            }
+        }
     }
 
     readonly property bool expanded: surfaceOpen || held || hoverLatch || expandLatch || stripMenuOpen
@@ -1752,7 +1762,7 @@ Item {
                 surfaceDismissLatch = false;
                 if (!pill.surfaceOpen && pill.stripBar && !pill.pluginSurfaceOpen
                     && !Flags.gameMode && pill.mode !== "game" && !pill.dragActive
-                    && !toastActive && pill.bootSettled && !pill.hidden) {
+                    && !toastActive && !pill.hidden) {
                     pill.requestSurface("media");
                 }
             } else if (pill.mediaOpen && !Players.has)

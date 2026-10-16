@@ -140,7 +140,7 @@ ok "the predicate respects the explicit-dismiss latch" \
 # Four clearing sites now: the hover enter, the watchdog re-arm, the hover
 # handler exit branch, and the play transition (a new track is always welcome).
 ok "the latch is cleared when the pointer re-enters the bar" \
-    "$(grep -c 'surfaceDismissLatch = false;' "$PILL")" "4"
+    "$(grep -c 'surfaceDismissLatch = false;' "$PILL")" "5"
 
 ok "the latch is cleared on hover exit too" \
     "$(grep -A3 'onHoveredChanged: {' "$PILL" | grep -c 'surfaceDismissLatch = false')" "1"
