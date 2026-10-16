@@ -161,11 +161,21 @@ Item {
         return /(nm[ _-]?applet|blueman|network[- ]?manager|bluetooth[- ]?manager)/.test(key);
     }
 
-    function showManage(anchorItem) {
-        manageOpen = true;
-        var p = anchorItem.mapToItem(null, anchorItem.width / 2, 0);
-        manage.anchorX = p.x;
-    }
+    /**
+     * Show the manage list for tray applets.
+     *
+     * Removed rather than repaired. It set `manageOpen = true` and then wrote
+     * `manage.anchorX`, but no `manage` object exists in this file — the only
+     * panel is `id: menu` — so the assignment threw a ReferenceError on every
+     * call, after the flag had already flipped. Nothing calls it: `manageRows()`
+     * has no caller either, so the feature was abandoned with its popup half
+     * wired. Leaving the function in place meant a landmine that only fired the
+     * day something started calling it, which is exactly how the `pill.` and
+     * `root.` reference errors in this codebase were able to hide for so long.
+     *
+     * `manageRows()` is kept: it is correct, self-contained, and is the piece a
+     * finished manage list would build its rows from.
+     */
 
     property bool manageOpen: false
 

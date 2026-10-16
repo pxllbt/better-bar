@@ -236,7 +236,22 @@ PillSurface {
     readonly property real gapArt: 10 * s
     readonly property real textX: root.artMargin + root.artSize + root.gapArt
     readonly property real textColW: 190 * s
-    readonly property real railW: 96 * s
+    /**
+     * Right-rail width.
+     *
+     * Was 96*s, sized against the wifi label alone. The bluetooth row below
+     * also reserves 22*s for its battery chip, plus the icon and gaps, so the
+     * device name was left 96 - 12 - 5 - 22 - 5 = 52*s of text. "Not connected"
+     * needs ~64*s at this pixel size, so the static fallback — the same fixed
+     * string on every desktop with no bluetooth — rendered as "Not connecte.."
+     * everywhere. A variable device name eliding is correct; a fixed label
+     * eliding is a layout bug that reads as damage.
+     *
+     * 112*s gives the chip its room and the fallback 68*s. It costs the centre
+     * column nothing: at s=1 that column ends at 294 and the rail now starts
+     * at 334, so the gutter between them still clears.
+     */
+    readonly property real railW: 112 * s
     readonly property real railInset: 24 * s
 
     property real sealPulse: 0

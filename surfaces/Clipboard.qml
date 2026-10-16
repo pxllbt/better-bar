@@ -226,9 +226,23 @@ PillSurface {
 
             HoverHandler {
                 id: rowHover
-                onPointChanged: {
+                /* The `point` below is the parameter Qt hands this handler, named
+                 * explicitly so the binding is readable on its own. It was
+                 * previously read as a bare `point` with nothing declaring it:
+                 * no such id exists in this file, so the reference was
+                 * unresolved and threw before it could record anything.
+                 */
+            onPointChanged: (point) => {
                     if (!hovered)
                         return;
+                    /* `point` is the handler's own signal parameter — an id of
+                     * that name has never existed in this file, so this read was
+                     * an unresolved reference and threw before it could record
+                     * anything. Hovering a row therefore never updated
+                     * `lastPointer` and never moved `selectedIndex`, which is
+                     * what makes the hover-to-select feel broken on rows whose
+                     * pointer had not already moved.
+                     */
                     var sp = point.scenePosition;
                     if (sp.x !== root.lastPointer.x || sp.y !== root.lastPointer.y) {
                         root.lastPointer = Qt.point(sp.x, sp.y);

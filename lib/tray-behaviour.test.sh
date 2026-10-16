@@ -38,12 +38,30 @@ ok "hiding is persisted, not session-only" \
     "$(grep -cE 'function persistHidden' "$TRAY")" "1"
 
 # --- the manage list ---------------------------------------------------------
-ok "the tray has a manage entry point" \
-    "$(grep -cE 'function showManage' "$TRAY")" "1"
-ok "manage lists every item, including hidden ones" \
+# The manage *model* is present and correct; its entry point is deliberately
+# absent.
+#
+# `showManage()` used to exist and was pinned here by count. It was unreachable
+# *and* broken: nothing called it, `manageRows()` had no caller either, and its
+# body wrote `manage.anchorX` against a `manage` object that was never created —
+# so it threw after it had already flipped `manageOpen`. The old assertion
+# therefore guarded the presence of a function rather than any behaviour, which
+# is how it survived next to a ReferenceError.
+#
+# The model stays; only the throwing entry point went. Building the panel that
+# finally calls `manageRows()` is a feature, and a half-wired popup is what
+# caused this in the first place, so it is flagged rather than smuggled in.
+ok "the manage model is still present" \
     "$(grep -cE 'function manageRows' "$TRAY")" "1"
-ok "a hidden item can be restored from manage" \
+
+ok "the manage model can restore a hidden item" \
     "$(grep -cE 'function toggleHide' "$TRAY")" "1"
+
+ok "the throwing manage entry point stays gone" \
+    "$(grep -vE '^[[:space:]]*(\*|//)' "$TRAY" | grep -cE 'manage\.anchorX')" "0"
+
+ok "nothing calls the removed entry point" \
+    "$(grep -rc 'showManage' "$TRAY")" "0"
 
 # --- the actual opens --------------------------------------------------------
 # Left-click must reach activate(), and an item that only has a menu must get

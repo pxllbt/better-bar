@@ -122,7 +122,16 @@ SettingsSurface {
 
             TextField {
                 id: searchField
-                anchors.left: searchGlyph.right
+                /* Anchored to the row's left edge, not to a glyph.
+                 *
+                 * This read `searchGlyph.right`, and no such id exists in this
+                 * file — the row it lived in was dropped when the search field
+                 * was rebuilt. QML ids are file-scoped, so that was an
+                 * unresolved reference: the binding silently failed, leaving
+                 * anchors.left undefined and the field laid out from nothing
+                 * rather than from an error.
+                 */
+                anchors.left: parent.left
                 anchors.leftMargin: 4 * root.s
                 anchors.right: parent.right
                 anchors.rightMargin: 4 * root.s

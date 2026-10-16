@@ -946,6 +946,7 @@ ShellRoot {
                     id: pill
                     /** Submenu the launcher should open at; set by `menu`. */
                     property string menuRoute: root.menuRoute
+                    hostRoot: root
                     anchors.top: parent.top
                     anchors.topMargin: (pill.stripBar || pill.mode === "game") ? 0 : overlay.topGap
                     anchors.horizontalCenter: parent.horizontalCenter

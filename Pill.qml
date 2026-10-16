@@ -27,6 +27,21 @@ Item {
 
     property real s: 1
     property string screenName: ""
+
+    /**
+     * The ShellRoot that owns this pill.
+     *
+     * Injected, not reached for by name. `Pill` is instantiated directly in
+     * shell.qml rather than inside a delegate, so QML's creation context gives
+     * it no ids from that file: `id: root` there is invisible here. The four
+     * `root.pillBarHeight` / `root.pillBarRadius` writes below therefore threw a
+     * ReferenceError every time, which is why the dock never received the pill's
+     * resting bar height or corner radius and had to guess its own.
+     *
+     * Named `hostRoot` so the assignment site reads `hostRoot: root` without the
+     * right-hand side resolving to the property being assigned.
+     */
+    required property var hostRoot
     property var barWindow
     property string surface: ""
 
@@ -96,8 +111,8 @@ Item {
         Surfaces.register(pill);
         // Seed the dock's mirrors from the resting geometry, matching the
         // change handlers below so the dock never starts at the open size.
-        root.pillBarHeight = restSize.height;
-        root.pillBarRadius = roundRadius;
+        pill.hostRoot.pillBarHeight = restSize.height;
+        pill.hostRoot.pillBarRadius = roundRadius;
     }
 
     property bool hovered: false
@@ -1183,9 +1198,9 @@ Item {
      * Both are readonly off a static mode table, so they change rarely and the
      * per-frame writes disappear along with the coupling.
      */
-    onRestSizeChanged: root.pillBarHeight = restSize.height
+    onRestSizeChanged: pill.hostRoot.pillBarHeight = restSize.height
     readonly property real restRadius: roundRadius
-    onRestRadiusChanged: root.pillBarRadius = restRadius
+    onRestRadiusChanged: pill.hostRoot.pillBarRadius = restRadius
 
     /**
      * Target geometry for the non-surface morph modes. Surface sizes come from
@@ -3244,6 +3259,7 @@ Item {
                         cellId: modelData ? modelData.id : ""
                         pluginId: modelData ? modelData.id : ""
                         cellComponent: pill.cellComponentFor(modelData)
+                        hostPill: pill
                         s: pill.s
                         hoverLive: hover.live
                         barHeightOverride: pill.height

@@ -22,6 +22,24 @@ Item {
     required property string kind
     required property string cellId
     required property string pluginId
+
+    /**
+     * The pill that hosts this cell.
+     *
+     * Injected rather than reached for by name. This component is a separate
+     * file, and QML ids are file-scoped — `id: pill` in Pill.qml is not visible
+     * here. The three call sites below therefore ran against an undefined
+     * `pill`, which throws a ReferenceError that aborts the enclosing
+     * statement. In `openMenu()` the throw happened on the *first* line, so
+     * `menuCard.visible = true` never ran and the strip layout menu could not
+     * open at all; the other two silently did nothing.
+     *
+     * The fix is to declare the dependency rather than assume it. Injected as
+     * `hostPill` rather than named `pill` so that the delegate can assign
+     * `hostPill: pill` without the right-hand side resolving to the property
+     * being assigned.
+     */
+    required property var hostPill
     property Component cellComponent: null
     property real s: 1
     property bool hoverLive: true
@@ -99,7 +117,7 @@ Item {
         hoverLive: root.hoverLive
         barHeightOverride: root.barHeightOverride
         barWidthOverride: root.barWidthOverride
-        openSurfaceRequest: (id, settingsMode) => pill.requestPluginSurface(id, settingsMode)
+        openSurfaceRequest: (id, settingsMode) => root.hostPill.requestPluginSurface(id, settingsMode)
     }
 
     DragHandler {
@@ -143,7 +161,7 @@ Item {
 
     function openMenu() {
         const wasOpen = menuCard.visible;
-        pill.closeStripMenus();
+        root.hostPill.closeStripMenus();
         if (wasOpen) return;
         menuCard.visible = true;
     }
@@ -170,7 +188,7 @@ Item {
         // While any card is up, the pill latches itself open and grows its
         // input mask down to cover this card, so the cursor can travel from
         // the cell into the menu without collapsing the strip.
-        onVisibleChanged: pill.stripMenuOpen = menuCard.visible
+        onVisibleChanged: root.hostPill.stripMenuOpen = menuCard.visible
 
         readonly property real pointerH: 5 * root.s
         property int rowH: 26 * root.s
