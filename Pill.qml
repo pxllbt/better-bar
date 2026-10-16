@@ -271,17 +271,7 @@ Item {
     Timer {
         interval: 3000
         running: true
-        onTriggered: {
-            pill.bootSettled = true;
-            // Media that was already playing when the bar mapped never produced a
-            // transition, so its now-playing island would never have surfaced.
-            if (Players.playing && !pill.surfaceOpen && pill.stripBar
-                && !pill.pluginSurfaceOpen && !Flags.gameMode && pill.mode !== "game"
-                && !pill.dragActive && !toastActive && !pill.hidden) {
-                surfaceDismissLatch = false;
-                pill.requestSurface("media");
-            }
-        }
+        onTriggered: pill.bootSettled = true
     }
 
     readonly property bool expanded: surfaceOpen || held || hoverLatch || expandLatch || stripMenuOpen
@@ -1749,23 +1739,9 @@ Item {
             // Anything audible cancels a pending dismiss immediately, so
             // re-opening on a new track is instant rather than waiting out the
             // timer.
-            if (Players.playing) {
+            if (Players.playing)
                 mediaAutoDismiss.stop();
-                // Auto-surface. "When I am playing media it did not show
-                // this": the card is the bar's showpiece, so hearing a track
-                // starts the island. It floats rather than replacing the bar,
-                // so the strip's cells stay reachable underneath it, and the
-                // existing dismissal rules (pointer leaves the bar, right-click,
-                // Escape) still hold; it simply does not wait for a hover that
-                // the already-hostile "everything is off-screen" user is
-                // otherwise unlikely to trigger.
-                surfaceDismissLatch = false;
-                if (!pill.surfaceOpen && pill.stripBar && !pill.pluginSurfaceOpen
-                    && !Flags.gameMode && pill.mode !== "game" && !pill.dragActive
-                    && !toastActive && !pill.hidden) {
-                    pill.requestSurface("media");
-                }
-            } else if (pill.mediaOpen && !Players.has)
+            else if (pill.mediaOpen && !Players.has)
                 mediaAutoDismiss.restart();
         }
     }
