@@ -137,10 +137,11 @@ ok "the watchdog re-checks through the one predicate" \
 ok "the predicate respects the explicit-dismiss latch" \
     "$(sed -n '/function checkMediaHover/,/^    }/p' "$PILL" | grep -c '!surfaceDismissLatch')" "1"
 
-# Four clearing sites now: the hover enter, the watchdog re-arm, the hover
-# handler exit branch, and the play transition (a new track is always welcome).
+# Three clearing sites: the hover enter, the watchdog re-arm, and the hover
+# handler's exit branch. (Play-transition clearing was reverted: a dismissed
+# card must stay dismissed unless explicitly re-called.)
 ok "the latch is cleared when the pointer re-enters the bar" \
-    "$(grep -c 'surfaceDismissLatch = false;' "$PILL")" "5"
+    "$(grep -c 'surfaceDismissLatch = false;' "$PILL")" "3"
 
 ok "the latch is cleared on hover exit too" \
     "$(grep -A3 'onHoveredChanged: {' "$PILL" | grep -c 'surfaceDismissLatch = false')" "1"
