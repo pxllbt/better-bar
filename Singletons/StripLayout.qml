@@ -34,7 +34,7 @@ Singleton {
     readonly property var nativeOrder: [
         "weather", "tray", "dnd",
         "wifi", "bt", "battery",
-        "inbox", "mixer", "sysmon", "wallpaper", "clipboard",
+        "inbox", "mixer", "sysmon", "wallpaper", "clipboard", "scratch",
         "launcher", "appearance", "power"
     ]
 

@@ -117,8 +117,12 @@ ok "the media card arms an auto-dismiss timer" \
 ok "the dismiss fires only when there is no player at all" \
     "$(printf '%s\n' "$PILLBODY" | grep -c '!Players.has')" "3"
 
+# Scoped to the timer itself, not the enclosing block: the block now also holds
+# the floating island's dismissal, which has its own game-mode guard, so counting
+# the token across the whole block would assert a number that means nothing.
+DISMISS=$(sed -n '/id: mediaAutoDismiss/,/^    }/p' "$PILL")
 ok "the dismiss never fires in game mode" \
-    "$(printf '%s\n' "$PILLBODY" | grep -c 'pill.mode !== "game"')" "1"
+    "$(printf '%s\n' "$DISMISS" | grep -c 'pill.mode !== "game"')" "1"
 
 ok "starting playback cancels the pending dismiss" \
     "$(printf '%s\n' "$PILLBODY" | grep -c 'mediaAutoDismiss.stop()')" "2"

@@ -128,6 +128,15 @@ Singleton {
     property alias pluginAutoUpdate: adapter.pluginAutoUpdate
     //* Retry a broken plugin's load from the host, and re-read the manifest, without waiting for the retry click.
     property alias pluginSelfHeal: adapter.pluginSelfHeal
+    property alias pillShowSysmon: adapter.pillShowSysmon
+    property alias pillShowRecorder: adapter.pillShowRecorder
+    property alias pillShowWallpaper: adapter.pillShowWallpaper
+    property alias pillShowScratch: adapter.pillShowScratch
+    property alias pillShowLauncher: adapter.pillShowLauncher
+    property alias pillShowPower: adapter.pillShowPower
+    property alias hideOnSpecial: adapter.hideOnSpecial
+    property alias oled: adapter.oled
+    property alias dockOled: adapter.dockOled
 
     FileView {
         id: file
@@ -248,6 +257,15 @@ Singleton {
             property bool pluginAutoUpdate: false
             //* Heal plugin load failures by re-reading state without a click.
             property bool pluginSelfHeal: true
+            property bool pillShowSysmon: true
+            property bool pillShowRecorder: true
+            property bool pillShowWallpaper: true
+            property bool pillShowScratch: true
+            property bool pillShowLauncher: true
+            property bool pillShowPower: true
+            property bool hideOnSpecial: false
+            property bool oled: false
+            property bool dockOled: false
 
         }
     }

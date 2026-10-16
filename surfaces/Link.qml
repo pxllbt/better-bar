@@ -355,6 +355,16 @@ PillSurface {
                         onClicked: Notifs.clearAll()
                     }
                 }
+
+                IconChip {
+                    anchors.verticalCenter: parent.verticalCenter
+                    s: root.s
+                    glyph: "dnd"
+                    glyphColor: Flags.dnd ? Theme.vermLit : Theme.iconDim
+                    tooltipTitle: "Do not disturb"
+                    tooltipDesc: "Silence notifications"
+                    onClicked: Flags.dnd = !Flags.dnd
+                }
             }
         }
         Rectangle {

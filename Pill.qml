@@ -132,12 +132,58 @@ Item {
     readonly property bool wallpaperOpen: surface === "wallpaper"
     readonly property bool powerOpen: surface === "power"
     readonly property bool mediaOpen: surface === "media"
+
+    /**
+     * The floating media island: in strip mode the now-playing card hovers
+     * *above* the bar instead of replacing it.
+     *
+     * Why this is strip-only, and why it had to be fixed at all:
+     *
+     * The card used to take over the pill's identity — same rect, same input
+     * mask, same surface slot. In the centred pill that is the whole point of a
+     * dynamic island and it reads beautifully. Across a full-width strip it
+     * breaks two things at once:
+     *
+     *  1. The bar becomes unclickable. While the card holds the pill rect, the
+     *     window's input mask *is* the card, so the weather, wifi and battery
+     *     cells sit outside the mask and swallow nothing. You cannot reach the
+     *     strip without first dismissing the card that the strip summoned.
+     *  2. The card can never come back. Every trigger for re-opening it lived
+     *     on an element that the card itself hides — the strip face row goes
+     *     invisible, the window-level HoverHandler is disabled while a surface
+     *     is open, and `onPositionChanged` only fires on movement. So the card
+     *     opened once and then the pointer had to leave the bar completely and
+     *     re-enter to get it again. This is the "it just open 1 time then now
+     *     its gone again" report, and it is a symptom of (1), not a separate
+     *     bug.
+     *
+     * Floating decouples them: the card gets its own rect and its own mask
+     * region, the strip stays fully alive and clickable, and "cursor is in the
+     * bar while media plays" becomes a statement about geometry that cannot get
+     * stuck.
+     *
+     * The centred pill keeps the morph, because there the island *is* the pill
+     * and nothing is stolen from it.
+     */
+    readonly property bool mediaFloats: pill.stripBar && pill.mediaOpen
+        && !pill.pluginSurfaceOpen && !pill.recastActive
+
+    /** Air between the strip and the island's underside. */
+    readonly property real islandGap: 9 * s
+    readonly property real islandW: mediaW
+    readonly property real islandH: mediaH
+    /** Island rect in pill coordinates; shell.qml reads these for the input mask. */
+    readonly property real islandX: (pill.width - islandW) / 2
+    readonly property real islandY: -(islandH + islandGap)
     readonly property bool linkOpen: surface === "link"
     readonly property bool weatherOpen: surface === "weather"
     readonly property bool wifiOpen: surface === "wifi"
     readonly property bool btOpen: surface === "bt"
     readonly property bool batteryOpen: surface === "battery"
     readonly property bool sysmonOpen: surface === "sysmon"
+    readonly property bool scratchOpen: surface === "scratch"
+    readonly property bool profileOpen: surface === "profile"
+    readonly property bool modulesOpen: surface === "modules"
     readonly property bool screensOpen: surface === "screens"
     readonly property bool appearanceOpen: surface === "appearance"
     readonly property bool appcatOpen: surface === "appcat"
@@ -152,7 +198,7 @@ Item {
     readonly property bool lockstyleOpen: surface === "lockstyle"
     readonly property bool plymouthOpen: surface === "plymouth"
     readonly property bool keybindsOpen: surface === "keybinds"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || plymouthOpen || keybindsOpen
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || modulesOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || plymouthOpen || keybindsOpen || profileOpen
     readonly property bool hasMedia: Players.list.length > 0
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
@@ -313,7 +359,8 @@ Item {
      * the strip's edge cannot bounce it. The reveal strip still catches the
      * pointer, so a hidden pill slides back in on reach.
      */
-    readonly property bool hidden: heldOpen ? false : (Flags.autoHide || offCursor)
+    readonly property bool specialHidden: Flags.hideOnSpecial && activeSpecial.length > 0
+    readonly property bool hidden: heldOpen ? false : (Flags.autoHide || offCursor || specialHidden)
 
     /**
      * The special workspace shown on this pill's monitor, surfaced as a plain word
@@ -384,7 +431,7 @@ Item {
     readonly property bool recastRecording: typeof Recast !== "undefined" && Recast.recording
     // The chip stays visible across the paused state and countdown too: a paused
     // recording is still an active capture, and dropping the chip made it look stopped.
-    readonly property bool recastActive: typeof Recast !== "undefined" && (Recast.recording || Recast.paused || Recast.countdownPending)
+    readonly property bool recastActive: Flags.pillShowRecorder && typeof Recast !== "undefined" && (Recast.recording || Recast.paused || Recast.countdownPending)
 
     /**
      * Whether a REC face may draw at all.
@@ -413,7 +460,6 @@ Item {
      * the mode ladder gives them priority over the OSD.
      */
     onOsdActiveChanged: if (osdActive && toastActive && !Notifs.toastCritical) Notifs.clearPopups()
-
 
     /**
      * The resting face's base grid: a fixed 160x38, scaled by the monitor
@@ -514,6 +560,9 @@ Item {
     readonly property real sysmonW: 392 * s
     readonly property real settingsScale: 0.9
     readonly property real settingsW: 392 * s * settingsScale
+    readonly property real profileW: 620 * s * settingsScale
+    readonly property real scratchW: 556 * s
+    readonly property real scratchH: 348 * s
     readonly property real fontpickerW: 360 * s * settingsScale
     readonly property real toastW: 342 * s
     readonly property real dragOverW: 300 * s
@@ -594,9 +643,10 @@ Item {
         weather:   { size: () => { const it = surfaceItem("weather"); if (!it) return Qt.size(282 * s + 36 * s, 260 * s + 32 * s); return Qt.size((it.implicitWidth > 0 ? it.implicitWidth : 282 * s) + 36 * s, it.implicitHeight + 32 * s); }, ame: () => surfaceItem("weather") },
         launcher:  { size: () => { surfaceItem("launcher"); return Qt.size(launcherW, launcherH); }, ame: () => surfaceItem("launcher") },
         clipboard: { size: () => { surfaceItem("clipboard"); return Qt.size(clipboardW, clipboardH); }, ame: () => surfaceItem("clipboard") },
+        scratch:   { size: () => { surfaceItem("scratch"); return Qt.size(scratchW, scratchH); }, ame: () => surfaceItem("scratch") },
         wallpaper: { size: () => { surfaceItem("wallpaper"); return Qt.size(wallpaperW, wallpaperH); }, ame: () => null },
         power:     { size: () => { surfaceItem("power"); return Qt.size(powerW, powerH); }, ame: () => surfaceItem("power") },
-        media:     { size: () => { surfaceItem("media"); return Qt.size(mediaW, mediaH); }, ame: () => surfaceItem("media") },
+        media:     { size: () => { surfaceItem("media"); return pill.mediaFloats ? restSize : Qt.size(mediaW, mediaH); }, ame: () => surfaceItem("media") },
         mixer:     { size: () => Qt.size(93 * Math.max(4, surfaceItem("mixer").faderCount) * s, mixerH), ame: () => surfaceItem("mixer") },
         link:      { size: () => { const it = surfaceItem("link"); return Qt.size(it.desiredW, it.implicitHeight + 26 * s); }, ame: () => surfaceItem("link") },
         wifi:      { size: () => Qt.size(wifiW, surfaceItem("wifi").implicitHeight + 26 * s), ame: () => surfaceItem("wifi") },
@@ -610,6 +660,8 @@ Item {
         appearance: { size: () => Qt.size(settingsW, settingsSurfaceH("appearance")), ame: () => surfaceItem("appearance") },
         appcat:     { size: () => Qt.size(settingsW, settingsSurfaceH("appcat")), ame: () => surfaceItem("appcat") },
         display:    { size: () => Qt.size(settingsW, settingsSurfaceH("display")), ame: () => surfaceItem("display") },
+        modules:    { size: () => Qt.size(settingsW, settingsSurfaceH("modules")), ame: () => surfaceItem("modules") },
+        profile:    { size: () => Qt.size(profileW, settingsSurfaceH("profile")), ame: () => surfaceItem("profile") },
         theme:      { size: () => Qt.size(settingsW, settingsSurfaceH("theme")), ame: () => surfaceItem("theme") },
         accent:     { size: () => Qt.size(settingsW, settingsSurfaceH("accent")), ame: () => surfaceItem("accent") },
         glass:      { size: () => Qt.size(settingsW, settingsSurfaceH("glass")), ame: () => surfaceItem("glass") },
@@ -643,6 +695,7 @@ Item {
         weather:    () => ldWeather,
         launcher:   () => ldLauncher,
         clipboard:  () => ldClip,
+        scratch:    () => ldScratch,
         wallpaper:  () => ldWall,
         power:      () => ldPower,
         media:      () => ldMedia,
@@ -656,6 +709,8 @@ Item {
         appearance: () => ldAppearance,
         appcat:     () => ldAppcat,
         display:    () => ldDisplay,
+        modules:    () => ldModules,
+        profile:    () => ldProfile,
         theme:      () => ldTheme,
         accent:     () => ldAccent,
         glass:      () => ldGlass,
@@ -1535,6 +1590,8 @@ Item {
         void pill.width;
         void pill.height;
         const drop = 12 * pill.s;
+        if (soulTarget === "profile")
+            return osMark.mapToItem(pill, osMark.width / 2, osMark.height + drop * 0.55);
         const native = pill.iconFor(soulTarget);
         if (native)
             return native.mapToItem(pill, native.width / 2, native.height + drop * 0.55);
@@ -1598,7 +1655,8 @@ Item {
     function mediaEnter() {
         if (pill.mode === "game" || pill.surfaceOpen || pill.dragActive || !pill.bootSettled)
             return;
-        mediaHoverDwell.restart();
+        surfaceDismissLatch = false;
+        pill.requestSurface("media");
     }
 
     function mediaLeave() {
@@ -1673,12 +1731,67 @@ Item {
         }
     }
 
+    /**
+     * Should the media island be showing right now?
+     *
+     * One predicate, deliberately not event-driven. Every hover signal that
+     * *could* re-show the card is produced by an element the card suppresses:
+     * the strip face row's visibility, the window-level HoverHandler, and
+     * `onPositionChanged` (which needs movement). An event-driven version is
+     * therefore correct exactly once — on the entry that opened it — and then
+     * has no path back. That asymmetry is the whole bug, so the condition is
+     * polled instead: the state is a fact about geometry, and geometry does not
+     * stop reporting because something moved on top of it.
+     *
+     * `surfaceDismissLatch` is the only thing that can say no, which is what
+     * makes an explicit dismissal (right-click, Escape) stick instead of
+     * springing back under the pointer that asked for it. It clears on hover
+     * entry, so "come back later" always works.
+     */
+    function checkMediaHover() {
+        if (Flags.expandTo === "media" && pill.hasMedia
+            && !pill.surfaceOpen && !pill.dragActive
+            && !surfaceDismissLatch
+            && bootSettled && !toastActive) {
+            pill.requestSurface("media");
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * The re-show watchdog.
+     *
+     * Runs only in the exact state the user describes — pointer in the bar,
+     * media exists, nothing dismissed — so it is idle the rest of the time and
+     * costs one property read per tick. It exists to cover the gap between
+     * "the island closed" and "the pointer moves again": without it the card
+     * cannot return until the pointer leaves the bar entirely, because no hover
+     * event is generated by an island that is not there to generate one.
+     */
+    Timer {
+        id: mediaShowWatch
+        interval: 160
+        repeat: true
+        running: pill.hovered && pill.hasMedia && !pill.surfaceDismissLatch
+            && !Flags.gameMode && pill.mode !== "game" && !pill.dragActive
+        onTriggered: pill.checkMediaHover()
+    }
+
     onHoveredChanged: {
         if (!hovered) {
             surfaceDismissLatch = false;
         }
-        if (hovered && pill.mode !== "game" && !surfaceDismissLatch) {
-            if (Flags.autoHide && !revealSession && !expanded && !surfaceOpen) {
+        if (hovered && pill.mode !== "game") {
+            /* Re-entering the bar always re-arms the island. The latch is the
+             * "the user dismissed this on purpose" memory and it is scoped to
+             * one visit: leaving clears it (below), and so does arriving, so
+             * stepping away and back always gets the card. */
+            surfaceDismissLatch = false;
+            islandDismiss.stop();
+            if (pill.checkMediaHover()) {
+                // hovering resting pill expands directly to media card
+            } else if (Flags.autoHide && !revealSession && !expanded && !surfaceOpen) {
                 revealSession = true;
                 revealTimer.stop();
             } else if (bootSettled && !revealSession && !toastActive) {
@@ -1692,6 +1805,28 @@ Item {
                 hoverLatch = false;
             graceTimer.restart();
             revealTimer.start();
+            /* The floating island is bound to the bar's hover, not the card's.
+             * Its own leave-guard is off while floating precisely so gliding from
+             * the island down onto the strip is a *reach for the bar's cells*,
+             * not a dismissal — so this is the only place that can close it.
+             * The delay matches the card's own so a step past the bar's edge and
+             * back does not strobe. */
+            if (pill.mediaFloats && !pinned && !hoverLatch && !expandLatch && !revealSession)
+                islandDismiss.restart();
+        }
+    }
+
+    /**
+     * Closing grace for the floating island. Armed only by hover *exit*, so a
+     * re-entry inside the window cancels it and the island survives.
+     */
+    Timer {
+        id: islandDismiss
+        interval: 200
+        onTriggered: {
+            if (pill.mediaFloats && !pill.hovered && !pill.pinned && !pill.dragActive
+                && pill.mode !== "game")
+                pill.requestClose();
         }
     }
 
@@ -2253,7 +2388,22 @@ Item {
     Item {
         id: rest
         anchors.fill: parent
-        opacity: ((pill.expanded && !pill.pluginPopupOpen) || pill.dragActive || pill.mode === "game" || pill.mode === "toast") ? 0 : Math.pow(pill.morphCloseness, 1.5)
+        /**
+         * The resting face hands the pill to an open surface by fading out.
+         *
+         * `!pill.mediaFloats` is the whole floating-island design: an island is
+         * *not* the pill taking over, it is the pill keeping its face while a
+         * card hovers above it. Fading `rest` here took the strip down with it —
+         * and because `rest.visible` follows this opacity, the subtree went
+         * `visible: false`, not merely transparent. So the bar's cells were not
+         * just dim while the island was up, they were *gone*, which is what made
+         * "reach the weather cell" impossible.
+         *
+         * This was the real cause behind the binding looking correct and the
+         * row still not rendering: `stripFace.visible` was true, its parent was
+         * not.
+         */
+        opacity: ((pill.expanded && !pill.pluginPopupOpen && !pill.mediaFloats) || pill.dragActive || pill.mode === "game" || pill.mode === "toast") ? 0 : Math.pow(pill.morphCloseness, 1.5)
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: pill.mode === "rest" ? Motion.fast : Math.round(260 * Motion.mult) } }
 
@@ -2272,7 +2422,7 @@ Item {
           * the dot MouseAreas, never its hyprctl watcher.
           */
 
-        // Invisible hover overlay for the strip face — triggers pulse effects
+        // Invisible hover overlay for the strip face — triggers pulse effects and media auto-show
         MouseArea {
             id: stripFaceMouse
             anchors.fill: parent
@@ -2280,7 +2430,17 @@ Item {
             hoverEnabled: true
             z: -1
             enabled: !Flags.gameMode
-            onContainsMouseChanged: ws && (ws.pulseMode = containsMouse)
+            onContainsMouseChanged: {
+                if (ws) ws.pulseMode = containsMouse;
+                if (containsMouse && !pill.surfaceOpen) {
+                    pill.checkMediaHover();
+                }
+            }
+            onPositionChanged: {
+                if (!pill.surfaceOpen) {
+                    pill.checkMediaHover();
+                }
+            }
         }
 
         Row {
@@ -2289,7 +2449,7 @@ Item {
             // strip mode it is far wider than the card-sized body a surface
             // morphs the pill into, so leaving it up overflows the pill and
             // covers the surface.
-            visible: pill.specialView === "" && !pill.recastActive && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen) && !Flags.gameMode
+            visible: pill.specialView === "" && !pill.recastActive && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen || pill.mediaFloats) && !Flags.gameMode
             anchors.centerIn: parent
             spacing: pill.stripGap
 
@@ -2524,7 +2684,7 @@ Item {
 
         Row {
             id: stripSpecialFace
-            visible: !pill.recastActive && pill.specialView !== "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen)
+            visible: !pill.recastActive && pill.specialView !== "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen || pill.mediaFloats)
             anchors.centerIn: parent
             spacing: 8 * pill.s
 
@@ -2716,7 +2876,8 @@ Item {
                  * time sitting a few pixels right of centre.
                  */
                 readonly property bool slotUsed: barsOn || Flags.clockIcon
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "minimal" && slotUsed
+                visible: !Recast.recording && pill.specialView === ""
+                    && (Flags.mainDisplay === "minimal" ? slotUsed : (Flags.mainDisplay === "classic" && barsOn))
                 anchors.verticalCenter: parent.verticalCenter
                 width: clockGlyph.width
                 height: clockGlyph.height
@@ -2978,6 +3139,15 @@ Item {
             anchors.centerIn: parent
             spacing: 20 * pill.s
 
+            OsMark {
+                id: osMark
+                anchors.verticalCenter: parent.verticalCenter
+                s: pill.s
+                enabled: hover.live
+                onActivated: pill.requestSurface("profile")
+                onContainsMouseChanged: if (containsMouse) pill.soulTarget = "profile"
+            }
+
             Workspaces {
                 id: ws
                 anchors.verticalCenter: parent.verticalCenter
@@ -3204,7 +3374,6 @@ Item {
             }
         }
     }
-
 
     // Native strip cells: one movable unit per Component. Each root
     // exposes `cellPresent` -- whether it wants to paint right now. The
@@ -3507,8 +3676,8 @@ Item {
 
                     GlyphIcon {
                         anchors.fill: parent
-                        name: "inbox"
-                        color: inboxArea.containsMouse ? Theme.cream : Theme.iconDim
+                        name: Flags.dnd ? "dnd" : "inbox"
+                        color: Flags.dnd ? Theme.verm : (inboxArea.containsMouse ? Theme.cream : Theme.iconDim)
                         stroke: 1.7
                     }
 
@@ -3592,7 +3761,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
-                    property bool cellPresent: true
+                    visible: Flags.pillShowSysmon
+                    property bool cellPresent: Flags.pillShowSysmon
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -3630,8 +3800,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
-                    visible: !Plugins.surfaceDisabled("wallpaper")
-                    property bool cellPresent: !Plugins.surfaceDisabled("wallpaper")
+                    visible: Flags.pillShowWallpaper && !Plugins.surfaceDisabled("wallpaper")
+                    property bool cellPresent: Flags.pillShowWallpaper && !Plugins.surfaceDisabled("wallpaper")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -3702,14 +3872,53 @@ Item {
     }
 
     Component {
+        id: cellScratch
+                Item {
+                    id: scratchIcon
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: pill.iconCell
+                    height: pill.iconCell
+                    visible: Flags.pillShowScratch && !Plugins.surfaceDisabled("scratch")
+                    property bool cellPresent: Flags.pillShowScratch && !Plugins.surfaceDisabled("scratch")
+
+                    GlyphIcon {
+                        anchors.fill: parent
+                        name: "type"
+                        color: scratchArea.containsMouse ? Theme.cream : Theme.iconDim
+                        stroke: 1.7
+                    }
+
+                    MouseArea {
+                        id: scratchArea
+                        anchors.fill: parent
+                        anchors.margins: -6 * pill.s
+                        hoverEnabled: true
+                        enabled: hover.live
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: pill.requestSurface("scratch")
+                        onContainsMouseChanged: if (containsMouse) pill.soulTarget = "scratch"
+                    }
+
+                    Tooltip {
+                        s: pill.s
+                        placement: "below"
+                        title: "Scratchpad"
+                        desc: "Quick notes and scratchpad"
+                        show: scratchArea.containsMouse
+                    }
+                    // better: tooltip scratch
+                }
+    }
+
+    Component {
         id: cellLauncher
                 Item {
                     id: launcherIcon
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
-                    visible: !Plugins.surfaceDisabled("launcher")
-                    property bool cellPresent: !Plugins.surfaceDisabled("launcher")
+                    visible: Flags.pillShowLauncher && !Plugins.surfaceDisabled("launcher")
+                    property bool cellPresent: Flags.pillShowLauncher && !Plugins.surfaceDisabled("launcher")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -3794,8 +4003,8 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     width: pill.iconCell
                     height: pill.iconCell
-                    visible: !Plugins.surfaceDisabled("power")
-                    property bool cellPresent: !Plugins.surfaceDisabled("power")
+                    visible: Flags.pillShowPower && !Plugins.surfaceDisabled("power")
+                    property bool cellPresent: Flags.pillShowPower && !Plugins.surfaceDisabled("power")
 
                     GlyphIcon {
                         anchors.fill: parent
@@ -3862,6 +4071,7 @@ Item {
         case "sysmon": return cellSysmon;
         case "wallpaper": return cellWallpaper;
         case "clipboard": return cellClipboard;
+        case "scratch": return cellScratch;
         case "launcher": return cellLauncher;
         case "appearance": return cellAppearance;
         case "power": return cellPower;
@@ -3980,22 +4190,72 @@ Item {
         }
     }
 
-    Loader {
-        id: ldMedia
-        active: false
-        anchors.fill: parent
+    /**
+     * Media host: the pill rect in centred mode, a floating island in strip
+     * mode.
+     *
+     * Geometry is written rather than anchored, because the two states are
+     * genuinely different rects — one shares the pill's exact box, the other
+     * sits above it — and `anchors.fill` cannot be un-applied once bound. The
+     * four Behaviors turn the swap into the peel-away motion: the card leaves
+     * the bar upward while the bar underneath stays exactly where it was.
+     *
+     * Deliberately not `scale`-based: shrinking the card would scale its text
+     * and icons, which reads as blur rather than as motion.
+     */
+    Item {
+        id: mediaHost
+
+        readonly property real islandGap: pill.islandGap
+
+        width: pill.mediaFloats ? pill.islandW : pill.width
+        height: pill.mediaFloats ? pill.islandH : pill.height
+        x: pill.mediaFloats ? pill.islandX : 0
+        y: pill.mediaFloats ? pill.islandY : 0
+
+        Behavior on width { NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic } }
+        Behavior on height { NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic } }
+        Behavior on x { NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic } }
+        Behavior on y { NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic } }
+
+        Loader {
+            id: ldMedia
+            active: false
+            anchors.fill: parent
 sourceComponent: Media {
-            s: pill.s
-            open: pill.mediaOpen
-            morphCloseness: pill.morphCloseness
-            topFlat: (pill.mode === "game" || pill.stripBar) ? 1 : 0
-            onRequestClose: pill.requestClose()
-            onRequestExpand: {
-                pill.requestClose();
-                pill.hoverLatch = true;
-                pill.expandLatch = true;
+                s: pill.s
+                open: pill.mediaOpen
+                /* The floating island is not part of the pill's morph, so it gets
+                 * its own openness. Without this the card would inherit the
+                 * strip's unchanged morphCloseness, which never crosses the
+                 * threshold its own fade keys off, and it would appear fully
+                 * drawn while still sliding. */
+                morphCloseness: pill.mediaFloats ? islandCloseness : pill.morphCloseness
+                floats: pill.mediaFloats
+                /* Rounded on every corner up here: the island hangs off the top
+                 * edge, so squaring its top to meet the screen edge would be
+                 * squaring it against nothing. */
+                topFlat: (pill.mode === "game") ? 1 : 0
+                onRequestClose: pill.requestClose()
+                onRequestExpand: {
+                    pill.requestClose();
+                    pill.hoverLatch = true;
+                    pill.expandLatch = true;
+                }
             }
         }
+    }
+
+    /**
+     * Openness of the floating island, independent of the pill's morph.
+     *
+     * Straight off `mediaFloats` with a Behaviour: in strip mode the pill's own
+     * morphCloseness never moves (the strip does not change size), so the card
+     * needs a curve of its own or it would snap to fully drawn mid-slide.
+     */
+    property real islandCloseness: pill.mediaFloats ? 1 : 0
+    Behavior on islandCloseness {
+        NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic }
     }
 
     Loader {
@@ -4233,6 +4493,44 @@ sourceComponent: Media {
         sourceComponent: KeybindsSurface {
             s: pill.s * pill.settingsScale
             open: pill.keybindsOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
+
+    Loader {
+        id: ldProfile
+        active: false
+        anchors.fill: parent
+        sourceComponent: Profile {
+            s: pill.s * pill.settingsScale
+            open: pill.profileOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
+
+    Loader {
+        id: ldScratch
+        active: false
+        anchors.fill: parent
+        sourceComponent: Scratchpad {
+            s: pill.s
+            open: pill.scratchOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+        }
+    }
+
+    Loader {
+        id: ldModules
+        active: false
+        anchors.fill: parent
+        sourceComponent: ModulesSurface {
+            s: pill.s * pill.settingsScale
+            open: pill.modulesOpen
             morphCloseness: pill.morphCloseness
             onRequestClose: pill.requestClose()
             onRequestSurface: (name) => pill.requestSurface(name)

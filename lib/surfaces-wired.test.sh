@@ -220,7 +220,7 @@ restPill.pluginPopupOpen = false;
 assert.equal(binding(rest, restOpacity, { pill: restPill, Math }), 0, "inline plugins keep their surface");
 const strip = pill.slice(pill.indexOf("id: stripFace"), pill.indexOf("anchors.centerIn: parent", pill.indexOf("id: stripFace")));
 const stripVisible = /^\s*visible:\s*([^\n]+)/m;
-const stripPill = { specialView: "", stripBar: true, surfaceOpen: true, pluginPopupOpen: true };
+const stripPill = { specialView: "", stripBar: true, surfaceOpen: true, pluginPopupOpen: true, mediaFloats: false };
 assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: false } }), true);
 stripPill.pluginPopupOpen = false;
 assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: false } }), false);
@@ -228,6 +228,19 @@ assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: 
 // bar, so leaving it up would hand the game a target and overflow the pill.
 stripPill.pluginPopupOpen = true;
 assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: true } }), false, "game mode must hide the strip face");
+
+// The floating media island keeps the strip face up. This is the load-bearing
+// assertion for the whole design: the island floats *over* a live bar, so the
+// bar's cells must stay visible (and therefore clickable) while it is up. Hiding
+// the face here is what made "reach the weather cell" impossible without first
+// dismissing the card the bar itself summoned.
+stripPill.pluginPopupOpen = false;
+stripPill.mediaFloats = true;
+assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: false } }), true,
+    "the strip face must stay up while the media island floats");
+// Game mode still wins: the island is the one surface that does not survive it.
+assert.equal(binding(strip, stripVisible, { pill: stripPill, Flags: { gameMode: true } }), false,
+    "game mode must hide the strip face even with the island up");
 const bar = source.slice(source.indexOf("id: barStub"), source.indexOf("Flickable {", source.indexOf("id: barStub")));
 const barHeight = /^\s*barHeightOverride:\s*([^\n]+)/m;
 assert.equal(binding(bar, barHeight, { root: { barHeightOverride: 39, height: 10 } }), 39);

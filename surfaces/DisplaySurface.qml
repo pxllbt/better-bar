@@ -30,6 +30,7 @@ SettingsSurface {
         { item: vizStyleRow, kind: "seg", vals: ["bars", "wave"], get: function () { return Flags.musicStyle; }, set: function (v) { Flags.musicStyle = v; } },
         { item: auraRow, kind: "toggle", get: function () { return Flags.auraIntensity > 0; }, set: function (v) { Flags.auraIntensity = v ? 0.75 : 0; } },
         { item: vizRow, kind: "toggle", get: function () { return Flags.musicViz; }, set: function (v) { Flags.musicViz = v; } },
+        { item: modulesTile, kind: "nav", surface: "modules" },
         { item: dockRow, kind: "toggle", get: function () { return Flags.dockEnabled; }, set: function (v) { Flags.dockEnabled = v; } },
         { item: clockIconRow, kind: "toggle", get: function () { return Flags.clockIcon; }, set: function (v) { Flags.clockIcon = v; } },
         // Bar behaviour. These used to live on their own INTERFACE page, which
@@ -38,6 +39,7 @@ SettingsSurface {
         { item: scaleRow, kind: "seg", vals: [0.9, 1.0, 1.1, 1.25], get: function () { return Flags.uiScale; }, set: function (v) { Flags.uiScale = v; } },
         { item: motionRow, kind: "toggle", get: function () { return Flags.reduceMotion; }, set: function (v) { Flags.reduceMotion = v; } },
         { item: autoHideRow, kind: "toggle", get: function () { return Flags.autoHide; }, set: function (v) { Flags.autoHide = v; } },
+        { item: hideSpecialRow, kind: "toggle", get: function () { return Flags.hideOnSpecial; }, set: function (v) { Flags.hideOnSpecial = v; } },
         { item: cursorFollowRow, kind: "toggle", get: function () { return Flags.cursorFollow; }, set: function (v) { Flags.cursorFollow = v; } },
         { item: mediaAlwaysRow, kind: "toggle", get: function () { return Flags.mediaAlways; }, set: function (v) { Flags.mediaAlways = v; } },
         { item: omarchySurvivalRow, kind: "toggle", get: function () { return Flags.omarchySurvival; }, set: function (v) { Flags.omarchySurvival = v; } },
@@ -187,6 +189,21 @@ Item { width: 1; height: 7 * root.s }
             }
         }
 
+        SettingsRow {
+            id: modulesTile
+            surface: root
+            name: "Pill modules"
+            sub: "Optional icons the bar shows"
+
+            GlyphIcon {
+                width: 16 * root.s
+                height: 16 * root.s
+                name: "chevron-right"
+                color: root.focusRowItem === modulesTile ? Theme.cream : Theme.iconDim
+                stroke: 1.9
+            }
+        }
+
         /**
          * 泊 The bottom dock's on/off switch — the ONE dock setting the pill
          * keeps, and it is here for a structural reason rather than a tidy one.
@@ -278,6 +295,19 @@ Item { width: 1; height: 7 * root.s }
                 s: root.s
                 on: Flags.autoHide
                 onToggled: Flags.autoHide = !Flags.autoHide
+            }
+        }
+
+        SettingsRow {
+            id: hideSpecialRow
+            surface: root
+            name: "Hide on special workspace"
+            icon: "eye-off"
+
+            LinkToggle {
+                s: root.s
+                on: Flags.hideOnSpecial
+                onToggled: Flags.hideOnSpecial = !Flags.hideOnSpecial
             }
         }
 

@@ -31,3 +31,6 @@ LockStyleSurface LockStyleSurface.qml
 PlymouthSurface PlymouthSurface.qml
 KeybindsSurface KeybindsSurface.qml
 PluginHostSurface PluginHostSurface.qml
+Profile Profile.qml
+Scratchpad Scratchpad.qml
+ModulesSurface ModulesSurface.qml

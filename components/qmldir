@@ -32,3 +32,5 @@ StripCell StripCell.qml
 ActiveBorderRing ActiveBorderRing.qml
 AltText AltText.qml
 MediaDisc MediaDisc.qml
+OsMark OsMark.qml
+IconChip IconChip.qml

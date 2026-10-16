@@ -24,6 +24,21 @@ PillSurface {
     property real topFlat: 0
     Behavior on topFlat { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph; easing.bezierCurve: Motion.morphCurve } }
 
+    /**
+     * True when the card is a floating island above a live strip rather than
+     * the pill's own face.
+     *
+     * This flips the card's dismissal rule. In the morphing pill the card *is*
+     * the pill, so "the pointer left the card" genuinely means "the pointer
+     * left the thing I summoned" and the leave-guard below is right. As a
+     * floating island the same rule is wrong: gliding down from the card onto
+     * the strip is exactly the gesture that reaches the bar's other cells, and
+     * dismissing on it would mean the island could never be dismissed without
+     * also giving up the bar. Floating, the island is dismissed by leaving the
+     * *bar* — which the pill owns, not the card.
+     */
+    property bool floats: false
+
     signal requestExpand()
 
     /**
@@ -37,13 +52,13 @@ PillSurface {
 
     Timer {
         id: leaveGuardT
-        interval: 500
+        interval: 160
         onTriggered: root.requestClose()
     }
 
     HoverHandler {
         id: leaveGuard
-        enabled: root.open && Flags.expandTo === "media"
+        enabled: root.open && !root.floats && Flags.expandTo === "media" && !root.pinned
         margin: 10 * root.s
         onHoveredChanged: {
             if (hovered) {
@@ -288,15 +303,22 @@ PillSurface {
 
     Timer {
         interval: 1000
-        running: root.active
+        running: root.settled
         repeat: true
         onTriggered: if (!netProc.running) netProc.running = true
     }
     onActiveChanged: {
-        if (!active)
+        if (!active) {
             picking = false;
-        else if (!netProc.running)
-            netProc.running = true;
+            netProc.running = false;
+        }
+    }
+    onSettledChanged: {
+        if (settled) {
+            if (!netProc.running)
+                netProc.running = true;
+            stroke.requestPaint();
+        }
     }
 
     SequentialAnimation {
@@ -456,23 +478,23 @@ PillSurface {
                 /**
                  * Micro-grooves along the outer rim so it reads as physical media
                  * without hazing or washing out the album picture.
+                 * Declarative concentric rings replace the heavy Canvas context.
                  */
-                Canvas {
+                Item {
                     anchors.fill: parent
                     opacity: 0.06
-                    onPaint: {
-                        const ctx = getContext("2d");
-                        ctx.reset();
-                        const cx = width / 2;
-                        const cy = height / 2;
-                        const step = Math.max(3, width * 0.05);
-                        ctx.strokeStyle = "#ffffff";
-                        ctx.lineWidth = Math.max(1, width * 0.006);
-                        // Confine grooves primarily to outer area to keep art center clear
-                        for (let r = width * 0.25; r < width / 2; r += step) {
-                            ctx.beginPath();
-                            ctx.arc(cx, cy, r, 0, Math.PI * 2);
-                            ctx.stroke();
+
+                    Repeater {
+                        model: [0.90, 0.80, 0.70, 0.60, 0.50]
+                        delegate: Rectangle {
+                            required property real modelData
+                            anchors.centerIn: parent
+                            width: parent.width * modelData
+                            height: width
+                            radius: width / 2
+                            color: "transparent"
+                            border.width: Math.max(1, 1 * root.s)
+                            border.color: "#ffffff"
                         }
                     }
                 }
@@ -1063,6 +1085,8 @@ PillSurface {
                 anchors.rightMargin: 7 * root.s
                 anchors.verticalCenter: parent.verticalCenter
                 height: 11 * root.s
+                renderTarget: Canvas.Image
+                renderStrategy: Canvas.Cooperative
 
                 readonly property real inset: 3 * root.s
                 readonly property real usable: Math.max(1, width - 2 * inset)
@@ -1081,6 +1105,7 @@ PillSurface {
                 onDrawFChanged: requestPaint()
                 onWidthChanged: requestPaint()
                 onVisibleChanged: if (visible) requestPaint()
+                Component.onCompleted: requestPaint()
 
                 function waveY(u) {
                     return height / 2 - 2.6 * Math.sin(3 * Math.PI * u) * Math.exp(-2.5 * u) * root.s;

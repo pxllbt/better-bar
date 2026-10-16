@@ -18,6 +18,7 @@ import Quickshell
 Singleton {
     /** Legacy "static" (the old warm-brown theme) maps onto the black pill. */
     readonly property string mode: Flags.paletteMode === "static" ? "dark" : Flags.paletteMode
+    readonly property bool oled: Flags.oled && mode === "dark"
     readonly property bool dynamic: mode === "dynamic"
     readonly property bool manual: mode === "manual"
     // dyn stays true for manual too so every consumer that just needs "follow
@@ -209,13 +210,13 @@ Singleton {
     readonly property color bright:   (omarchyBrightFg.length > 0) ? omarchyBrightFg : ((omarchyForeground.length > 0) ? omarchyForeground : (customText ? customTextHex : (manual ? manualPal.bright : (dynamic ? Dyn.bright : (light ? "#1d1814" : "#ffffff")))))
     /** Dimmed body copy. Reads the theme's `dark_foreground` like its siblings read foreground and muted. */
     readonly property color dim:      manual ? manualPal.dim : (dynamic ? Dyn.dim : (omarchyDarkFg.length > 0 ? omarchyDarkFg : (light ? "#6b635c" : "#8c8c8c")))
-    readonly property color cardTop:  (omarchyLight ? omarchyLight : (manual ? manualPal.surface_container_high : (dynamic ? Dyn.surfaceContainerHigh : (light ? "#f6f2ec" : "#171717"))))
-    readonly property color cardBot:  (omarchyDarker ? omarchyDarker : (manual ? manualPal.surface_container_low : (dynamic ? Dyn.surfaceContainerLow : (light ? "#ece6df" : "#0c0c0c"))))
-    readonly property color border:   ThemeColors.activeBorder.length > 0
+    readonly property color cardTop:  oled ? "#000000" : (omarchyLight ? omarchyLight : (manual ? manualPal.surface_container_high : (dynamic ? Dyn.surfaceContainerHigh : (light ? "#f6f2ec" : "#171717"))))
+    readonly property color cardBot:  oled ? "#000000" : (omarchyDarker ? omarchyDarker : (manual ? manualPal.surface_container_low : (dynamic ? Dyn.surfaceContainerLow : (light ? "#ece6df" : "#0c0c0c"))))
+    readonly property color border:   oled ? "#2a2a2a" : (ThemeColors.activeBorder.length > 0
         ? ThemeColors.activeBorder[0]
-        : (manual ? manualPal.outline_variant : (dynamic ? Dyn.outlineVariant : (light ? "#d9d1c8" : "#2b2b2b")))
+        : (manual ? manualPal.outline_variant : (dynamic ? Dyn.outlineVariant : (light ? "#d9d1c8" : "#2b2b2b"))))
     readonly property color shadow:     Qt.rgba(0, 0, 0, 0.55)
-    readonly property color tileBg:   omarchyBackground ? omarchyBackground : (manual ? manualPal.surface : (dynamic ? Dyn.surface : (light ? "#e9e3dc" : "#141414")))
+    readonly property color tileBg:   oled ? "#000000" : (omarchyBackground ? omarchyBackground : (manual ? manualPal.surface : (dynamic ? Dyn.surface : (light ? "#e9e3dc" : "#141414"))))
     readonly property color subtle:   (omarchyLightFg ? omarchyLightFg : (manual ? manualPal.subtle : (dynamic ? Dyn.subtle : (light ? "#5f574f" : "#a8a8a8"))))
     readonly property color faint:    (omarchyMuted ? omarchyMuted : (manual ? manualPal.faint : (dynamic ? Dyn.faint : (light ? "#8a8078" : "#6a6a6a"))))
     readonly property color iconDim:  customText ? Qt.alpha(cream, 0.6) : (manual ? manualPal.icon_dim : (dynamic ? Dyn.iconDim : (light ? "#5a524b" : "#bdbdbd")))
@@ -269,6 +270,14 @@ Singleton {
     property var fontFamilies: Qt.fontFamilies()
     function refreshFonts() { fontFamilies = Qt.fontFamilies(); }
     readonly property string font: (Flags.uiFont.length > 0 && fontFamilies.indexOf(Flags.uiFont) >= 0) ? Flags.uiFont : "Inter"
+    readonly property var monoFamilies: ["JetBrains Mono", "Iosevka", "Berkeley Mono", "Fira Code", "Cascadia Code", "DejaVu Sans Mono"]
+    readonly property string fontMono: {
+        for (let i = 0; i < monoFamilies.length; i++) {
+            if (fontFamilies.indexOf(monoFamilies[i]) >= 0)
+                return monoFamilies[i];
+        }
+        return "monospace";
+    }
 
     /**
      * Kanji face for the decorative glyphs, resolved against the installed

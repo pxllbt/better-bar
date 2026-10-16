@@ -414,6 +414,24 @@ ShellRoot {
         return false;
     }
 
+    function specialOn(name) {
+        if (!name)
+            return false;
+        var mons = Hyprland.monitors.values;
+        for (var i = 0; i < mons.length; i++) {
+            if (mons[i].name === name) {
+                var ws = mons[i].activeSpecialWorkspace || mons[i].specialWorkspace;
+                if (ws && (ws.name || ws.id))
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    function chromeHiddenOn(name) {
+        return root.fullscreenOn(name) || (Flags.hideOnSpecial && root.specialOn(name));
+    }
+
     /**
      * Whether the dock bar is on screen on this monitor: enabled, and not
      * retracted by a fullscreen client or by game mode. The bar window and the
@@ -422,7 +440,7 @@ ShellRoot {
      * the desktop whenever the dock hid while the band did not.
      */
     function dockBarShown(mon) {
-        return Flags.dockEnabled && !root.fullscreenOn(mon) && !Flags.gameMode;
+        return Flags.dockEnabled && !root.chromeHiddenOn(mon) && !Flags.gameMode;
     }
 
     IpcHandler {
@@ -432,6 +450,9 @@ ShellRoot {
         function launcher(mon: string): void { root.toggleSurface(mon, "launcher"); }
         function power(mon: string): void { root.toggleSurface(mon, "power"); }
         function link(mon: string): void { root.toggleSurface(mon, "link"); }
+        function notifications(mon: string): void { root.toggleSurface(mon, "link"); }
+        function scratch(mon: string): void { root.toggleSurface(mon, "scratch"); }
+        function profile(mon: string): void { root.toggleSurface(mon, "profile"); }
         function battery(mon: string): void { root.toggleSurface(mon, "battery"); }
         function gameMode(mon: string): void { Flags.gameMode = !Flags.gameMode; }
         function sysmon(mon: string): void { root.toggleSurface(mon, "sysmon"); }
@@ -532,9 +553,10 @@ ShellRoot {
              * implicitHeight, which must agree.
              */
             readonly property bool monFullscreen: root.fullscreenOn(modelData.name)
+            readonly property bool specialActive: Flags.hideOnSpecial && root.specialOn(modelData.name)
             readonly property bool offCursor: CursorTrack.offCursor(modelData.name)
             readonly property bool surfaceOpenHere: root.openMon === modelData.name && root.openSurface.length > 0
-            readonly property real bandH: monFullscreen ? 0
+            readonly property real bandH: (monFullscreen || specialActive) ? 0
                 : (surfaceOpenHere ? root.openSurfaceHeight(modelData.name)
                 : (Flags.gameMode ? gameBarH : ((Flags.autoHide || offCursor) ? 0 : reservedH)))
 
@@ -687,6 +709,26 @@ ShellRoot {
             }
 
             /**
+             * The floating media island's own input region, above the pill.
+             *
+             * Nested regions are in window coordinates, so this maps the island's
+             * pill-local rect out to the window. It exists because the island
+             * deliberately does *not* sit inside `pillRegion`: the pill keeps its
+             * full strip width while the island is up so the bar's cells stay
+             * clickable, and the island needs its own box rather than a wider
+             * shared one, which would have put the strip's corners back under
+             * the card's reach.
+             *
+             * Zero-sized while not floating, so it costs nothing at rest.
+             */
+            Region {
+                x: pill.x + pill.islandX
+                y: pill.y + pill.islandY
+                width: pill.mediaFloats ? pill.islandW : 0
+                height: pill.mediaFloats ? pill.islandH : 0
+            }
+
+            /**
              * Mask while the pill is being pulled in from the reveal strip. The
              * plain pillRegion alone would flicker: it follows the pill's morphing
              * geometry, so a cursor waiting in the strip below the still-growing
@@ -753,8 +795,25 @@ ShellRoot {
                 anchors.fill: parent
                 focus: overlay.surfaceOpen
 
+                /**
+                 * Alive while the floating media island is up.
+                 *
+                 * This handler is the bar's only statement about "the pointer is
+                 * over the bar", and it used to switch itself off whenever any
+                 * surface was open — correct for a morphing surface, which
+                 * *is* the pill and so cannot be "over" separately from it, but
+                 * fatal for a floating island: the island leaves the pill's
+                 * `surfaceOpen` true while sitting outside the pill's rect, so
+                 * the one signal that could have kept the island alive went dead
+                 * at exactly the moment it was needed. That is the mechanism
+                 * behind "it opened once and then it was gone": the first open
+                 * turned off the handler that every later open depended on.
+                 *
+                 * Kept alive for the island so the island can be dismissed by
+                 * leaving the bar, and re-shown by returning to it.
+                 */
                 HoverHandler {
-                    enabled: !overlay.surfaceOpen && !pill.pinned
+                    enabled: (!overlay.surfaceOpen || pill.mediaFloats) && !pill.pinned
                     onHoveredChanged: if (enabled) pill.hovered = hovered
                 }
                 Keys.onEscapePressed: {

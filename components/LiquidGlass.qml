@@ -77,7 +77,8 @@ Rectangle {
      * own switch untouched, which is what makes this a choice rather than a
      * takeover.
      */
-    readonly property bool glassy: (Flags.glassFollowHypr && HyprGlass.usable)
+    readonly property bool glassy: !Theme.oled && _glassy
+    readonly property bool _glassy: (Flags.glassFollowHypr && HyprGlass.usable)
         ? HyprGlass.blurEnabled
         : Flags.glass
 

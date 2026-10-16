@@ -235,6 +235,8 @@ DockPanel {
     // wallpaper first, so the dock's dynamic palette is never a stale cache.
     function applyMode(v) {
         Flags.dockTheme = v;
+        if (v !== "dark")
+            Flags.dockOled = false;
         if (v === "dynamic")
             paletteRegen.running = true;
     }
@@ -251,7 +253,7 @@ DockPanel {
             { item: dockRow, kind: "toggle", get: function () { return Flags.dockEnabled; }, set: function (v) { Flags.dockEnabled = v; } }
         ];
         // The dock sub-settings only exist while the dock itself is switched on.
-        if (Flags.dockEnabled)
+        if (Flags.dockEnabled) {
             base.push(
                 { item: dockAutoHideRow, kind: "toggle", get: function () { return Flags.dockAutoHide; }, set: function (v) { Flags.dockAutoHide = v; } },
                 // Door into the app picker: the list of every installed entry
@@ -259,10 +261,15 @@ DockPanel {
                 // by dragging the chips in the dock. Sits third so the keyboard
                 // order matches where the row actually is.
                 { item: dockAppsRow, kind: "toggle", get: function () { return root.appsOpen; }, set: function (v) { root.setAppsOpen(v); } },
-                { item: dockThemeRow, kind: "seg", vals: ["light", "dark", "dynamic", "manual"], get: function () { return root.themeShown; }, set: function (v) { root.applyMode(v); } },
+                { item: dockThemeRow, kind: "seg", vals: ["light", "dark", "dynamic", "manual"], get: function () { return root.themeShown; }, set: function (v) { root.applyMode(v); } }
+            );
+            if (root.themeShown === "dark")
+                base.push({ item: dockOledRow, kind: "toggle", get: function () { return Flags.dockOled; }, set: function (v) { Flags.dockOled = v; } });
+            base.push(
                 { item: dockGlassRow, kind: "seg", vals: ["transparent", "solid"], get: function () { return root.glassShown; }, set: function (v) { Flags.dockStyle = v; } },
                 { item: dockMinimalRow, kind: "toggle", get: function () { return Flags.dockMinimal; }, set: function (v) { Flags.dockMinimal = v; } }
             );
+        }
         return base;
     }
 
@@ -687,6 +694,21 @@ DockPanel {
             }
         }
 
+        SettingsRow {
+            id: dockOledRow
+            surface: root
+            name: "OLED"
+            icon: "moon"
+            visible: Flags.dockEnabled && root.themeShown === "dark"
+
+            LinkToggle {
+                s: root.s
+                pal: root.pal
+                on: Flags.dockOled
+                onToggled: Flags.dockOled = !Flags.dockOled
+            }
+        }
+
         /**
          * Manual hue editor, folded shut unless the dock theme is on Manual. Holds a
          * rainbow strip with a draggable thumb, then a single line pairing a live
@@ -697,7 +719,7 @@ DockPanel {
         Item {
             id: manualSection
             width: parent.width
-            height: (Flags.dockEnabled && Flags.dockTheme === "manual") ? manualCol.implicitHeight : 0
+            height: (Flags.dockEnabled && Flags.dockTheme === "manual" && !Flags.dockOled) ? manualCol.implicitHeight : 0
             clip: true
             Behavior on height { NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard } }
 

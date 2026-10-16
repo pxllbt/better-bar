@@ -33,6 +33,9 @@ jobs:
       - name: Run Border Geometry Unit Tests
         run: node lib/border-geometry.test.mjs
 
+      - name: Run Apps Unit Tests
+        run: node lib/apps.test.mjs
+
       - name: Run Monitors Unit Tests
         run: node lib/monitors.test.mjs
 

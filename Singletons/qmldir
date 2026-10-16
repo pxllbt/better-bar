@@ -37,3 +37,4 @@ singleton TextEntry TextEntry.qml
 singleton Keybinds Keybinds.qml
 singleton OmarchyGuard OmarchyGuard.qml
 singleton Plymouth Plymouth.qml
+singleton Scratch Scratch.qml
