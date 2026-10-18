@@ -26,6 +26,7 @@ Singleton {
     property alias clockSeconds: adapter.clockSeconds
     property alias mainDisplay: adapter.mainDisplay
     property alias expandTo: adapter.expandTo
+    property alias profileAvatar: adapter.profileAvatar
 /**
      * Decorative Japanese header glyphs (時, 系, 波, 歯, 探, 前/次): always off.
      *
@@ -188,9 +189,9 @@ Singleton {
             //* (cream/bright on the pill, the dock's title copy). Empty follows the scheme.
             property string textOverride: ""
             property string uiFont: ""
-            property real pillOpacity: 1
+            property real pillOpacity: 0.94
             //* Transparency mode: translucent tinted slab over the desktop. Off restores the exact legacy flat gradient.
-            property bool glass: false
+            property bool glass: true
             /**
              * Let Hyprland decide the material instead of the bar deciding alone.
              *
@@ -202,7 +203,7 @@ Singleton {
              */
             property bool glassFollowHypr: false
             //* Text-visibility boost when glass is on (0..1): lifts the readability veil behind copy so text keeps contrast on bright wallpapers. Persisted in the settings file like every other flag.
-            property real glassText: 0
+            property real glassText: 0.35
             property bool autoHide: false
             //* Bar follows the cursor: the pill stays up on the monitor holding the pointer and retracts on the others, releasing their reserved band so no gap is left behind. Hovering a top edge still reveals that monitor as an escape hatch. Independent of auto-hide -- with this off the bar behaves exactly as before, and nothing is polled.
             property bool cursorFollow: false
@@ -264,7 +265,7 @@ Singleton {
             property bool hideOnSpecial: false
             property bool oled: false
             property bool dockOled: false
-
+            property string profileAvatar: ""
         }
     }
 

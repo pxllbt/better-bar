@@ -8,16 +8,21 @@ import "../Singletons"
 import "../components"
 
 /**
- * PROFILE sub-surface: who is at this machine. Horizontal card --
- * avatar (auto-detected from ~/.face) with the login name under it on the
- * left, live system facts on the right.
- * Reached from the pill's distro mark and folds back to the hover pill on
- * the back chevron or an empty click.
+ * PROFILE sub-surface: user identity, avatar customization, and live system specs.
  *
- * Each fact row is a small caps label plus its value (host, kernel, WM,
- * shell, uptime on the left; CPU, GPU, packages, memory, disk on the right),
- * sharing one text baseline so the values sit on a line.
- * Distro et al are read live rather than stored.
+ * Reached from the pill's distro mark or hover row, and folds back to the
+ * resting pill on back chevron or empty click.
+ *
+ * Features:
+ *   - Avatar with auto-detection (~/.face*) and persistent override (Flags.profileAvatar)
+ *   - Interactive avatar customizer:
+ *       * Native image-picker summoning (omarchy.image-picker over ~/Pictures)
+ *       * Quick-pick carousel from ~/Pictures
+ *       * Direct path input with validation
+ *       * Reset-to-default button syncing to ~/.face
+ *   - Full-width Processor and Graphics specifications without truncation
+ *   - Memory and Disk gauge cards with real-time percentage progress meters
+ *   - Distro, Kernel, Host, Uptime, Packages, Shell and Compositor badges
  */
 SettingsSurface {
     id: root
@@ -28,42 +33,110 @@ SettingsSurface {
     // Purely informational -- no rows for the keyboard cursor to walk.
     rows: []
 
-    // ── Avatar: auto-detected, no configuring ────────────────────────────
+    // ── Avatar & Image Settings ──────────────────────────────────────────
 
-    /** Avatar: prefer lock avatar path if set, else first of ~/.face* files, else "". */
-    property string faceFile: ""
+    property string detectedFace: ""
+    readonly property string faceFile: {
+        if (Flags.profileAvatar && Flags.profileAvatar.length > 0)
+            return root.expandPath(Flags.profileAvatar);
+        if (root.detectedFace.length > 0)
+            return root.detectedFace;
+        return "";
+    }
+
     function expandPath(p) {
         if (!p || p === "")
             return "";
         if (p === "~")
-            return Quickshell.env("HOME");
+            return Quickshell.env("HOME") || "";
         if (p.indexOf("~/") === 0)
             return (Quickshell.env("HOME") || "") + p.slice(1);
         return p;
     }
-    FileView {
-        id: flagsView
-        path: "file://" + (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/better/flags.json"
-        printErrors: false
-        onLoaded: {
-            try {
-                const f = JSON.parse(flagsView.text());
-                let path = f.lockAvatarPath || "";
-                if (path) {
-                    root.faceFile = root.expandPath(path);
-                    if (root.faceFile)
-                        return;
-                }
-            } catch (e) {}
-            // fall back to ~/.face*
-            faceProc.running = true;
-        }
-    }
+
     Process {
         id: faceProc
-        running: false
+        running: true
         command: ["sh", "-c", "for f in \"$HOME/.face\" \"$HOME/.face.icon\" \"$HOME/.face.png\" \"$HOME/.face.jpg\"; do if [ -f \"$f\" ]; then echo \"$f\"; break; fi; done"]
-        stdout: SplitParser { onRead: (line) => root.faceFile = line.trim() }
+        stdout: SplitParser { onRead: (line) => root.detectedFace = line.trim() }
+    }
+
+    function setAvatar(path) {
+        if (!path) return;
+        var p = root.expandPath(path.trim());
+        Flags.profileAvatar = p;
+        syncFaceProc.command = ["bash", "-c", "cp -f " + JSON.stringify(p) + " \"$HOME/.face\" 2>/dev/null; cp -f " + JSON.stringify(p) + " \"$HOME/.face.icon\" 2>/dev/null || true"];
+        syncFaceProc.running = true;
+    }
+
+    function resetAvatar() {
+        Flags.profileAvatar = "";
+        syncFaceProc.command = ["bash", "-c", "rm -f \"$HOME/.face\" \"$HOME/.face.icon\" 2>/dev/null || true"];
+        syncFaceProc.running = true;
+        faceProc.running = true;
+    }
+
+    Process {
+        id: syncFaceProc
+        running: false
+    }
+
+    property bool settingsOpen: false
+
+    readonly property string selectionPath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/better/avatar-selection"
+    readonly property string donePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/better/avatar-done"
+
+    function openImagePicker() {
+        pickerPrepProc.command = ["bash", "-c", "mkdir -p \"$(dirname \"" + root.selectionPath + "\")\" && : > \"" + root.selectionPath + "\" && : > \"" + root.donePath + "\""];
+        pickerPrepProc.running = true;
+    }
+
+    Process {
+        id: pickerPrepProc
+        running: false
+        onExited: {
+            var payload = JSON.stringify({
+                imageDirs: Quickshell.env("HOME") + "/Pictures",
+                selectionFile: root.selectionPath,
+                doneFile: root.donePath,
+                showLabels: true,
+                filterable: true
+            });
+            summonProc.command = ["omarchy-shell", "shell", "summon", "omarchy.image-picker", payload];
+            summonProc.running = true;
+        }
+    }
+
+    Process { id: summonProc; running: false }
+
+    FileView {
+        id: selectionWatcher
+        path: "file://" + root.selectionPath
+        watchChanges: true
+        printErrors: false
+        onFileChanged: root.checkSelectedAvatar()
+        onLoaded: root.checkSelectedAvatar()
+    }
+
+    function checkSelectedAvatar() {
+        var txt = String(selectionWatcher.text() || "").trim();
+        if (txt.length > 0 && txt !== Flags.profileAvatar) {
+            root.setAvatar(txt);
+        }
+    }
+
+    property var recentPictures: []
+    Process {
+        id: scanPicsProc
+        running: true
+        command: ["bash", "-c", "find \"$HOME/Pictures\" -maxdepth 2 -type f \\( -iname \"*.png\" -o -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.webp\" \\) 2>/dev/null | head -n 8"]
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                var lines = String(text || "").trim().split("\n").filter(function(l) { return l.length > 0; });
+                root.recentPictures = lines;
+            }
+        }
     }
 
     // ── Live system facts ──────────────────────────────────────────────
@@ -90,14 +163,8 @@ SettingsSurface {
         }
     }
 
-    /**
-     * Distro logo, auto-detected from the os-release ID and rendered as the
-     * matching `linux-*` glyph from the JetBrainsMono Nerd Font. CachyOS maps
-     * to linux-cachyos, arch to linux-archlinux, and so on; anything unmapped
-     * falls back to the tux penguin so an unknown distro still gets a mark.
-     */
     readonly property var distroGlyphs: ({
-        "cachyos": 0xf385, "arch": 0xf303, "ubuntu": 0xf31b, "debian": 0xf306,
+        "omarchy": 0xf303, "cachyos": 0xf385, "arch": 0xf303, "ubuntu": 0xf31b, "debian": 0xf306,
         "fedora": 0xf30a, "nixos": 0xf313, "manjaro": 0xf312, "garuda": 0xf337,
         "void": 0xf32e, "kali": 0xf327, "linuxmint": 0xf30e, "elementary": 0xf309,
         "solus": 0xf32d, "parrot": 0xf329, "slackware": 0xf318, "gentoo": 0xf30d,
@@ -106,7 +173,7 @@ SettingsSurface {
         "opensuse-leap": 0xf37e, "leap": 0xf37e, "opensuse": 0xf314
     })
     readonly property string distroGlyph: String.fromCodePoint(
-        root.distroGlyphs[root.distroId] !== undefined ? root.distroGlyphs[root.distroId] : 0xf31a)
+        root.distroGlyphs[root.distroId] !== undefined ? root.distroGlyphs[root.distroId] : 0xf303)
 
     property string hostName: ""
     FileView {
@@ -131,18 +198,13 @@ SettingsSurface {
     readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME") || ""
     readonly property string wmName: Quickshell.env("XDG_CURRENT_DESKTOP") || (Quickshell.env("HYPRLAND_INSTANCE_SIGNATURE") ? "Hyprland" : "")
 
-    /** First VGA/3D/display controller line from lspci, else "". */
     property string gpuRaw: ""
     Process {
         running: true
         command: ["sh", "-c", "lspci 2>/dev/null | grep -iE 'VGA|3D controller|Display controller' | head -n 1"]
         stdout: SplitParser { onRead: (line) => root.gpuRaw = line.trim() }
     }
-    /**
-     * GPU model, e.g. "Lucienne". Same trim treatment as the CPU: strip the
-     * bus address and class, the vendor, and the revision, so the value stays
-     * a chip name, not a PCI sentence.
-     */
+
     readonly property string gpu: {
         let t = root.gpuRaw.replace(/^[0-9a-fA-F:.]+\s+.*?:\s*/, "");
         t = t.replace(/^(Advanced Micro Devices,?\s*Inc\.?(\s*\[AMD\/ATI\])?|NVIDIA Corporation|Intel Corporation)\s*/i, "");
@@ -150,7 +212,6 @@ SettingsSurface {
         return t.trim();
     }
 
-    // Seconds since boot, from /proc/uptime's first field.
     property real uptimeSec: 0
     FileView {
         id: procUptime
@@ -172,7 +233,6 @@ SettingsSurface {
         return m + "m";
     }
 
-    /** Installed package count, whichever package manager exists. */
     property string pkgCount: ""
     Process {
         running: true
@@ -180,29 +240,26 @@ SettingsSurface {
         stdout: SplitParser { onRead: (line) => root.pkgCount = line.trim() }
     }
 
-    /**
-     * CPU model name, e.g. "Ryzen 7 5700U". Taken from /proc/cpuinfo and
-     * trimmed to the part that identifies the chip.
-     */
     property string cpu: ""
     FileView {
         id: procCpuinfo
         path: "file:///proc/cpuinfo"
         printErrors: false
         onLoaded: {
-            const m = procCpuinfo.text().match(/model name\s*:\s*(.+)/);
-            if (!m)
-                return;
+            const txt = procCpuinfo.text();
+            const m = txt.match(/model name\s*:\s*(.+)/);
+            if (!m) return;
             let name = m[1].trim();
-            // Drop vendor word and trailing integrated-GPU clause.
             name = name.replace(/^(AMD|Intel|Apple|AuthenticAMD)\s+/i, "");
             name = name.replace(/\s+with\s+.*(Graphics|graphics)$/i, "");
-            root.cpu = name;
+            name = name.replace(/\s+CPU\s+/i, " ");
+            const cores = (txt.match(/^processor\s*:/gm) || []).length;
+            root.cpu = name + (cores > 0 ? " (" + cores + ")" : "");
         }
     }
 
-    /** Used / total RAM in GiB, from /proc/meminfo. */
     property string memUsed: ""
+    property real memPct: 0
     FileView {
         id: procMeminfo
         path: "file:///proc/meminfo"
@@ -212,19 +269,29 @@ SettingsSurface {
             const m1 = t.match(/MemTotal:\s+(\d+)/);
             const m2 = t.match(/MemAvailable:\s+(\d+)/);
             if (m1 && m2) {
-                const total = parseInt(m1[1], 10) / 1048576;
-                const used = (parseInt(m1[1], 10) - parseInt(m2[1], 10)) / 1048576;
-                root.memUsed = used.toFixed(1) + " / " + total.toFixed(1) + " GiB";
+                const total = parseInt(m1[1], 10);
+                const avail = parseInt(m2[1], 10);
+                if (total > 0) {
+                    root.memPct = Math.max(0, Math.min(1, (total - avail) / total));
+                    root.memUsed = ((total - avail) / 1048576).toFixed(1) + " / " + (total / 1048576).toFixed(1) + " GiB";
+                }
             }
         }
     }
 
-    /** Root filesystem used / total, in GiB, so it reads like MEMORY. */
     property string diskUsed: ""
+    property real diskPct: 0
     Process {
         running: true
-        command: ["sh", "-c", "df -B1 / | awk 'NR==2 {printf \"%.1f / %.1f GiB\", $3/1073741824, $2/1073741824}'"]
-        stdout: SplitParser { onRead: (line) => root.diskUsed = line.trim() }
+        command: ["sh", "-c", "df -B1 / | awk 'NR==2 {printf \"%.1f / %.1f GiB\\t%.2f\", $3/1073741824, $2/1073741824, $3/$2}'"]
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                var parts = String(text || "").trim().split("\t");
+                if (parts.length > 0) root.diskUsed = parts[0];
+                if (parts.length > 1) root.diskPct = Math.max(0, Math.min(1, parseFloat(parts[1]) || 0));
+            }
+        }
     }
 
     Column {
@@ -232,7 +299,7 @@ SettingsSurface {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: 0
+        spacing: 12 * root.s
 
         SettingsHeader {
             s: root.s
@@ -240,29 +307,30 @@ SettingsSurface {
             showBack: true
         }
 
-        Item { width: 1; height: 8 * root.s }
-
+        // ── HERO CARD ────────────────────────────────────────────────────────
         Item {
             anchors.left: parent.left
             anchors.leftMargin: 18 * root.s
             anchors.right: parent.right
             anchors.rightMargin: 18 * root.s
-            implicitHeight: Math.max(avatarCol.implicitHeight, factsCol.implicitHeight)
+            implicitHeight: Math.max(avatarContainer.height, heroInfoCol.implicitHeight)
 
-            // Avatar + name, vertically centred against the info block.
-            Column {
-                id: avatarCol
+            // Avatar with camera badge and interactive click
+            Item {
+                id: avatarContainer
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 8 * root.s
-                width: 84 * root.s
+                width: 78 * root.s
+                height: 78 * root.s
 
-                ClippingRectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 72 * root.s
-                    height: 72 * root.s
-                    radius: 36 * root.s
+                Rectangle {
+                    id: avatarCircle
+                    anchors.fill: parent
+                    radius: width / 2
                     color: Theme.frameBg
+                    border.width: 2 * root.s
+                    border.color: Theme.accent
+                    clip: true
 
                     Image {
                         id: faceImg
@@ -271,129 +339,775 @@ SettingsSurface {
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
                         visible: status === Image.Ready
-                        sourceSize: Qt.size(144 * root.s, 144 * root.s)
+                        sourceSize: Qt.size(160 * root.s, 160 * root.s)
                     }
 
                     Text {
                         anchors.centerIn: parent
                         visible: !faceImg.visible
                         text: "\uf007"
-                        color: Theme.iconDim
-                        font.family: "JetBrainsMono NFM"
-                        font.pixelSize: 22 * root.s
+                        color: Theme.dim
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 30 * root.s
+                    }
+
+                    // Hover overlay
+                    Rectangle {
+                        anchors.fill: parent
+                        color: Qt.rgba(0, 0, 0, 0.6)
+                        opacity: avatarMouse.containsMouse ? 1 : 0
+                        Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                        Column {
+                            anchors.centerIn: parent
+                            spacing: 2 * root.s
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "\uf030"
+                                color: Theme.bright
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 15 * root.s
+                            }
+                            Text {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                text: "EDIT"
+                                color: Theme.bright
+                                font.family: Theme.font
+                                font.pixelSize: 8 * root.s
+                                font.weight: Font.Bold
+                            }
+                        }
                     }
                 }
 
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: root.userName
-                    color: Theme.cream
-                    font.family: Theme.font
-                    font.pixelSize: 13 * root.s
-                    font.weight: Font.Medium
-                    elide: Text.ElideRight
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
+                // Camera pill badge
+                Rectangle {
+                    anchors.right: parent.right
+                    anchors.bottom: parent.bottom
+                    anchors.margins: -2 * root.s
+                    width: 22 * root.s
+                    height: 22 * root.s
+                    radius: 11 * root.s
+                    color: Theme.accent
+                    border.width: 1.5 * root.s
+                    border.color: Theme.cardBot
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "\uf030"
+                        color: Theme.bright
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 10 * root.s
+                    }
+                }
+
+                MouseArea {
+                    id: avatarMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.settingsOpen = !root.settingsOpen
+                }
+
+                Tooltip {
+                    s: root.s
+                    placement: "below"
+                    title: "Profile Picture"
+                    desc: "Click to change avatar photo"
+                    show: avatarMouse.containsMouse
                 }
             }
 
-            // Facts: distro heading on top, then two label:value columns
+            // User Info Column
             Column {
-                id: factsCol
-                anchors.left: avatarCol.right
-                anchors.leftMargin: 20 * root.s
+                id: heroInfoCol
+                anchors.left: avatarContainer.right
+                anchors.leftMargin: 18 * root.s
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 10 * root.s
+                spacing: 5 * root.s
 
-                component Fact: Item {
-                    required property var modelData
+                Text {
+                    text: root.userName !== "" ? root.userName : "User"
+                    color: Theme.bright
+                    font.family: Theme.font
+                    font.pixelSize: 18 * root.s
+                    font.weight: Font.Bold
+                    elide: Text.ElideRight
                     width: parent.width
-                    implicitHeight: valueText.implicitHeight
-
-                    Text {
-                        id: labelText
-                        text: modelData.label
-                        color: Theme.faint
-                        font.family: Theme.font
-                        font.pixelSize: 10.5 * root.s
-                        font.letterSpacing: 1 * root.s
-                        width: 64 * root.s
-                        anchors.left: parent.left
-                        anchors.baseline: valueText.baseline
-                    }
-                    Text {
-                        id: valueText
-                        anchors.left: parent.left
-                        anchors.leftMargin: 64 * root.s + 8 * root.s
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        text: modelData.value !== "" ? modelData.value : "—"
-                        color: Theme.subtle
-                        font.family: Theme.font
-                        font.pixelSize: 12.5 * root.s
-                        elide: Text.ElideRight
-                    }
                 }
 
                 Row {
                     spacing: 8 * root.s
-                    Text {
-                        text: root.distroGlyph
-                        color: Theme.cream
-                        font.family: "JetBrainsMono NFM"
-                        font.pixelSize: 26 * root.s
-                        anchors.verticalCenter: parent.verticalCenter
+
+                    // Distro Badge
+                    Rectangle {
+                        height: 20 * root.s
+                        width: distroRow.implicitWidth + 12 * root.s
+                        radius: 5 * root.s
+                        color: Qt.alpha(Theme.accent, 0.12)
+                        border.width: 1
+                        border.color: Qt.alpha(Theme.accent, 0.28)
+
+                        Row {
+                            id: distroRow
+                            anchors.centerIn: parent
+                            spacing: 5 * root.s
+                            Text {
+                                text: root.distroGlyph
+                                color: Theme.accent
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 12 * root.s
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                text: root.distro !== "" ? root.distro : "Linux"
+                                color: Theme.cream
+                                font.family: Theme.font
+                                font.pixelSize: 10.5 * root.s
+                                font.weight: Font.SemiBold
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
                     }
-                    Text {
-                        text: root.distro !== "" ? root.distro : "—"
-                        color: Theme.cream
-                        font.family: Theme.font
-                        font.pixelSize: 15 * root.s
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                        width: parent.width - 26 * root.s - 8 * root.s
-                        anchors.verticalCenter: parent.verticalCenter
+
+                    // Host Badge
+                    Rectangle {
+                        height: 20 * root.s
+                        width: hostRow.implicitWidth + 12 * root.s
+                        radius: 5 * root.s
+                        color: Theme.frameBg
+                        border.width: 1
+                        border.color: Theme.hair
+
+                        Row {
+                            id: hostRow
+                            anchors.centerIn: parent
+                            spacing: 4 * root.s
+                            Text {
+                                text: "@"
+                                color: Theme.dim
+                                font.family: Theme.font
+                                font.pixelSize: 10.5 * root.s
+                                font.weight: Font.Bold
+                            }
+                            Text {
+                                text: root.hostName !== "" ? root.hostName : "localhost"
+                                color: Theme.subtle
+                                font.family: Theme.font
+                                font.pixelSize: 10.5 * root.s
+                                font.weight: Font.Medium
+                            }
+                        }
                     }
                 }
 
                 Row {
-                    spacing: 20 * root.s
-                    width: parent.width
+                    spacing: 12 * root.s
 
-                    Column {
-                        spacing: 7 * root.s
-                        width: (parent.width - 20 * root.s) / 2
-                        Repeater {
-                            model: [
-                                { label: "HOSTNAME", value: root.hostName },
-                                { label: "KERNEL",   value: root.kernel },
-                                { label: "WM",       value: root.wmName },
-                                { label: "SHELL",    value: root.shellName },
-                                { label: "UPTIME",   value: root.uptime }
-                            ]
-                            delegate: Fact {}
+                    Text {
+                        text: "up " + root.uptime
+                        color: Theme.dim
+                        font.family: Theme.font
+                        font.pixelSize: 11 * root.s
+                    }
+                    Text {
+                        text: "·"
+                        color: Theme.hair
+                        font.pixelSize: 11 * root.s
+                    }
+                    Text {
+                        text: root.wmName + " · " + root.shellName
+                        color: Theme.dim
+                        font.family: Theme.font
+                        font.pixelSize: 11 * root.s
+                    }
+                }
+
+                // Action links
+                Row {
+                    spacing: 10 * root.s
+
+                    Rectangle {
+                        height: 22 * root.s
+                        width: changePicText.implicitWidth + 16 * root.s
+                        radius: 5 * root.s
+                        color: changePicMouse.containsMouse ? Qt.alpha(Theme.accent, 0.18) : Qt.alpha(Theme.accent, 0.08)
+                        border.width: 1
+                        border.color: Qt.alpha(Theme.accent, 0.35)
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 5 * root.s
+                            Text {
+                                text: "\uf030"
+                                color: Theme.accent
+                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: 10 * root.s
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                            Text {
+                                id: changePicText
+                                text: root.settingsOpen ? "Close Picker" : "Change Picture"
+                                color: Theme.cream
+                                font.family: Theme.font
+                                font.pixelSize: 10 * root.s
+                                font.weight: Font.SemiBold
+                                anchors.verticalCenter: parent.verticalCenter
+                            }
+                        }
+
+                        MouseArea {
+                            id: changePicMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.settingsOpen = !root.settingsOpen
                         }
                     }
 
-                    Column {
-                        spacing: 7 * root.s
-                        width: (parent.width - 20 * root.s) / 2
-                        Repeater {
-                            model: [
-                                { label: "CPU",      value: root.cpu },
-                                { label: "GPU",      value: root.gpu },
-                                { label: "PACKAGES", value: root.pkgCount },
-                                { label: "MEMORY",   value: root.memUsed },
-                                { label: "DISK",     value: root.diskUsed }
-                            ]
-                            delegate: Fact {}
+                    Rectangle {
+                        visible: Flags.profileAvatar.length > 0
+                        height: 22 * root.s
+                        width: resetPicText.implicitWidth + 14 * root.s
+                        radius: 5 * root.s
+                        color: resetPicMouse.containsMouse ? Qt.alpha(Theme.verm, 0.18) : Theme.frameBg
+                        border.width: 1
+                        border.color: resetPicMouse.containsMouse ? Theme.verm : Theme.hair
+
+                        Text {
+                            id: resetPicText
+                            anchors.centerIn: parent
+                            text: "Reset"
+                            color: resetPicMouse.containsMouse ? Theme.vermLit : Theme.dim
+                            font.family: Theme.font
+                            font.pixelSize: 10 * root.s
+                            font.weight: Font.Medium
+                        }
+
+                        MouseArea {
+                            id: resetPicMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.resetAvatar()
                         }
                     }
                 }
             }
         }
 
-        Item { width: 1; height: 6 * root.s }
+        // ── AVATAR SETTINGS DRAWER (COLLAPSIBLE) ──────────────────────────────
+        Rectangle {
+            anchors.left: parent.left
+            anchors.leftMargin: 18 * root.s
+            anchors.right: parent.right
+            anchors.rightMargin: 18 * root.s
+            visible: root.settingsOpen
+            radius: 8 * root.s
+            color: Theme.frameBg
+            border.width: 1
+            border.color: Theme.hair
+            implicitHeight: drawerCol.implicitHeight + 20 * root.s
+
+            Column {
+                id: drawerCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 10 * root.s
+                spacing: 8 * root.s
+
+                Row {
+                    width: parent.width
+                    spacing: 8 * root.s
+
+                    Text {
+                        text: "CHOOSE PROFILE PICTURE"
+                        color: Theme.accent
+                        font.family: Theme.font
+                        font.pixelSize: 10 * root.s
+                        font.weight: Font.Bold
+                        font.letterSpacing: 1
+                        anchors.verticalCenter: parent.verticalCenter
+                    }
+                }
+
+                // Main Image Picker Summon Button
+                Rectangle {
+                    width: parent.width
+                    height: 30 * root.s
+                    radius: 6 * root.s
+                    color: pickButtonMouse.containsMouse ? Qt.alpha(Theme.accent, 0.25) : Qt.alpha(Theme.accent, 0.14)
+                    border.width: 1
+                    border.color: Theme.accent
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 8 * root.s
+                        Text {
+                            text: "\uf07c"
+                            color: Theme.accent
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 13 * root.s
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                        Text {
+                            text: "Browse with Omarchy Image Picker (Visual Grid)..."
+                            color: Theme.bright
+                            font.family: Theme.font
+                            font.pixelSize: 11 * root.s
+                            font.weight: Font.SemiBold
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
+                    }
+
+                    MouseArea {
+                        id: pickButtonMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.openImagePicker()
+                    }
+                }
+
+                // Quick Pick Thumbnails from ~/Pictures
+                Text {
+                    visible: root.recentPictures.length > 0
+                    text: "Quick pick from ~/Pictures:"
+                    color: Theme.dim
+                    font.family: Theme.font
+                    font.pixelSize: 10 * root.s
+                }
+
+                Row {
+                    visible: root.recentPictures.length > 0
+                    spacing: 8 * root.s
+
+                    Repeater {
+                        model: root.recentPictures
+                        delegate: Rectangle {
+                            required property var modelData
+                            width: 36 * root.s
+                            height: 36 * root.s
+                            radius: 18 * root.s
+                            color: Theme.cardBot
+                            clip: true
+                            border.width: (Flags.profileAvatar === modelData) ? 2 : 1
+                            border.color: (Flags.profileAvatar === modelData) ? Theme.accent : (thumbMouse.containsMouse ? Theme.cream : Theme.hair)
+
+                            Image {
+                                anchors.fill: parent
+                                source: "file://" + modelData
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                            }
+
+                            MouseArea {
+                                id: thumbMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: root.setAvatar(modelData)
+                            }
+                        }
+                    }
+                }
+
+                // Manual Path Input
+                Row {
+                    width: parent.width
+                    spacing: 8 * root.s
+
+                    Rectangle {
+                        width: parent.width - 68 * root.s
+                        height: 28 * root.s
+                        radius: 5 * root.s
+                        color: Theme.cardBot
+                        border.width: 1
+                        border.color: pathInput.activeFocus ? Theme.accent : Theme.hairSoft
+
+                        TextInput {
+                            id: pathInput
+                            anchors.fill: parent
+                            anchors.leftMargin: 8 * root.s
+                            anchors.rightMargin: 8 * root.s
+                            verticalAlignment: Text.AlignVCenter
+                            color: Theme.bright
+                            font.family: Theme.font
+                            font.pixelSize: 11 * root.s
+                            clip: true
+                            Keys.onPressed: (e) => {
+                                TextEntry.handle(pathInput, e);
+                                if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
+                                    if (text.trim().length > 0) root.setAvatar(text.trim());
+                                    e.accepted = true;
+                                }
+                            }
+                        }
+
+                        Text {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 8 * root.s
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Flags.profileAvatar.length > 0 ? Flags.profileAvatar : "Paste or type image path..."
+                            color: Theme.faint
+                            font.family: Theme.font
+                            font.pixelSize: 11 * root.s
+                            visible: pathInput.text.length === 0
+                            elide: Text.ElideMiddle
+                            width: parent.width - 16 * root.s
+                        }
+                    }
+
+                    Rectangle {
+                        width: 60 * root.s
+                        height: 28 * root.s
+                        radius: 5 * root.s
+                        color: applyBtnMouse.containsMouse ? Theme.accent : Qt.alpha(Theme.accent, 0.2)
+                        border.width: 1
+                        border.color: Theme.accent
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "Apply"
+                            color: applyBtnMouse.containsMouse ? Theme.bright : Theme.cream
+                            font.family: Theme.font
+                            font.pixelSize: 10.5 * root.s
+                            font.weight: Font.SemiBold
+                        }
+
+                        MouseArea {
+                            id: applyBtnMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (pathInput.text.trim().length > 0)
+                                    root.setAvatar(pathInput.text.trim());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── HARDWARE SPECIFICATIONS ──────────────────────────────────────────
+        Column {
+            anchors.left: parent.left
+            anchors.leftMargin: 18 * root.s
+            anchors.right: parent.right
+            anchors.rightMargin: 18 * root.s
+            spacing: 6 * root.s
+
+            // CPU Card
+            Rectangle {
+                width: parent.width
+                implicitHeight: cpuRow.implicitHeight + 14 * root.s
+                radius: 7 * root.s
+                color: Theme.frameBg
+                border.width: 1
+                border.color: Theme.hair
+
+                Row {
+                    id: cpuRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.margins: 10 * root.s
+                    spacing: 12 * root.s
+
+                    Rectangle {
+                        width: 30 * root.s
+                        height: 30 * root.s
+                        radius: 6 * root.s
+                        color: Qt.alpha(Theme.accent, 0.12)
+                        border.width: 1
+                        border.color: Qt.alpha(Theme.accent, 0.25)
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "\uf2db"
+                            color: Theme.accent
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 15 * root.s
+                        }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2 * root.s
+                        width: parent.width - 42 * root.s
+
+                        Text {
+                            text: "PROCESSOR"
+                            color: Theme.faint
+                            font.family: Theme.font
+                            font.pixelSize: 9 * root.s
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1
+                        }
+
+                        Text {
+                            text: root.cpu !== "" ? root.cpu : "—"
+                            color: Theme.bright
+                            font.family: Theme.font
+                            font.pixelSize: 12.5 * root.s
+                            font.weight: Font.SemiBold
+                            elide: Text.ElideRight
+                            width: parent.width
+                        }
+                    }
+                }
+            }
+
+            // GPU Card
+            Rectangle {
+                width: parent.width
+                implicitHeight: gpuRow.implicitHeight + 14 * root.s
+                radius: 7 * root.s
+                color: Theme.frameBg
+                border.width: 1
+                border.color: Theme.hair
+
+                Row {
+                    id: gpuRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.margins: 10 * root.s
+                    spacing: 12 * root.s
+
+                    Rectangle {
+                        width: 30 * root.s
+                        height: 30 * root.s
+                        radius: 6 * root.s
+                        color: Qt.alpha(Theme.accent, 0.12)
+                        border.width: 1
+                        border.color: Qt.alpha(Theme.accent, 0.25)
+                        anchors.verticalCenter: parent.verticalCenter
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "\uf108"
+                            color: Theme.accent
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 15 * root.s
+                        }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2 * root.s
+                        width: parent.width - 42 * root.s
+
+                        Text {
+                            text: "GRAPHICS"
+                            color: Theme.faint
+                            font.family: Theme.font
+                            font.pixelSize: 9 * root.s
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1
+                        }
+
+                        Text {
+                            text: root.gpu !== "" ? root.gpu : "—"
+                            color: Theme.bright
+                            font.family: Theme.font
+                            font.pixelSize: 12.5 * root.s
+                            font.weight: Font.SemiBold
+                            elide: Text.ElideRight
+                            width: parent.width
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── LIVE METRICS (MEMORY & DISK GAUGES) ──────────────────────────────
+        Row {
+            anchors.left: parent.left
+            anchors.leftMargin: 18 * root.s
+            anchors.right: parent.right
+            anchors.rightMargin: 18 * root.s
+            spacing: 8 * root.s
+
+            // Memory Card
+            Rectangle {
+                width: (parent.width - 8 * root.s) / 2
+                implicitHeight: memCol.implicitHeight + 16 * root.s
+                radius: 7 * root.s
+                color: Theme.frameBg
+                border.width: 1
+                border.color: Theme.hair
+
+                Column {
+                    id: memCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.margins: 10 * root.s
+                    spacing: 5 * root.s
+
+                    Item {
+                        width: parent.width
+                        height: memTitleText.implicitHeight
+                        Text {
+                            id: memTitleText
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "MEMORY"
+                            color: Theme.faint
+                            font.family: Theme.font
+                            font.pixelSize: 9 * root.s
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1
+                        }
+                        Text {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Math.round(root.memPct * 100) + "%"
+                            color: Theme.accent
+                            font.family: Theme.font
+                            font.pixelSize: 10.5 * root.s
+                            font.weight: Font.Bold
+                        }
+                    }
+
+                    Text {
+                        text: root.memUsed !== "" ? root.memUsed : "—"
+                        color: Theme.bright
+                        font.family: Theme.font
+                        font.pixelSize: 12 * root.s
+                        font.weight: Font.SemiBold
+                    }
+
+                    // Progress Bar
+                    Rectangle {
+                        width: parent.width
+                        height: 4 * root.s
+                        radius: 2 * root.s
+                        color: Theme.hairSoft
+
+                        Rectangle {
+                            height: parent.height
+                            radius: 2 * root.s
+                            color: Theme.accent
+                            width: Math.max(4 * root.s, parent.width * root.memPct)
+                        }
+                    }
+                }
+            }
+
+            // Disk Card
+            Rectangle {
+                width: (parent.width - 8 * root.s) / 2
+                implicitHeight: diskCol.implicitHeight + 16 * root.s
+                radius: 7 * root.s
+                color: Theme.frameBg
+                border.width: 1
+                border.color: Theme.hair
+
+                Column {
+                    id: diskCol
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.margins: 10 * root.s
+                    spacing: 5 * root.s
+
+                    Item {
+                        width: parent.width
+                        height: diskTitleText.implicitHeight
+                        Text {
+                            id: diskTitleText
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "ROOT DISK"
+                            color: Theme.faint
+                            font.family: Theme.font
+                            font.pixelSize: 9 * root.s
+                            font.weight: Font.Bold
+                            font.letterSpacing: 1
+                        }
+                        Text {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Math.round(root.diskPct * 100) + "%"
+                            color: Theme.accent
+                            font.family: Theme.font
+                            font.pixelSize: 10.5 * root.s
+                            font.weight: Font.Bold
+                        }
+                    }
+
+                    Text {
+                        text: root.diskUsed !== "" ? root.diskUsed : "—"
+                        color: Theme.bright
+                        font.family: Theme.font
+                        font.pixelSize: 12 * root.s
+                        font.weight: Font.SemiBold
+                    }
+
+                    // Progress Bar
+                    Rectangle {
+                        width: parent.width
+                        height: 4 * root.s
+                        radius: 2 * root.s
+                        color: Theme.hairSoft
+
+                        Rectangle {
+                            height: parent.height
+                            radius: 2 * root.s
+                            color: Theme.accent
+                            width: Math.max(4 * root.s, parent.width * root.diskPct)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── DETAILS BADGES ──────────────────────────────────────────────────
+        Row {
+            anchors.left: parent.left
+            anchors.leftMargin: 18 * root.s
+            anchors.right: parent.right
+            anchors.rightMargin: 18 * root.s
+            spacing: 6 * root.s
+
+            Repeater {
+                model: [
+                    { label: "KERNEL", val: root.kernel },
+                    { label: "PACKAGES", val: root.pkgCount + " pkgs" },
+                    { label: "COMPOSITOR", val: root.wmName },
+                    { label: "SHELL", val: root.shellName }
+                ]
+                delegate: Rectangle {
+                    required property var modelData
+                    height: 22 * root.s
+                    width: (parent.width - 18 * root.s) / 4
+                    radius: 5 * root.s
+                    color: Theme.frameBg
+                    border.width: 1
+                    border.color: Theme.hairSoft
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 4 * root.s
+                        Text {
+                            text: modelData.val !== "" ? modelData.val : "—"
+                            color: Theme.dim
+                            font.family: Theme.font
+                            font.pixelSize: 10 * root.s
+                            font.weight: Font.Medium
+                            elide: Text.ElideRight
+                        }
+                    }
+                }
+            }
+        }
+
+        Item { width: 1; height: 8 * root.s }
     }
 }

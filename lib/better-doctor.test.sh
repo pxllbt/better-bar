@@ -84,6 +84,8 @@ has "better-doctor flags a settings row that writes a flag nothing reads" \
 
 has "the dead-flag check counts script consumers, not only QML" \
     "$(grep -c "include='\*.sh'" "$DOCTOR")" "script consumers counted"
+has "the dead-flag check allows flags self-contained in their surface" \
+    "$(grep -c 'self_consumed' "$DOCTOR")" "self-contained check"
 
 if [ "$failed" -gt 0 ]; then
     printf '\n%s failing\n' "$failed"

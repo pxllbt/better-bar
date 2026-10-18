@@ -217,17 +217,18 @@ PillSurface {
                     }
 
                     /**
-                     * Heat fill lives in a ClippingRectangle that carries the
+                     * Heat fill lives in a Rectangle with clip that carries the
                      * tile's corner radius. A plain Rectangle with its own radius
                      * gets it clamped to height/2 while the fill is still flat,
                      * so corners poked outside the tile outline on the first beat
                      * of every hold.
                      */
-                    ClippingRectangle {
+                    Rectangle {
                         anchors.fill: parent
                         anchors.margins: 1
                         radius: (Motion.rTile - 1) * root.s
                         color: "transparent"
+                        clip: true
 
                         Rectangle {
                             anchors.left: parent.left

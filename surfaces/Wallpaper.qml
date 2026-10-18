@@ -459,7 +459,7 @@ PillSurface {
      * Virtualization window for the strip, so the Repeater renders a fixed pool
      * of live tiles around the focused index instead of one delegate per entry.
      * A folder with hundreds of wallpapers previously instantiated a delegate
-     * tree (ClippingRectangle + layer texture + MultiEffect wiring) for every
+     * tree (Rectangle + layer texture + MultiEffect wiring) for every
      * one of them at once, even though only ~11 are ever on screen; the pool
      * caps that at `tileSlots` regardless of folder size. Delegates own their
      * view item imperatively (`gridIndex`), and the window slides by recycling
@@ -1972,11 +1972,12 @@ PillSurface {
 
             onFocusedChanged: if (!focused) trashHeat.cancel()
 
-            ClippingRectangle {
+            Rectangle {
                 id: card
                 anchors.fill: parent
                 radius: tile.corner
                 color: Theme.tileBg
+                clip: true
 
                 layer.enabled: !tile.dead && tile.ao <= 5
                 layer.effect: MultiEffect {

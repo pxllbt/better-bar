@@ -1332,7 +1332,7 @@ Item {
         // Decoration, not a hit target: it must never eat a click that belongs
         // to one of the pill's children.
         enabled: false
-        visible: (aura.intensity > 0 && Flags.musicViz && Cava.active) && opacity > 0.005
+        visible: (aura.intensity > 0 && Cava.active) && opacity > 0.005
         /** Shimmer needs repainting; a calm bloom does not. */
         readonly property bool shimmer: !Flags.reduceMotion && Cava.active
 

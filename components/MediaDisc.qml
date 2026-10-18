@@ -2,21 +2,25 @@ import QtQuick
 import "../Singletons"
 
 /**
- * 飭 MediaDisc: the pill-sized media metaphor — a compact CD that rotates.
+ * MediaDisc: a centered circular media card. In the pill bud it is a compact CD
+ * that rotates; in the media surface it grows into a vinyl-framed album art disc.
  *
- * The media surface already has the full-sized record; this is the same visual
- * contract scaled down into the pill so the two never drift apart. It is a few
- * rectangles and one rotation, not another canvas: the disc reads as media
- * without a second 60fps painting path inside the bar.
+ * Album art is optional — pass it via `coverUrl` and the disc paints the art
+ * clipped to a circle, falling back to the vinyl groove pattern when no art is
+ * available (no player, or artwork not yet decoded). The physical deck styling
+ * — outer rim, micro-grooves, spindle hub — is always present so the card reads
+ * as a media object even in silence.
  *
- * Rotation is always tied to a live reason — the pointer hovering the bud, or an
- * actual playing player — so an idle pill does not spin a CD forever.
+ * Rotation is always tied to a live reason — the pointer hovering the bud, or
+ * an actual playing track — so an idle pill does not spin a CD forever.
  */
 Item {
     id: root
 
     property real s: 1
     property bool spinning: false
+    /** Album art URL; empty falls back to the groove-only vinyl disc. */
+    property string coverUrl: ""
 
     readonly property real spinSeconds: 6.0
 
@@ -26,14 +30,30 @@ Item {
         width: root.width
         height: root.height
 
+        // Vinyl base: the theme's own surface so light themes get a light disc
+        // and dark themes get a dark one.
         Rectangle {
             anchors.fill: parent
             radius: width / 2
-            // The theme's own surface, not a fixed near-black: the disc has to
-            // read as an object sitting *on* the bar, so on a light theme it is
-            // a light disc and on Tokyo Night it is a dark one. A hardcoded grey
-            // made the bud the one element in the pill that ignored the palette.
             color: Theme.tileBg
+        }
+
+        // Album art clipped to a circle when present; hidden entirely when empty.
+        Rectangle {
+            anchors.fill: parent
+            clip: true
+            radius: width / 2
+            visible: root.coverUrl.length > 0
+
+            Image {
+                anchors.fill: parent
+                source: root.coverUrl
+                sourceSize: Qt.size(Math.ceil(width * 2), Math.ceil(height * 2))
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: String(source).indexOf("file:") !== 0
+                visible: status === Image.Ready || status === Image.Loading
+            }
         }
 
         // Outer rim: enough contrast for the disc to survive over a busy pill.
@@ -45,32 +65,36 @@ Item {
             border.color: Qt.alpha(Theme.cream, 0.28)
         }
 
-        // Grooves. Two declarative rings, not a canvas of concentric strokes:
-        // the visual is the same at 18px and the cost is two rounded rectangles.
-        Rectangle {
-            anchors.centerIn: parent
-            width: parent.width * 0.78
-            height: parent.width * 0.78
-            radius: width / 2
-            color: "transparent"
-            border.width: Math.max(1, 1 * root.s)
-            border.color: Qt.alpha(Theme.cream, 0.10)
-        }
+        // Grooves — only visible when no cover art, so the vinyl aesthetic
+        // grounds the card without competing with the album artwork.
+        Item {
+            anchors.fill: parent
+            visible: root.coverUrl.length === 0
 
-        Rectangle {
-            anchors.centerIn: parent
-            width: parent.width * 0.56
-            height: parent.width * 0.56
-            radius: width / 2
-            color: "transparent"
-            border.width: Math.max(1, 1 * root.s)
-            border.color: Qt.alpha(Theme.cream, 0.07)
+            // Two declarative rings, not a canvas of concentric strokes.
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width * 0.78
+                height: parent.width * 0.78
+                radius: width / 2
+                color: "transparent"
+                border.width: Math.max(1, 1 * root.s)
+                border.color: Qt.alpha(Theme.cream, 0.10)
+            }
+
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width * 0.56
+                height: parent.width * 0.56
+                radius: width / 2
+                color: "transparent"
+                border.width: Math.max(1, 1 * root.s)
+                border.color: Qt.alpha(Theme.cream, 0.07)
+            }
         }
 
         // Spindle hub, in the media surface's idiom: dark centre with a light
-        // ring, so it reads as a hole rather than a flat dot. Derived from the
-        // theme's own surface so it recedes on light themes and deepens on dark
-        // ones, instead of a fixed black that goes flat on a light bar.
+        // ring, so it reads as a hole rather than a flat dot.
         Rectangle {
             anchors.centerIn: parent
             width: parent.width * 0.26

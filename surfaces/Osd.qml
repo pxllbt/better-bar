@@ -285,7 +285,7 @@ Item {
         visible: opacity > 0.01
         Behavior on opacity { NumberAnimation { duration: 150 } }
 
-        ClippingRectangle {
+        Rectangle {
             id: coverBox
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
@@ -293,6 +293,7 @@ Item {
             height: 44 * root.s
             radius: 9 * root.s
             color: Theme.tileBg
+            clip: true
 
             Image {
                 id: cover

@@ -9,14 +9,14 @@ import Quickshell.Widgets
 import "../Singletons"
 import "../components"
 
-    /** Source line, title, artist·album and the seek seam with the transport
-     * controls; the right end carries two minimal live reads — network speed,
-     * the first connected Bluetooth device with battery. Nothing bleeds off the
-     * card and no cover wash tints it, so the background stays the theme
-     * gradient. The seam's brush head docks the pill's soul bead (Ame).
-     * Now-playing data comes from [[Players]]; with several players running the
-     * source token glows into a bubble that opens a picker.
-     */
+/**
+ * Now Playing surface: Physical audio deck aesthetics (Teenage Engineering,
+ * Braun, Bang & Olufsen, modern visionOS Now Playing). A centered circular
+ * media card — a vinyl-framed album art disc — serves as the visual focal point,
+ * with transport controls arranged beneath, a tabular seek bar below that, and
+ * a right utility rail for volume and status. The disc rotates while a track
+ * plays; tactile buttons and tabular figures give the deck a physical heft.
+ */
 PillSurface {
     id: root
 
@@ -27,15 +27,6 @@ PillSurface {
     /**
      * True when the card is a floating island above a live strip rather than
      * the pill's own face.
-     *
-     * This flips the card's dismissal rule. In the morphing pill the card *is*
-     * the pill, so "the pointer left the card" genuinely means "the pointer
-     * left the thing I summoned" and the leave-guard below is right. As a
-     * floating island the same rule is wrong: gliding down from the card onto
-     * the strip is exactly the gesture that reaches the bar's other cells, and
-     * dismissing on it would mean the island could never be dismissed without
-     * also giving up the bar. Floating, the island is dismissed by leaving the
-     * *bar* — which the pill owns, not the card.
      */
     property bool floats: false
 
@@ -56,16 +47,26 @@ PillSurface {
         onTriggered: root.requestClose()
     }
 
-    HoverHandler {
-        id: leaveGuard
-        enabled: root.open && !root.floats && Flags.expandTo === "media" && !root.pinned
-        margin: 10 * root.s
-        onHoveredChanged: {
-            if (hovered) {
-                root.wasHovered = true;
-                leaveGuardT.stop();
-            } else if (enabled && root.wasHovered) {
-                leaveGuardT.start();
+    /**
+     * Full-pill hover overlay. In centred mode the media card IS the pill face,
+     * but child controls host their own MouseAreas with hoverEnabled, and Qt Quick
+     * does not guarantee the parent HoverHandler sees those moves. The overlay at
+     * z: -1 keeps the leave-guard honest across the entire pill footprint.
+     */
+    Item {
+        anchors.fill: parent
+        z: -1
+        HoverHandler {
+            id: leaveGuard
+            enabled: root.open && !root.floats && Flags.expandTo === "media" && !root.pinned
+            margin: 24 * root.s
+            onHoveredChanged: {
+                if (hovered) {
+                    root.wasHovered = true;
+                    leaveGuardT.stop();
+                } else if (enabled && root.wasHovered) {
+                    leaveGuardT.start();
+                }
             }
         }
     }
@@ -201,8 +202,7 @@ PillSurface {
 
     /**
      * Art only decodes while this monitor's surface is open, keyed on the track
-     * so a browser reusing one file path still reloads on a new song. The shared
-     * url means every monitor shows the same cover, never a stale neighbour.
+     * so a browser reusing one file path still reloads on a new song.
      */
     readonly property string coverSource: {
         if (!root.active)
@@ -212,7 +212,6 @@ PillSurface {
             return u.indexOf("file:") === 0 ? u + "#" + Players.trackKey : u;
         return Players.appIconFor(root.player);
     }
-    /** Latched on first decode so the fallback glyph doesn't flash back while a track change reloads behind the retained cover. */
     property bool everReady: false
     onCoverSourceChanged: if (coverSource.length === 0) everReady = false
 
@@ -231,28 +230,12 @@ PillSurface {
 
     /** Card geometry tokens, all scaled to the monitor. */
     readonly property real pad: 12 * s
-    readonly property real artSize: 88 * s
     readonly property real artMargin: 16 * s
-    readonly property real gapArt: 10 * s
-    readonly property real textX: root.artMargin + root.artSize + root.gapArt
-    readonly property real textColW: 190 * s
-    /**
-     * Right-rail width.
-     *
-     * Was 96*s, sized against the wifi label alone. The bluetooth row below
-     * also reserves 22*s for its battery chip, plus the icon and gaps, so the
-     * device name was left 96 - 12 - 5 - 22 - 5 = 52*s of text. "Not connected"
-     * needs ~64*s at this pixel size, so the static fallback — the same fixed
-     * string on every desktop with no bluetooth — rendered as "Not connecte.."
-     * everywhere. A variable device name eliding is correct; a fixed label
-     * eliding is a layout bug that reads as damage.
-     *
-     * 112*s gives the chip its room and the fallback 68*s. It costs the centre
-     * column nothing: at s=1 that column ends at 294 and the rail now starts
-     * at 334, so the gutter between them still clears.
-     */
+    readonly property real railInset: 16 * s
     readonly property real railW: 112 * s
-    readonly property real railInset: 24 * s
+
+    /** Diameter of the centered circular media card. */
+    readonly property real discD: Math.min(180 * root.s, Math.min(width - 2 * root.artMargin, height - 110 * root.s))
 
     property real sealPulse: 0
 
@@ -332,7 +315,6 @@ PillSurface {
         if (settled) {
             if (!netProc.running)
                 netProc.running = true;
-            stroke.requestPaint();
         }
     }
 
@@ -342,58 +324,23 @@ PillSurface {
         NumberAnimation { target: root; property: "sealPulse"; to: 0; duration: Motion.standard; easing.type: Motion.easeStandard }
     }
 
-    component KanjiSkip: Item {
-        id: skip
-
-        property bool can: false
-        property string kanjiText: ""
-        property string icon: ""
-        signal activated()
-
-        anchors.verticalCenter: parent.verticalCenter
-        implicitWidth: 15 * root.s
-        implicitHeight: 15 * root.s
-        opacity: skip.can ? 1 : 0.4
-        Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-
-        GlyphIcon {
-            visible: !Flags.showGlyphs
-            anchors.centerIn: parent
-            width: 14 * root.s
-            height: 14 * root.s
-            name: skip.icon
-            color: skipArea.containsMouse ? Theme.cream : Theme.dim
-            Behavior on color { ColorAnimation { duration: Motion.fast } }
-        }
-
-        MouseArea {
-            id: skipArea
-            anchors.fill: parent
-            anchors.margins: -7 * root.s
-            hoverEnabled: true
-            enabled: skip.can
-            cursorShape: Qt.PointingHandCursor
-            onClicked: skip.activated()
-        }
+component ArtDot: Rectangle {
+    id: dot
+    property string url: ""
+    clip: true
+    width: 10 * root.s
+    height: 10 * root.s
+    radius: width / 2
+    color: Theme.tileBg
+    Image {
+        anchors.fill: parent
+        source: dot.url
+        sourceSize: Qt.size(Math.ceil(width * 2), Math.ceil(height * 2))
+        fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        visible: status === Image.Ready
     }
-
-    component ArtDot: ClippingRectangle {
-        id: dot
-        property string url: ""
-        width: 10 * root.s
-        height: 10 * root.s
-        radius: width / 2
-        color: Theme.tileBg
-        Image {
-            anchors.fill: parent
-            source: dot.url
-            sourceSize: Qt.size(Math.ceil(width * 2), Math.ceil(height * 2))
-            fillMode: Image.PreserveAspectCrop
-            asynchronous: true
-            visible: status === Image.Ready
-        }
     }
-
     LiquidGlass {
         id: card
         anchors.fill: parent
@@ -401,210 +348,595 @@ PillSurface {
         topLeftRadius: radius * (1 - root.topFlat)
         topRightRadius: radius * (1 - root.topFlat)
 
-        /**
-         * The surface card is the clear material: more see-through than the
-         * body, with a veil so title/artist copy keeps contrast on bright
-         * wallpapers. Falls back to the exact legacy opaque card when glass is off.
-         */
         themeBackgroundFill: true
         style: "clear"
         legacyOpacity: 1
-        accent: 0.09
+        accent: 0.08
         veil: 0.08
         borderColor: Theme.frameBorder
     }
 
-    /**
-     * The record. A square album cover clipped to a disc, spinning while the
-     * track plays — the physical metaphor rather than a rounded thumbnail, and
-     * it reads as "playing" from across the room without needing the bars.
-     *
-     * Rotation is gated three ways so it costs nothing at rest:
-     *   - `running` needs the surface open, so a backgrounded media surface
-     *     does not keep a 60fps animation alive
-     *   - `running` needs `playing`, so a paused track is visibly still
-     *   - `alwaysRunToEnd: false`, so the animation is restarted rather than
-     *     kept hot between cycles
-     *
-     * The disc is drawn slightly larger than its clip so a square cover never
-     * shows a corner past the rim.
-     */
-    Item {
-        id: art
+    Column {
+        id: discCol
         anchors.left: parent.left
-        anchors.leftMargin: root.artMargin
-        anchors.verticalCenter: parent.verticalCenter
-        width: root.artSize
-        height: root.artSize
+        anchors.right: infoStack.left
+        anchors.rightMargin: 14 * root.s
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: root.pad
+        spacing: 10 * root.s
 
-        /** One full turn. Slow enough to read as a record, not a spinner. */
-        readonly property int spinMs: 6000
-        readonly property bool spinning: root.active && root.playing
-
-        RotationAnimation {
-            id: spin
-            target: disc
-            property: "rotation"
-            from: 0
-            to: 360
-            duration: art.spinMs
-            loops: Animation.Infinite
-            alwaysRunToEnd: false
-            running: art.spinning
-        }
-
-        ClippingRectangle {
-            id: discClip
-            anchors.fill: parent
-            radius: width / 2
-            color: Theme.tileBg
+        // Source pill badge row / player picker
+        Item {
+            id: srcHeader
+            width: discCol.width
+            height: root.picking ? 22 * root.s : 18 * root.s
+            Behavior on height { NumberAnimation { duration: Motion.fast } }
 
             Item {
-                id: disc
-                width: parent.width * 1.06
-                height: parent.height * 1.06
-                anchors.centerIn: parent
+                id: infoRow
+                anchors.fill: parent
+                visible: opacity > 0.01
+                opacity: root.picking ? 0 : 1
+                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
 
                 Rectangle {
-                    anchors.fill: parent
-                    radius: width / 2
-                    // Near-black with a faint lift, so a player with no cover art
-                    // still shows a record rather than a flat tile.
-                    color: Qt.rgba(0.07, 0.07, 0.08, 1)
-                }
+                    id: srcBadge
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 18 * root.s
+                    width: Math.min(parent.width, badgeRow.width + 14 * root.s)
+                    radius: height / 2
+                    color: Qt.alpha(Theme.accent, 0.12)
+                    border.width: 1
+                    border.color: Qt.alpha(Theme.accent, 0.28)
 
-                Image {
-                    id: cover
-                    anchors.fill: parent
-                    source: root.coverSource
-                    sourceSize: Qt.size(Math.ceil(width * 2), Math.ceil(height * 2))
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                    retainWhileLoading: true
-                    cache: String(source).indexOf("file:") !== 0
-                    onStatusChanged: {
-                        if (status === Image.Ready)
-                            root.everReady = true;
-                        else if (status === Image.Error && cover.source !== "")
-                            root.everReady = false;
+                    Row {
+                        id: badgeRow
+                        anchors.centerIn: parent
+                        spacing: 5 * root.s
+
+                        ArtDot {
+                            visible: root.canPick
+                            anchors.verticalCenter: parent.verticalCenter
+                            url: Players.artUrlFor(root.player)
+                        }
+
+                        GlyphIcon {
+                            visible: !root.canPick
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 10 * root.s
+                            height: 10 * root.s
+                            name: "music"
+                            color: Theme.accent
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: root.serviceLabel.length > 0 ? root.serviceLabel : "Media"
+                            color: Theme.bright
+                            font.family: Theme.font
+                            font.pixelSize: 9 * root.s
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                        }
+
+                        GlyphIcon {
+                            visible: root.canPick
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 8 * root.s
+                            height: 8 * root.s
+                            name: "chevron-down"
+                            color: Theme.accent
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: root.canPick
+                        hoverEnabled: true
+                        cursorShape: root.canPick ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: root.picking = true
+                    }
+                }
+            }
+
+            // Multi-player picker
+            Flickable {
+                id: pickFlick
+                anchors.fill: parent
+                clip: true
+                visible: opacity > 0.01
+                opacity: root.picking ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+                contentWidth: pickRow.width
+                contentHeight: height
+                flickableDirection: Flickable.HorizontalFlick
+                boundsBehavior: Flickable.StopAtBounds
+
+                WheelHandler {
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    onWheel: (e) => {
+                        var step = e.angleDelta.y !== 0 ? e.angleDelta.y : e.angleDelta.x;
+                        var max = Math.max(0, pickFlick.contentWidth - pickFlick.width);
+                        pickFlick.contentX = Math.max(0, Math.min(max, pickFlick.contentX - step));
                     }
                 }
 
-                /**
-                 * Micro-grooves along the outer rim so it reads as physical media
-                 * without hazing or washing out the album picture.
-                 * Declarative concentric rings replace the heavy Canvas context.
-                 */
-                Item {
-                    anchors.fill: parent
-                    opacity: 0.06
+                Row {
+                    id: pickRow
+                    height: pickFlick.height
+                    spacing: 6 * root.s
 
                     Repeater {
-                        model: [0.90, 0.80, 0.70, 0.60, 0.50]
+                        model: root.picking ? Players.pickable : []
                         delegate: Rectangle {
-                            required property real modelData
-                            anchors.centerIn: parent
-                            width: parent.width * modelData
-                            height: width
-                            radius: width / 2
-                            color: "transparent"
-                            border.width: Math.max(1, 1 * root.s)
-                            border.color: "#ffffff"
+                            id: bub
+                            required property var modelData
+                            readonly property bool isActive: modelData === Players.active
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 20 * root.s
+                            width: bubInner.width + 12 * root.s
+                            radius: 6 * root.s
+                            color: isActive ? Qt.alpha(Theme.accent, 0.22) : Qt.alpha(Theme.cream, 0.06)
+                            border.width: 1
+                            border.color: isActive ? Theme.accent : Qt.alpha(Theme.cream, 0.12)
+
+                            Row {
+                                id: bubInner
+                                anchors.centerIn: parent
+                                spacing: 4 * root.s
+                                ArtDot {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    url: Players.artUrlFor(bub.modelData)
+                                }
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    text: Players.labelOf(bub.modelData)
+                                    color: bub.isActive ? Theme.bright : Theme.dim
+                                    font.family: Theme.font
+                                    font.pixelSize: 9 * root.s
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: {
+                                    Players.select(bub.modelData);
+                                    root.picking = false;
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
 
-            /** Spindle hole: compact CD hub ring so the art is not obscured. */
-            Rectangle {
-                anchors.centerIn: parent
-                width: parent.width * 0.10
-                height: width
-                radius: width / 2
-                color: Qt.rgba(0, 0, 0, 0.9)
-                border.width: Math.max(1, 1 * root.s)
-                border.color: Qt.rgba(1, 1, 1, 0.3)
+        // Track Title: Bold, crisp typography (Theme.bright, 15px)
+        Item {
+            width: discCol.width
+            height: 19 * root.s
 
-                /** Transparent inner hub ring */
+            Marquee {
+                id: titleLbl
+                anchors.fill: parent
+                text: root.title
+                color: Theme.bright
+                pixelSize: 15 * root.s
+                weight: Font.Bold
+                active: root.active
+            }
+        }
+
+        // Artist & Album: Subtly muted in Theme.dim (12px)
+        Item {
+            width: discCol.width
+            height: 15 * root.s
+            visible: root.sub.length > 0
+
+            Marquee {
+                id: subLbl
+                anchors.fill: parent
+                text: root.sub
+                color: Theme.dim
+                pixelSize: 12 * root.s
+                weight: Font.Medium
+                active: root.active
+            }
+        }
+
+        // Seek progress bar: sleek 4px track with accent fill, draggable head, tabular time
+        Item {
+            id: seekRow
+            width: discCol.width
+            height: 16 * root.s
+
+            Text {
+                id: posLbl
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.fmt(root.dragging ? root.dragFrac * root.lengthSec : root.positionSec)
+                color: Theme.dim
+                font.family: Theme.font
+                font.pixelSize: 9 * root.s
+                font.features: { "tnum": 1 }
+            }
+
+            Text {
+                id: durLbl
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.live ? "LIVE" : root.fmt(root.lengthSec)
+                color: Theme.dim
+                font.family: Theme.font
+                font.pixelSize: 9 * root.s
+                font.features: { "tnum": 1 }
+            }
+
+            Item {
+                id: stroke
+                anchors.left: posLbl.right
+                anchors.leftMargin: 8 * root.s
+                anchors.right: durLbl.left
+                anchors.rightMargin: 8 * root.s
+                anchors.verticalCenter: parent.verticalCenter
+                height: 14 * root.s
+
+                property real targetF: root.frac
+                property real lastFrac: 0
+                property real drawF: targetF
+
+                readonly property real headX: trackBg.x + drawF * trackBg.width
+                readonly property real headY: trackBg.y + trackBg.height / 2
+
+                Behavior on drawF {
+                    enabled: Math.abs(root.frac - stroke.lastFrac) < 0.02
+                    NumberAnimation { duration: Math.round(500 * Motion.mult); easing.type: Easing.Linear }
+                }
+                onTargetFChanged: Qt.callLater(() => { stroke.lastFrac = root.frac; })
+
+                // Track groove background
                 Rectangle {
-                    anchors.centerIn: parent
-                    width: parent.width * 0.4
+                    id: trackBg
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 4 * root.s
+                    radius: height / 2
+                    color: Qt.alpha(Theme.cream, 0.12)
+
+                    // Track active accent fill
+                    Rectangle {
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: Math.max(0, Math.min(parent.width, parent.width * stroke.drawF))
+                        radius: parent.radius
+                        color: Theme.accent
+                    }
+                }
+
+                // Draggable seek head (soul-bead docking target)
+                Rectangle {
+                    id: seekThumb
+                    anchors.verticalCenter: trackBg.verticalCenter
+                    x: stroke.headX - width / 2
+                    width: (seekArea.containsMouse || root.dragging ? 9 : 7) * root.s
                     height: width
                     radius: width / 2
-                    color: Qt.rgba(1, 1, 1, 0.15)
+                    color: Theme.bright
+                    border.width: 1.5
+                    border.color: Theme.accent
+                    Behavior on width { NumberAnimation { duration: Motion.fast } }
                 }
-            }
 
-            /**
-             * Subtle CD sheen sweep, kept faint so album art colors stay rich and true.
-             */
-            Rectangle {
-                anchors.fill: parent
-                radius: width / 2
-                opacity: 0.04
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: "#ffffff" }
-                    GradientStop { position: 0.35; color: "#00000000" }
-                }
-            }
-        }
-
-        /** Rim: a hairline outside the clip so the disc reads on any cover. */
-        Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            color: "transparent"
-            border.width: Math.max(1, 1 * root.s)
-            border.color: Qt.alpha(Theme.cream, 0.14)
-        }
-
-        /** No art yet: a small equalizer while playing, a note glyph otherwise. */
-        Item {
-            anchors.fill: parent
-            visible: !root.everReady
-
-            Row {
-                id: eq
-                anchors.centerIn: parent
-                spacing: 3 * root.s
-                visible: root.playing
-
-                Repeater {
-                    model: 3
-                    delegate: Rectangle {
-                        required property int index
-                        width: 3 * root.s
-                        height: 7 * root.s
-                        radius: width / 2
-                        color: Theme.vermLit
-
-                        SequentialAnimation on height {
-                            running: eq.visible && root.playing
-                            loops: Animation.Infinite
-                            NumberAnimation { to: (6 + index * 3) * root.s; duration: 360 + index * 90; easing.type: Easing.InOutSine }
-                            NumberAnimation { to: (12 - index * 2) * root.s; duration: 400 + index * 90; easing.type: Easing.InOutSine }
-                        }
+                MouseArea {
+                    id: seekArea
+                    anchors.fill: parent
+                    anchors.margins: -5 * root.s
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.player.positionSupported && root.lengthSec > 0 && !root.live)
+                    cursorShape: Qt.PointingHandCursor
+                    function fracAt(mx) {
+                        return Math.max(0, Math.min(1, (mx - trackBg.x) / trackBg.width));
+                    }
+                    onPressed: (e) => {
+                        root.dragFrac = fracAt(e.x);
+                        root.dragging = true;
+                    }
+                    onPositionChanged: (e) => { if (pressed) root.dragFrac = fracAt(e.x); }
+                    onReleased: {
+                        if (root.player)
+                            root.player.position = root.dragFrac * root.lengthSec;
+                        root.dragging = false;
                     }
                 }
             }
+        }
 
-            GlyphIcon {
-                anchors.centerIn: parent
-                width: 24 * root.s
-                height: 24 * root.s
-                name: "music"
-                color: Theme.subtle
-                visible: !root.playing
+        // Transport controls row: -10s, prev, Play/Pause (36x36), next, +10s, loop
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 8 * root.s
+            height: 36 * root.s
+
+            // Seek -10s micro-chip
+            Item {
+                id: r10Btn
+                anchors.verticalCenter: parent.verticalCenter
+                width: 28 * root.s
+                height: 22 * root.s
+                opacity: (root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live) ? 1.0 : 0.4
+                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: height / 2
+                    color: r10Mouse.containsMouse ? Qt.alpha(Theme.cream, 0.1) : Qt.alpha(Theme.cream, 0.04)
+                    border.width: 1
+                    border.color: r10Mouse.containsMouse ? Qt.alpha(Theme.cream, 0.2) : Qt.alpha(Theme.cream, 0.08)
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 2 * root.s
+
+                        GlyphIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 10 * root.s
+                            height: 10 * root.s
+                            name: "rotate-ccw"
+                            color: r10Mouse.containsMouse ? Theme.bright : Theme.dim
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "10"
+                            font.family: Theme.font
+                            font.pixelSize: 8 * root.s
+                            font.weight: Font.Bold
+                            font.features: { "tnum": 1 }
+                            color: r10Mouse.containsMouse ? Theme.bright : Theme.dim
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                        }
+                    }
+                }
+
+                MouseArea {
+                    id: r10Mouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live)
+                    onClicked: if (root.player) root.player.position = Math.max(0, (root.player.position || 0) - 10)
+                }
+            }
+
+            // Previous button
+            Item {
+                id: prevBtn
+                anchors.verticalCenter: parent.verticalCenter
+                width: 28 * root.s
+                height: 28 * root.s
+                opacity: Boolean(root.hasPlayer && root.player && root.player.canGoPrevious) ? 1.0 : 0.4
+                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: width / 2
+                    color: prevMouse.containsMouse ? Qt.alpha(Theme.cream, 0.1) : "transparent"
+                    border.width: 1
+                    border.color: prevMouse.containsMouse ? Qt.alpha(Theme.cream, 0.16) : "transparent"
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                    GlyphIcon {
+                        anchors.centerIn: parent
+                        width: 14 * root.s
+                        height: 14 * root.s
+                        name: "prev"
+                        color: prevMouse.containsMouse ? Theme.bright : Theme.cream
+                        Behavior on color { ColorAnimation { duration: Motion.fast } }
+                    }
+                }
+
+                MouseArea {
+                    id: prevMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canGoPrevious)
+                    onClicked: if (root.player) root.player.previous()
+                }
+            }
+
+            // Center Play/Pause button: prominent 36x36px circular button
+            Rectangle {
+                id: playBtn
+                anchors.verticalCenter: parent.verticalCenter
+                width: 36 * root.s
+                height: 36 * root.s
+                radius: width / 2
+                scale: playMouse.pressed ? 0.94 : (playMouse.containsMouse ? 1.05 : 1.0)
+                Behavior on scale { NumberAnimation { duration: Motion.fast; easing.type: Easing.OutBack } }
+
+                color: playMouse.containsMouse ? Theme.vermLit : Theme.accent
+                Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                border.width: 1
+                border.color: Qt.alpha(Theme.bright, 0.28)
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    width: 16 * root.s
+                    height: 16 * root.s
+                    name: root.playing ? "pause" : "play"
+                    color: Theme.bright
+                }
+
+                MouseArea {
+                    id: playMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canTogglePlaying)
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (root.player) root.player.togglePlaying()
+                }
+            }
+
+            // Next button
+            Item {
+                id: nextBtn
+                anchors.verticalCenter: parent.verticalCenter
+                width: 28 * root.s
+                height: 28 * root.s
+                opacity: Boolean(root.hasPlayer && root.player && root.player.canGoNext) ? 1.0 : 0.4
+                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: width / 2
+                    color: nextMouse.containsMouse ? Qt.alpha(Theme.cream, 0.1) : "transparent"
+                    border.width: 1
+                    border.color: nextMouse.containsMouse ? Qt.alpha(Theme.cream, 0.16) : "transparent"
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                    GlyphIcon {
+                        anchors.centerIn: parent
+                        width: 14 * root.s
+                        height: 14 * root.s
+                        name: "next"
+                        color: nextMouse.containsMouse ? Theme.bright : Theme.cream
+                        Behavior on color { ColorAnimation { duration: Motion.fast } }
+                    }
+                }
+
+                MouseArea {
+                    id: nextMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canGoNext)
+                    onClicked: if (root.player) root.player.next()
+                }
+            }
+
+            // Seek +10s micro-chip
+            Item {
+                id: f10Btn
+                anchors.verticalCenter: parent.verticalCenter
+                width: 28 * root.s
+                height: 22 * root.s
+                opacity: (root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live) ? 1.0 : 0.4
+                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: height / 2
+                    color: f10Mouse.containsMouse ? Qt.alpha(Theme.cream, 0.1) : Qt.alpha(Theme.cream, 0.04)
+                    border.width: 1
+                    border.color: f10Mouse.containsMouse ? Qt.alpha(Theme.cream, 0.2) : Qt.alpha(Theme.cream, 0.08)
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 2 * root.s
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "10"
+                            font.family: Theme.font
+                            font.pixelSize: 8 * root.s
+                            font.weight: Font.Bold
+                            font.features: { "tnum": 1 }
+                            color: f10Mouse.containsMouse ? Theme.bright : Theme.dim
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                        }
+
+                        GlyphIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 10 * root.s
+                            height: 10 * root.s
+                            name: "rotate-cw"
+                            color: f10Mouse.containsMouse ? Theme.bright : Theme.dim
+                            Behavior on color { ColorAnimation { duration: Motion.fast } }
+                        }
+                    }
+                }
+
+                MouseArea {
+                    id: f10Mouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live)
+                    onClicked: if (root.player) root.player.position = Math.min(root.lengthSec, (root.player.position || 0) + 10)
+                }
+            }
+
+            // Loop chip toggle
+            Item {
+                id: loopBtn
+                anchors.verticalCenter: parent.verticalCenter
+                width: 22 * root.s
+                height: 22 * root.s
+                visible: root.loopOk
+                opacity: root.loopNone ? 0.45 : 1.0
+                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
+
+                Rectangle {
+                    anchors.fill: parent
+                    radius: 5 * root.s
+                    color: loopArea.containsMouse ? Qt.alpha(Theme.cream, 0.1) : (root.loopNone ? "transparent" : Qt.alpha(Theme.accent, 0.16))
+                    border.width: 1
+                    border.color: loopArea.containsMouse ? Theme.frameBorder : (root.loopNone ? "transparent" : Theme.accent)
+                }
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    width: 11 * root.s
+                    height: 11 * root.s
+                    name: "refresh"
+                    color: root.loopNone ? Theme.dim : Theme.accent
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
+                }
+
+                Rectangle {
+                    id: oneBadge
+                    anchors.top: parent.top
+                    anchors.right: parent.right
+                    anchors.topMargin: -2 * root.s
+                    anchors.rightMargin: -2 * root.s
+                    width: 5 * root.s
+                    height: 5 * root.s
+                    radius: width / 2
+                    color: Theme.accent
+                    visible: root.loopTrack
+                }
+
+                MouseArea {
+                    id: loopArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.nextLoop()
+                }
             }
         }
     }
 
-    /** Right-end rail: wifi speed, connected bluetooth device with power, pin toggle. */
+    /**
+     * Right Column: Utility & Volume Rail.
+     * Connected Bluetooth device badge or compact muted chip, sleek horizontal
+     * volume slider with speaker mute toggle, and expand button.
+     */
     Item {
         id: infoStack
         anchors.right: parent.right
         anchors.rightMargin: root.railInset
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         width: root.railW
         height: infoCol.height
 
@@ -612,83 +944,78 @@ PillSurface {
             id: infoCol
             anchors.left: parent.left
             anchors.right: parent.right
-            spacing: 7 * root.s
+            spacing: 8 * root.s
 
-            Row {
+            // Bluetooth / device status badge or compact muted chip
+            Rectangle {
                 width: infoStack.width
-                height: 15 * root.s
-                spacing: 6 * root.s
+                height: 22 * root.s
+                radius: 6 * root.s
+                color: root.btPick ? Qt.alpha(Theme.cream, 0.06) : Qt.alpha(Theme.cream, 0.03)
+                border.width: 1
+                border.color: root.btPick ? Qt.alpha(Theme.cream, 0.12) : Qt.alpha(Theme.cream, 0.06)
 
-                GlyphIcon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 12 * root.s
-                    height: 12 * root.s
-                    name: "wifi"
-                    color: Theme.iconDim
-                }
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 6 * root.s
+                    anchors.rightMargin: 6 * root.s
+                    spacing: 5 * root.s
 
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(0, parent.width - 18 * root.s)
-                    text: root.netOk
-                        ? "↓ " + root.fmtNet(root.netDown) + "  ↑ " + root.fmtNet(root.netUp)
-                        : "Not connected"
-                    elide: Text.ElideRight
-                    color: root.netOk ? Theme.cream : Theme.subtle
-                    font.family: Theme.font
-                    font.pixelSize: 10 * root.s
-                    font.features: { "tnum": 1 }
+                    GlyphIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 12 * root.s
+                        height: 12 * root.s
+                        name: root.btPick ? root.btGlyph : "bluetooth"
+                        color: root.btPick ? Theme.accent : Theme.faint
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(0, parent.width - 12 * root.s - 5 * root.s - (root.btBat >= 0 ? 24 * root.s : 0) - (root.btPick ? 0 : 16 * root.s))
+                        text: root.btPick ? root.btName : "No device"
+                        elide: Text.ElideRight
+                        color: root.btPick ? Theme.bright : Theme.faint
+                        font.family: Theme.font
+                        font.pixelSize: 9.5 * root.s
+                        font.features: { "tnum": 1 }
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: root.btBat >= 0
+                        width: 24 * root.s
+                        text: root.btBat >= 0 ? root.btBat + "%" : ""
+                        horizontalAlignment: Text.AlignRight
+                        color: root.btBatColor
+                        font.family: Theme.font
+                        font.pixelSize: 9 * root.s
+                        font.weight: Font.Bold
+                        font.features: { "tnum": 1 }
+                    }
+
+                    // Compact wifi indicator when Bluetooth is idle
+                    GlyphIcon {
+                        visible: !root.btPick
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: 11 * root.s
+                        height: 11 * root.s
+                        name: "wifi"
+                        color: root.netOk ? Theme.iconDim : Theme.faint
+                    }
                 }
             }
 
+            // Volume fader: sleek horizontal slider with mute toggle & tabular digits
             Row {
                 width: infoStack.width
-                height: 15 * root.s
+                height: 18 * root.s
                 spacing: 5 * root.s
 
                 GlyphIcon {
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 12 * root.s
-                    height: 12 * root.s
-                    name: root.btGlyph
-                    color: Theme.iconDim
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(0, parent.width - 12 * root.s - 5 * root.s - (root.btBat >= 0 ? 22 * root.s : 0) - 5 * root.s)
-                    text: root.btName.length > 0 ? root.btName : "Not connected"
-                    elide: Text.ElideRight
-                    color: root.btName.length > 0 ? Theme.dim : Theme.subtle
-                    font.family: Theme.font
-                    font.pixelSize: 10 * root.s
-                    font.features: { "tnum": 1 }
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: root.btBat >= 0
-                    width: 22 * root.s
-                    text: root.btBat >= 0 ? root.btBat + "%" : ""
-                    horizontalAlignment: Text.AlignRight
-                    color: root.btBatColor
-                    font.family: Theme.font
-                    font.pixelSize: 10 * root.s
-                    font.weight: Font.DemiBold
-                    font.features: { "tnum": 1 }
-                }
-            }
-
-            Row {
-                width: infoStack.width
-                height: 15 * root.s
-                spacing: 5 * root.s
-
-                GlyphIcon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: 12 * root.s
-                    height: 12 * root.s
-                    name: "speaker"
+                    width: 13 * root.s
+                    height: 13 * root.s
+                    name: (root.player && root.player.volume === 0) ? "speaker-off" : "speaker"
                     color: volMouse.containsMouse ? Theme.cream : Theme.iconDim
                     Behavior on color { ColorAnimation { duration: Motion.fast } }
 
@@ -707,8 +1034,8 @@ PillSurface {
                 Rectangle {
                     id: volTrack
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Math.max(0, parent.width - 12 * root.s - 5 * root.s - 26 * root.s - 5 * root.s)
-                    height: 3 * root.s
+                    width: Math.max(0, parent.width - 13 * root.s - 5 * root.s - 26 * root.s - 5 * root.s)
+                    height: 4 * root.s
                     radius: height / 2
                     color: Qt.alpha(Theme.cream, 0.12)
 
@@ -720,6 +1047,16 @@ PillSurface {
                         radius: parent.radius
                         color: volMouse.containsMouse ? Theme.vermLit : Theme.accent
                         Behavior on color { ColorAnimation { duration: Motion.fast } }
+                    }
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        x: Math.max(0, Math.min(volTrack.width - width, volTrack.width * Math.max(0, Math.min(1, (root.player && root.player.volume !== undefined) ? root.player.volume : 0)) - width / 2))
+                        width: 6 * root.s
+                        height: 6 * root.s
+                        radius: width / 2
+                        color: Theme.bright
+                        visible: volMouse.containsMouse
                     }
 
                     MouseArea {
@@ -761,45 +1098,42 @@ PillSurface {
                 }
             }
 
-            /* Expand control */
+            // Expand control: explicit scaled height 15 * root.s, no polish loop
             Item {
-                width: infoStack.width
+                id: expandCtl
                 height: 15 * root.s
+                width: infoStack.width
 
-                Item {
-                    id: expandCtl
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: 58 * root.s
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 64 * root.s
                     height: 15 * root.s
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: 5 * root.s
-                        color: expandMouse.containsMouse ? Qt.alpha(Theme.cream, 0.1) : "transparent"
-                        border.width: 1
-                        border.color: expandMouse.containsMouse ? Qt.alpha(Theme.cream, 0.2) : "transparent"
-                        Behavior on color { ColorAnimation { duration: Motion.fast } }
-                    }
+                    radius: 4 * root.s
+                    color: expandMouse.containsMouse ? Qt.alpha(Theme.cream, 0.1) : Qt.alpha(Theme.cream, 0.04)
+                    border.width: 1
+                    border.color: expandMouse.containsMouse ? Qt.alpha(Theme.cream, 0.2) : Qt.alpha(Theme.cream, 0.08)
+                    Behavior on color { ColorAnimation { duration: Motion.fast } }
 
                     Row {
                         anchors.centerIn: parent
-                        spacing: 5 * root.s
+                        spacing: 4 * root.s
 
                         GlyphIcon {
                             anchors.verticalCenter: parent.verticalCenter
-                            width: 11 * root.s
-                            height: 11 * root.s
+                            width: 10 * root.s
+                            height: 10 * root.s
                             name: "layers"
-                            color: expandMouse.containsMouse ? Theme.cream : Theme.iconDim
+                            color: expandMouse.containsMouse ? Theme.bright : Theme.dim
                             Behavior on color { ColorAnimation { duration: Motion.fast } }
                         }
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             text: "Expand"
-                            color: expandMouse.containsMouse ? Theme.cream : Theme.dim
+                            color: expandMouse.containsMouse ? Theme.bright : Theme.dim
                             font.family: Theme.font
-                            font.pixelSize: 9.5 * root.s
+                            font.pixelSize: 9 * root.s
+                            font.weight: Font.Medium
                             Behavior on color { ColorAnimation { duration: Motion.fast } }
                         }
                     }
@@ -814,490 +1148,6 @@ PillSurface {
                             root.requestExpand();
                         }
                     }
-                }
-            }
-        }
-    }
-
-    Column {
-        id: textCol
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.left: parent.left
-        anchors.leftMargin: root.textX
-        width: root.textColW
-        spacing: 3 * root.s
-
-        /** Source line: plain service, or the glowing picker bubble when several players run. */
-        Item {
-            id: srcHeader
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: root.picking ? 22 * root.s : 12 * root.s
-
-            readonly property string tail: root.live
-                ? " - Live"
-                : " / " + root.fmt(root.dragging ? root.dragFrac * root.lengthSec : root.positionSec)
-                    + " - " + root.fmt(root.lengthSec)
-
-            Item {
-                id: infoRow
-                anchors.fill: parent
-                visible: opacity > 0.01
-                opacity: root.picking ? 0 : 1
-                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-
-                Text {
-                    id: plainSource
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: !root.canPick && root.serviceLabel.length > 0
-                    text: root.serviceLabel
-                    color: Theme.dim
-                    font.family: Theme.font
-                    font.pixelSize: 8.5 * root.s
-                }
-
-                Rectangle {
-                    id: srcBubble
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: root.canPick
-                    height: 14 * root.s
-                    width: bubbleRow.width + 12 * root.s
-                    radius: height / 2
-                    color: Qt.alpha(Theme.verm, 0.16)
-                    border.width: 1
-                    border.color: Qt.alpha(Theme.vermLit, 0.45 + 0.35 * glow)
-
-                    property real glow: 0
-                    SequentialAnimation on glow {
-                        running: srcBubble.visible && !root.picking
-                        loops: Animation.Infinite
-                        NumberAnimation { to: 1; duration: 1300; easing.type: Easing.InOutSine }
-                        NumberAnimation { to: 0; duration: 1300; easing.type: Easing.InOutSine }
-                    }
-
-                    Row {
-                        id: bubbleRow
-                        anchors.centerIn: parent
-                        spacing: 4 * root.s
-                        ArtDot {
-                            anchors.verticalCenter: parent.verticalCenter
-                            url: Players.artUrlFor(root.player)
-                        }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.serviceLabel
-                            color: Theme.cream
-                            font.family: Theme.font
-                            font.pixelSize: 9 * root.s
-                            font.weight: Font.DemiBold
-                        }
-                        Text {
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: "▾"
-                            color: Theme.vermLit
-                            font.pixelSize: 7 * root.s
-                        }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -5 * root.s
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.picking = true
-                    }
-                }
-
-                Text {
-                    anchors.left: root.canPick ? srcBubble.right : plainSource.right
-                    anchors.leftMargin: 3 * root.s
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: srcHeader.tail
-                    elide: Text.ElideRight
-                    color: Theme.dim
-                    font.family: Theme.font
-                    font.pixelSize: 8.5 * root.s
-                    font.features: { "tnum": 1 }
-                }
-            }
-
-            Flickable {
-                id: pickFlick
-                anchors.fill: parent
-                clip: true
-                visible: opacity > 0.01
-                opacity: root.picking ? 1 : 0
-                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-                contentWidth: pickRow.width
-                contentHeight: height
-                flickableDirection: Flickable.HorizontalFlick
-                boundsBehavior: Flickable.StopAtBounds
-
-                WheelHandler {
-                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-                    onWheel: (e) => {
-                        var step = e.angleDelta.y !== 0 ? e.angleDelta.y : e.angleDelta.x;
-                        var max = Math.max(0, pickFlick.contentWidth - pickFlick.width);
-                        pickFlick.contentX = Math.max(0, Math.min(max, pickFlick.contentX - step));
-                    }
-                }
-
-                Row {
-                    id: pickRow
-                    height: pickFlick.height
-                    spacing: 7 * root.s
-
-                    Repeater {
-                        model: root.picking ? Players.pickable : []
-                        delegate: Rectangle {
-                            id: bub
-                            required property var modelData
-                            readonly property bool isActive: modelData === Players.active
-                            anchors.verticalCenter: parent.verticalCenter
-                            height: 20 * root.s
-                            width: bubInner.width + 14 * root.s
-                            radius: 8 * root.s
-                            color: isActive ? Qt.alpha(Theme.verm, 0.2) : Qt.alpha(Theme.cream, 0.045)
-                            border.width: 1
-                            border.color: isActive ? Theme.vermLit : Qt.alpha(Theme.cream, 0.12)
-
-                            Row {
-                                id: bubInner
-                                anchors.centerIn: parent
-                                spacing: 5 * root.s
-                                ArtDot {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    url: Players.artUrlFor(bub.modelData)
-                                }
-                                Text {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: Players.labelOf(bub.modelData)
-                                    color: bub.isActive ? Theme.bright : Theme.dim
-                                    font.family: Theme.font
-                                    font.pixelSize: 9 * root.s
-                                    font.weight: Font.DemiBold
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    Players.select(bub.modelData);
-                                    root.picking = false;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Marquee {
-            id: titleLbl
-            anchors.left: parent.left
-            anchors.right: parent.right
-            text: root.title
-            color: Theme.cream
-            pixelSize: 12.5 * root.s
-            weight: Font.DemiBold
-            active: root.active
-        }
-
-        Marquee {
-            id: subLbl
-            anchors.left: parent.left
-            anchors.right: parent.right
-            text: root.sub
-            color: Theme.dim
-            pixelSize: 9.5 * root.s
-            active: root.active
-            visible: text.length > 0
-        }
-
-        /** Seek row: position, the wave seam, duration, loop toggle. */
-        Item {
-            id: seekRow
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 12 * root.s
-
-            Text {
-                id: posLbl
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.fmt(root.dragging ? root.dragFrac * root.lengthSec : root.positionSec)
-                color: Theme.dim
-                font.family: Theme.font
-                font.pixelSize: 8.5 * root.s
-                font.features: { "tnum": 1 }
-            }
-
-            /** Loop chip: Off / Track (single-repeat / Playlist. */
-            Item {
-                id: loopBtn
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                width: 15 * root.s
-                height: 15 * root.s
-                visible: root.loopOk
-                opacity: root.loopNone ? 0.5 : 1
-                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 5 * root.s
-                    color: loopArea.containsMouse ? Theme.frameBg : "transparent"
-                    border.width: 1
-                    border.color: loopArea.containsMouse
-                        ? Theme.frameBorder
-                        : (root.loopNone ? "transparent" : Qt.alpha(Theme.vermLit, root.loopTrack ? 0.5 : 0.8))
-                }
-
-                GlyphIcon {
-                    visible: !Flags.showGlyphs
-                    anchors.centerIn: parent
-                    width: 11 * root.s
-                    height: 11 * root.s
-                    name: "refresh"
-                    color: root.loopNone ? Theme.dim : Theme.vermLit
-                    Behavior on color { ColorAnimation { duration: Motion.fast } }
-                }
-
-                Rectangle {
-                    id: oneBadge
-                    anchors.top: parent.top
-                    anchors.right: parent.right
-                    anchors.topMargin: -2 * root.s
-                    anchors.rightMargin: -2 * root.s
-                    width: 5 * root.s
-                    height: 5 * root.s
-                    radius: width / 2
-                    color: Theme.vermDeep
-                    border.width: 1
-                    border.color: Theme.cardTop
-                    visible: root.loopTrack
-                }
-
-                MouseArea {
-                    id: loopArea
-                    anchors.fill: parent
-                    anchors.margins: -5 * root.s
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.nextLoop()
-                }
-            }
-
-            Text {
-                id: durLbl
-                anchors.right: loopBtn.visible ? loopBtn.left : parent.right
-                anchors.rightMargin: loopBtn.visible ? 7 * root.s : 0
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.fmt(root.lengthSec)
-                color: Theme.dim
-                font.family: Theme.font
-                font.pixelSize: 8.5 * root.s
-                font.features: { "tnum": 1 }
-            }
-
-            Canvas {
-                id: stroke
-                anchors.left: posLbl.right
-                anchors.leftMargin: 7 * root.s
-                anchors.right: durLbl.left
-                anchors.rightMargin: 7 * root.s
-                anchors.verticalCenter: parent.verticalCenter
-                height: 11 * root.s
-                renderTarget: Canvas.Image
-                renderStrategy: Canvas.Cooperative
-
-                readonly property real inset: 3 * root.s
-                readonly property real usable: Math.max(1, width - 2 * inset)
-                property real targetF: root.frac
-                property real lastFrac: 0
-                property real drawF: targetF
-                readonly property real headX: inset + drawF * usable
-                readonly property real headY: waveY(drawF)
-
-                Behavior on drawF {
-                    enabled: Math.abs(root.frac - stroke.lastFrac) < 0.02
-                    NumberAnimation { duration: Math.round(500 * Motion.mult); easing.type: Easing.Linear }
-                }
-                onTargetFChanged: Qt.callLater(() => { stroke.lastFrac = root.frac; })
-
-                onDrawFChanged: requestPaint()
-                onWidthChanged: requestPaint()
-                onVisibleChanged: if (visible) requestPaint()
-                Component.onCompleted: requestPaint()
-
-                function waveY(u) {
-                    return height / 2 - 2.6 * Math.sin(3 * Math.PI * u) * Math.exp(-2.5 * u) * root.s;
-                }
-
-                onPaint: {
-                    const ctx = getContext("2d");
-                    ctx.reset();
-                    if (width <= 0 || height <= 0)
-                        return;
-                    const n = 48;
-                    ctx.strokeStyle = Theme.border;
-                    ctx.lineWidth = 2.5 * root.s;
-                    ctx.lineCap = "round";
-                    ctx.lineJoin = "round";
-                    ctx.beginPath();
-                    ctx.moveTo(inset, waveY(0));
-                    for (let i = 1; i <= n; i++)
-                        ctx.lineTo(inset + (i / n) * usable, waveY(i / n));
-                    ctx.stroke();
-
-                    if (drawF <= 0.002)
-                        return;
-                    const hTail = 2.5 * root.s;
-                    const hHead = 1.75 * root.s;
-                    const m = Math.max(2, Math.ceil(n * drawF));
-                    ctx.fillStyle = Theme.verm;
-                    ctx.beginPath();
-                    ctx.arc(inset, waveY(0), hTail, Math.PI / 2, 3 * Math.PI / 2);
-                    for (let i = 0; i <= m; i++) {
-                        const u = (i / m) * drawF;
-                        ctx.lineTo(inset + u * usable, waveY(u) - (hTail + (hHead - hTail) * (i / m)));
-                    }
-                    ctx.arc(headX, headY, hHead, -Math.PI / 2, Math.PI / 2);
-                    for (let i = m; i >= 0; i--) {
-                        const u = (i / m) * drawF;
-                        ctx.lineTo(inset + u * usable, waveY(u) + (hTail + (hHead - hTail) * (i / m)));
-                    }
-                    ctx.closePath();
-                    ctx.fill();
-                }
-
-                MouseArea {
-                    id: seekArea
-                    anchors.fill: parent
-                    anchors.margins: -8 * root.s
-                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.player.positionSupported && root.lengthSec > 0 && !root.live)
-                    cursorShape: Qt.PointingHandCursor
-                    function fracAt(mx) {
-                        return Math.max(0, Math.min(1, (mx - 8 * root.s - stroke.inset) / stroke.usable));
-                    }
-                    onPressed: (e) => {
-                        root.dragFrac = fracAt(e.x);
-                        root.dragging = true;
-                    }
-                    onPositionChanged: (e) => { if (pressed) root.dragFrac = fracAt(e.x); }
-                    onReleased: {
-                        if (root.player)
-                            root.player.position = root.dragFrac * root.lengthSec;
-                        root.dragging = false;
-                    }
-                }
-            }
-        }
-
-        /** Transport: -10s, kanji-skip, the play/pause seal, kanji-next, +10s. */
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 10 * root.s
-            height: 20 * root.s
-
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: "-10s"
-                font.family: Theme.font
-                font.pixelSize: 8.5 * root.s
-                font.weight: Font.DemiBold
-                color: r10Mouse.containsMouse ? Theme.cream : Theme.dim
-                opacity: (root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live) ? 1.0 : 0.35
-                Behavior on color { ColorAnimation { duration: Motion.fast } }
-
-                MouseArea {
-                    id: r10Mouse
-                    anchors.fill: parent
-                    anchors.margins: -4 * root.s
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live)
-                    onClicked: if (root.player) root.player.position = Math.max(0, (root.player.position || 0) - 10)
-                }
-            }
-
-            KanjiSkip {
-                icon: "prev"
-                can: Boolean(root.hasPlayer && root.player && root.player.canGoPrevious)
-                onActivated: if (root.player) root.player.previous()
-            }
-
-            Rectangle {
-                id: seal
-                anchors.verticalCenter: parent.verticalCenter
-                width: 18 * root.s
-                height: 18 * root.s
-                radius: 5 * root.s
-                rotation: -1.5
-                scale: 1 + 0.08 * root.sealPulse
-
-                property real sat: root.playing ? 1 : 0
-                Behavior on sat { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
-
-                opacity: (sealArea.enabled ? 1 : 0.4) * (0.75 + 0.25 * sat)
-                Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-
-                border.width: 1
-                border.color: Qt.alpha(Theme.vermLit, 0.4 + 0.4 * root.sealPulse)
-                gradient: Gradient {
-                    GradientStop { position: 0.0; color: root.mix(Theme.verm, Theme.tileBg, 0.55 - 0.27 * seal.sat) }
-                    GradientStop { position: 1.0; color: root.mix(Theme.vermDeep, Theme.tileBg, 0.55 - 0.27 * seal.sat) }
-                }
-
-                GlyphIcon {
-                    visible: !Flags.showGlyphs
-                    anchors.centerIn: parent
-                    width: 11 * root.s
-                    height: 11 * root.s
-                    name: root.playing ? "pause" : "play"
-                    color: Theme.bright
-                }
-
-                MouseArea {
-                    id: sealArea
-                    anchors.fill: parent
-                    anchors.margins: -4 * root.s
-                    hoverEnabled: true
-                    enabled: Boolean(root.hasPlayer && root.player && root.player.canTogglePlaying)
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: if (root.player) root.player.togglePlaying()
-                }
-            }
-
-            KanjiSkip {
-                icon: "next"
-                can: Boolean(root.hasPlayer && root.player && root.player.canGoNext)
-                onActivated: if (root.player) root.player.next()
-            }
-
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                text: "+10s"
-                font.family: Theme.font
-                font.pixelSize: 8.5 * root.s
-                font.weight: Font.DemiBold
-                color: f10Mouse.containsMouse ? Theme.cream : Theme.dim
-                opacity: (root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live) ? 1.0 : 0.35
-                Behavior on color { ColorAnimation { duration: Motion.fast } }
-
-                MouseArea {
-                    id: f10Mouse
-                    anchors.fill: parent
-                    anchors.margins: -4 * root.s
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: Boolean(root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live)
-                    onClicked: if (root.player) root.player.position = Math.min(root.lengthSec, (root.player.position || 0) + 10)
                 }
             }
         }

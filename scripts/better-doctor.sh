@@ -340,7 +340,20 @@ for f in $WRITTEN; do
         | grep -vE '/surfaces/' | wc -l)
     scr=$(grep -rlE "\.$f\b" --include='*.sh' --include='*.py' "$INSTALL_DIR/scripts" "$INSTALL_DIR/lib" 2>/dev/null | wc -l)
     if [ "$qml" -eq 0 ] && [ "$scr" -eq 0 ]; then
-        UNUSED="$UNUSED $f"
+        # A flag written AND read within the same surface is self-contained,
+        # not dead -- e.g. Profile.qml writes and reads Flags.profileAvatar
+        # to persist a custom avatar path across sessions.
+        wrote_files=$(grep -rlE "Flags\.$f\s*=" "$INSTALL_DIR/surfaces/"*.qml 2>/dev/null)
+        self_consumed=false
+        for wf in $wrote_files; do
+            if grep -qE "Flags\.$f\b" "$wf" 2>/dev/null; then
+                self_consumed=true
+                break
+            fi
+        done
+        if [ "$self_consumed" = "false" ]; then
+            UNUSED="$UNUSED $f"
+        fi
     fi
 done
 if [ -n "$UNUSED" ]; then
