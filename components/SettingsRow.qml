@@ -25,6 +25,12 @@ Item {
     property string sub: ""
     property bool last: false
     property bool captionOnFocus: false
+    property string badgeIcon: ""
+    property string badgeText: ""
+    property color badgeBg: "transparent"
+    property color badgeFg: Theme.cream
+    property color badgeBorder: "transparent"
+    property bool badgeGlow: false
     default property alias control: controlSlot.data
 
     readonly property real s: srow.surface ? srow.surface.s : 1
@@ -55,10 +61,12 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        anchors.topMargin: 3 * srow.s
-        anchors.bottomMargin: 3 * srow.s
-        radius: 9 * srow.s
-        color: (srowHover.hovered || srow.focused) ? srow.tile : "transparent"
+        anchors.topMargin: 2 * srow.s
+        anchors.bottomMargin: 2 * srow.s
+        anchors.leftMargin: srow.badgeIcon.length > 0 || srow.badgeText.length > 0 ? 3 * srow.s : 0
+        anchors.rightMargin: srow.badgeIcon.length > 0 || srow.badgeText.length > 0 ? 3 * srow.s : 0
+        radius: 8 * srow.s
+        color: srow.focused ? Qt.alpha(Theme.cream, 0.10) : (srowHover.hovered ? Qt.alpha(Theme.cream, 0.06) : "transparent")
         Behavior on color { ColorAnimation { duration: Motion.fast } }
     }
 
@@ -68,33 +76,80 @@ Item {
         onClicked: if (srow.surface) srow.surface.activateRow(srow)
     }
 
+    Rectangle {
+        id: badgeChip
+        anchors.left: parent.left
+        anchors.leftMargin: 12 * srow.s
+        anchors.verticalCenter: parent.verticalCenter
+        visible: srow.badgeIcon.length > 0 || srow.badgeText.length > 0
+        width: 26 * srow.s
+        height: 26 * srow.s
+        radius: 6.5 * srow.s
+        color: srow.badgeBg
+        border.width: srow.badgeBorder !== "transparent" ? 1 : 0
+        border.color: srow.badgeBorder
+
+        GlyphIcon {
+            anchors.centerIn: parent
+            visible: srow.badgeIcon.length > 0
+            width: 14 * srow.s
+            height: 14 * srow.s
+            name: srow.badgeIcon
+            color: srow.badgeFg
+            stroke: 2.0
+        }
+
+        Text {
+            anchors.centerIn: parent
+            visible: srow.badgeText.length > 0 && srow.badgeIcon.length === 0
+            text: srow.badgeText
+            color: srow.badgeFg
+            font.family: Theme.font
+            font.pixelSize: 12.5 * srow.s
+            font.weight: Font.Bold
+        }
+
+        Rectangle {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.topMargin: -2 * srow.s
+            anchors.rightMargin: -2 * srow.s
+            width: 7 * srow.s
+            height: 7 * srow.s
+            radius: width / 2
+            color: Theme.accent
+            visible: srow.badgeGlow
+            border.width: 1.5 * srow.s
+            border.color: srow.pal ? srow.pal.tile : Theme.tileBg
+        }
+    }
+
     GlyphIcon {
         id: ri
         anchors.left: parent.left
         anchors.leftMargin: 14 * srow.s
         anchors.verticalCenter: parent.verticalCenter
-        visible: srow.icon.length > 0
+        visible: srow.icon.length > 0 && !badgeChip.visible
         width: 17 * srow.s
         height: 17 * srow.s
         name: srow.icon
         color: srow.focused ? srow.ink : srow.subInk
         stroke: 1.8
     }
-
     Column {
         id: textCol
-        anchors.left: ri.visible ? ri.right : parent.left
-        anchors.leftMargin: ri.visible ? 13 * srow.s : 12 * srow.s
+        anchors.left: badgeChip.visible ? badgeChip.right : (ri.visible ? ri.right : parent.left)
+        anchors.leftMargin: badgeChip.visible ? 12 * srow.s : (ri.visible ? 13 * srow.s : 12 * srow.s)
         anchors.right: controlSlot.left
         anchors.rightMargin: 14 * srow.s
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 5 * srow.s
+        spacing: 3 * srow.s
 
         Text {
             text: srow.name
             width: parent.width
             elide: Text.ElideRight
-            color: srow.ink
+            color: srow.focused ? Theme.bright : (srow.pal ? srow.pal.ink : Theme.bright)
             font.family: Theme.font
             font.pixelSize: 12.5 * srow.s
             font.weight: Font.DemiBold
@@ -103,7 +158,7 @@ Item {
             width: parent.width
             visible: srow.sub.length > 0 && (!srow.captionOnFocus || srow.focused || srowHover.hovered)
             text: srow.sub
-            color: srow.faint
+            color: srow.pal ? srow.pal.dim : Theme.dim
             font.family: Theme.font
             font.pixelSize: 10.5 * srow.s
             wrapMode: Text.WordWrap
@@ -134,8 +189,9 @@ Item {
 
     Rectangle {
         anchors.bottom: parent.bottom
-        anchors.left: parent.left
+        anchors.left: badgeChip.visible ? textCol.left : parent.left
         anchors.right: parent.right
+        anchors.rightMargin: badgeChip.visible ? 12 * srow.s : 0
         height: 1
         color: srow.hair
         visible: !srow.last

@@ -310,9 +310,12 @@ DockPanel {
             id: dockRow
             surface: root
             name: "Dock"
-            icon: "dock"
+            sub: "Bottom application dock"
+            badgeIcon: "dock"
+            badgeBg: Qt.rgba(0.24, 0.55, 0.98, 0.16)
+            badgeBorder: Qt.rgba(0.24, 0.55, 0.98, 0.28)
+            badgeFg: "#60a5fa"
             last: !Flags.dockEnabled
-
             LinkToggle {
                 s: root.s
                 pal: root.pal
@@ -325,9 +328,12 @@ DockPanel {
             id: dockAutoHideRow
             surface: root
             name: "Dock auto-hide"
-            icon: "eye-off"
+            sub: "Slide dock away when not hovered"
+            badgeIcon: "eye-off"
+            badgeBg: Qt.rgba(0.16, 0.78, 0.65, 0.16)
+            badgeBorder: Qt.rgba(0.16, 0.78, 0.65, 0.28)
+            badgeFg: "#2dd4bf"
             visible: Flags.dockEnabled
-
             LinkToggle {
                 s: root.s
                 pal: root.pal
@@ -348,9 +354,11 @@ DockPanel {
             surface: root
             name: "Dock apps"
             sub: root.pinSummary
-            icon: "app-window"
+            badgeIcon: "app-window"
+            badgeBg: Qt.rgba(0.96, 0.62, 0.15, 0.16)
+            badgeBorder: Qt.rgba(0.96, 0.62, 0.15, 0.28)
+            badgeFg: "#fbbf24"
             visible: Flags.dockEnabled
-
             /**
              * A disclosure, not a door. The chevron turns down when the list is
              * open, which is the whole feedback for a click that opens a section
@@ -679,9 +687,12 @@ DockPanel {
             id: dockThemeRow
             surface: root
             name: "Dock theme"
-            icon: "palette"
+            sub: "Color palette and styling mode"
+            badgeIcon: "palette"
+            badgeBg: Qt.rgba(0.65, 0.45, 0.98, 0.16)
+            badgeBorder: Qt.rgba(0.65, 0.45, 0.98, 0.28)
+            badgeFg: "#c084fc"
             visible: Flags.dockEnabled
-
             SettingsSeg {
                 s: root.s
                 pal: root.pal
@@ -694,10 +705,13 @@ DockPanel {
         SettingsRow {
             id: dockOledRow
             surface: root
-            name: "OLED"
-            icon: "moon"
+            name: "OLED mode"
+            sub: "True black background on OLED"
+            badgeIcon: "moon"
+            badgeBg: Qt.rgba(0.5, 0.5, 0.6, 0.16)
+            badgeBorder: Qt.rgba(0.5, 0.5, 0.6, 0.28)
+            badgeFg: "#94a3b8"
             visible: Flags.dockEnabled && root.themeShown === "dark"
-
             LinkToggle {
                 s: root.s
                 pal: root.pal
@@ -928,10 +942,13 @@ DockPanel {
             id: dockMinimalRow
             surface: root
             name: "Minimal dock"
-            icon: "dot"
+            sub: "Compact icon-only chip mode"
+            badgeIcon: "dot"
+            badgeBg: Qt.rgba(0.12, 0.74, 0.85, 0.16)
+            badgeBorder: Qt.rgba(0.12, 0.74, 0.85, 0.28)
+            badgeFg: "#38bdf8"
             visible: Flags.dockEnabled
             last: Flags.dockEnabled
-
             LinkToggle {
                 s: root.s
                 pal: root.pal
