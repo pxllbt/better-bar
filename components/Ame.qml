@@ -20,17 +20,20 @@ Item {
 
     property real s: 1
     property point point: Qt.point(0, 0)
-    property string form: "rest"
+    property string form: "off"
     property real heat: 0
     property point wake: Qt.point(0, 0)
     property real wickDir: -1
 
-    readonly property bool isOff: form === "off" || form === ""
+    readonly property bool isOff: form === "off" || form === "" || form === "rest"
     opacity: isOff ? 0 : 1
     visible: opacity > 0.001
 
     Behavior on opacity {
-        NumberAnimation { duration: Motion.fast }
+        NumberAnimation {
+            duration: Motion.fast
+            easing.type: Easing.OutCubic
+        }
     }
 
     // Target tracking coordinates
@@ -47,6 +50,7 @@ Item {
         scale: root.isOff ? 0.3 : (1.0 + root.heat * 0.35)
 
         Behavior on x {
+            enabled: !root.isOff
             NumberAnimation {
                 duration: Motion.glide
                 easing.type: Easing.OutCubic
@@ -54,6 +58,7 @@ Item {
         }
 
         Behavior on y {
+            enabled: !root.isOff
             NumberAnimation {
                 duration: Motion.glide
                 easing.type: Easing.OutCubic
@@ -63,7 +68,7 @@ Item {
         Behavior on scale {
             NumberAnimation {
                 duration: Motion.fast
-                easing.type: Easing.OutBack
+                easing.type: Easing.OutCubic
             }
         }
 
@@ -73,6 +78,7 @@ Item {
             width: parent.width
             height: parent.height
             radius: width / 2
+            antialiasing: true
             color: Qt.alpha(Theme.accent, 0.22)
             opacity: root.heat > 0 ? 0.8 : 0.55
         }
@@ -83,6 +89,7 @@ Item {
             width: 13 * root.s
             height: 13 * root.s
             radius: width / 2
+            antialiasing: true
             color: Qt.alpha(Theme.accent, 0.45)
         }
 
@@ -92,6 +99,7 @@ Item {
             width: 7 * root.s
             height: 7 * root.s
             radius: width / 2
+            antialiasing: true
             color: Theme.accent
 
             // Specular micro glint
@@ -101,6 +109,7 @@ Item {
                 width: 2.2 * root.s
                 height: 2.2 * root.s
                 radius: width / 2
+                antialiasing: true
                 color: "#ffffff"
                 opacity: 0.8
             }

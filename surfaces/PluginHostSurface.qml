@@ -29,6 +29,7 @@ PillSurface {
 
     required property string pluginId
     property real barHeightOverride: -1
+    property var barAnchorItem: null
     property bool panelWasOpened: false
     readonly property bool popupActive: !!(widget.item && ("opened" in widget.item) && widget.item.opened)
 
@@ -135,6 +136,7 @@ PillSurface {
         barHeightOverride: root.barHeightOverride > 0 ? root.barHeightOverride : root.height
         barWidthOverride: root.width
         barSize: Math.round(26 * root.s)
+        anchorItem: root.barAnchorItem
     }
 
     Flickable {
@@ -197,7 +199,7 @@ PillSurface {
         if ("settings" in target)
             target.settings = Plugins.settingsFor(root.pluginId);
         if ("anchorItem" in target)
-            target.anchorItem = root;
+            target.anchorItem = root.barAnchorItem || root;
         if ("hostWidget" in target)
             target.hostWidget = null;
         if ("serviceState" in target && !target.serviceState)

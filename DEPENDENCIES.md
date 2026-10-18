@@ -22,6 +22,7 @@ Install these or the shell starts but breaks in places.
 | `curl + magick + python3 + ffmpeg` | `curl`, `imagemagick`, `python`, `ffmpeg` | wallpaper download, thumbnails, palette generation and video-wallpaper stills |
 | `cava` | `cava` | the music visualiser |
 | `cliphist + wl-paste` | `cliphist`, `wl-clipboard` | the clipboard history surface |
+| `qt6-multimedia` | `qt6-multimedia`, `qt6-multimedia-ffmpeg` | video preview playback in wallpaper surface |
 
 ## Optional
 

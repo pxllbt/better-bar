@@ -565,13 +565,29 @@ PillSurface {
         }
     }
 
+    function matchesCurrent(path, name) {
+        if (!path || !Walls.current)
+            return false;
+        if (path === Walls.current)
+            return true;
+        var curName = Walls.current.substring(Walls.current.lastIndexOf("/") + 1);
+        if (!name)
+            name = path.substring(path.lastIndexOf("/") + 1);
+        if (name === curName)
+            return true;
+        if (curName.endsWith("-" + name) || name.endsWith("-" + curName))
+            return true;
+        return false;
+    }
+
     function centerOnCurrent() {
         var idx = 0;
-        for (var i = 0; i < localItems.length; i++)
-            if (localItems[i].path === Walls.current) {
+        for (var i = 0; i < localItems.length; i++) {
+            if (root.matchesCurrent(localItems[i].path, localItems[i].name)) {
                 idx = i;
                 break;
             }
+        }
         focusIndex = idx;
         pos = idx;
         // Remember what we centred on so onRefreshDone only re-centres when the
@@ -606,7 +622,8 @@ PillSurface {
      * pickton then re-fetches so a stale chunk never lingers.
      */
     function refreshWallhaven(page) {
-        searchProc.command = ["bash", root.searchScript, "whsearch", root.query, page !== undefined ? page : root.whPage, root.whSort];
+        searchProc.running = false;
+        searchProc.command = ["bash", root.searchScript, "whsearch", root.query, String(page !== undefined ? page : root.whPage), root.whSort];
         searchProc.running = true;
     }
 
@@ -617,6 +634,7 @@ PillSurface {
      * holds the collection whole, wrapped, with no paging at all.
      */
     function refreshWallwidgy() {
+        searchProc.running = false;
         searchProc.command = ["bash", root.searchScript, "wwsearch", root.wwCategory, "2000", "0"];
         searchProc.running = true;
     }
@@ -631,6 +649,7 @@ PillSurface {
      */
     function refreshAlphacoders() {
         root.acEnd = false;
+        searchProc.running = false;
         searchProc.command = ["bash", root.searchScript, "acsearch", root.acCategory, "1"];
         searchProc.running = true;
     }
@@ -996,9 +1015,10 @@ PillSurface {
         id: prevFetch
         property string url: ""
         stdout: StdioCollector {
-            onStreamFinished: {
-                if (this.text.length && prevFetch.url === root.focusedPreviewUrl)
-                    root.previewFile = this.text;
+            waitForEnd: true
+            onStreamFinished: (text) => {
+                if (text && text.length && prevFetch.url === root.focusedPreviewUrl)
+                    root.previewFile = text;
             }
         }
     }
@@ -1041,12 +1061,10 @@ PillSurface {
         id: dimsProc
         property string path: ""
         stdout: StdioCollector {
-            onStreamFinished: {
-                var t = this.text.trim();
+            waitForEnd: true
+            onStreamFinished: (text) => {
+                var t = (text || "").trim();
                 if (t.length && dimsProc.path.length) {
-                    /** Bounded probe cache: drop the whole map once it outgrows a
-                     *  session's worth of entries so a huge folder never grows it
-                     *  without limit. */
                     var c = Object.keys(root.dimsCache).length > 400
                         ? {} : Object.assign({}, root.dimsCache);
                     c[dimsProc.path] = t;
@@ -1055,15 +1073,17 @@ PillSurface {
             }
         }
     }
-
     Process {
         id: searchProc
         stdout: StdioCollector {
+            id: searchStdout
+            waitForEnd: true
             onStreamFinished: {
+                var text = searchStdout.text || "";
                 var out = [];
                 var parsed = null;
                 try {
-                    parsed = JSON.parse(this.text);
+                    parsed = JSON.parse(text || "");
                 } catch (e) {
                     parsed = null;
                 }
@@ -1237,7 +1257,9 @@ PillSurface {
         id: thumbProc1
         property string thumbUrl: ""
         stdout: StdioCollector {
-            onStreamFinished: root.thumbFetched(thumbProc1, this.text)
+            id: thumbStdout1
+            waitForEnd: true
+            onStreamFinished: root.thumbFetched(thumbProc1, thumbStdout1.text || "")
         }
     }
 
@@ -1245,7 +1267,9 @@ PillSurface {
         id: thumbProc2
         property string thumbUrl: ""
         stdout: StdioCollector {
-            onStreamFinished: root.thumbFetched(thumbProc2, this.text)
+            id: thumbStdout2
+            waitForEnd: true
+            onStreamFinished: root.thumbFetched(thumbProc2, thumbStdout2.text || "")
         }
     }
 
@@ -1253,7 +1277,9 @@ PillSurface {
         id: thumbProc3
         property string thumbUrl: ""
         stdout: StdioCollector {
-            onStreamFinished: root.thumbFetched(thumbProc3, this.text)
+            id: thumbStdout3
+            waitForEnd: true
+            onStreamFinished: root.thumbFetched(thumbProc3, thumbStdout3.text || "")
         }
     }
 
@@ -1261,7 +1287,9 @@ PillSurface {
         id: thumbProc4
         property string thumbUrl: ""
         stdout: StdioCollector {
-            onStreamFinished: root.thumbFetched(thumbProc4, this.text)
+            id: thumbStdout4
+            waitForEnd: true
+            onStreamFinished: root.thumbFetched(thumbProc4, thumbStdout4.text || "")
         }
     }
 
@@ -1290,7 +1318,9 @@ PillSurface {
         property string failed: ""
         property string savedPath: ""
         stdout: StdioCollector {
-            onStreamFinished: dlProc.savedPath = this.text.trim()
+            id: dlStdout
+            waitForEnd: true
+            onStreamFinished: { dlProc.savedPath = (dlStdout.text || "").trim(); }
         }
         onExited: function(exitCode) {
             if (exitCode === 0 && savedPath.length) {
@@ -1881,7 +1911,7 @@ PillSurface {
              * `thumbTick` reference forces a rebind when a thumb lands.
              */
             readonly property string thumbSource: dead ? "" : (remote
-                ? (root.thumbTick >= 0 && root.thumbLocal[modelData.thumb] !== undefined ? "file://" + root.thumbLocal[modelData.thumb] : "")
+                ? (root.thumbLocal && root.thumbLocal[modelData.thumb] ? ("file://" + root.thumbLocal[modelData.thumb]) : (modelData.thumb || ""))
                 : ("file://" + thumb + "?v=" + (modelData.mtime !== undefined ? Math.round(modelData.mtime) : 0)))
 
             /**
@@ -1912,7 +1942,7 @@ PillSurface {
 
             /** The wallpaper wallpaper.sh last applied, per the shared state file. */
             readonly property bool isCurrent: !dead && modelData.path !== undefined
-                && modelData.path !== "" && modelData.path === Walls.current
+                && modelData.path !== "" && root.matchesCurrent(modelData.path, modelData.name)
             readonly property real bright: root.slotLerp(root.slotBright, ao)
             readonly property real sat: root.slotLerp(root.slotSat, ao)
             readonly property real corner: (8 + 2 * Math.max(0, 1 - ao)) * root.s

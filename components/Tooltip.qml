@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Effects
 import "../Singletons"
+import "../Commons" as Commons
 
 /**
  * Washi hint bubble for pill controls. Anchored to its parent control;
@@ -9,6 +10,10 @@ import "../Singletons"
  * with the control, so bubbles near the pill edge never clip off-screen. The
  * host sets `show` from the control's own HoverHandler; the bubble arms after
  * a hover delay, fades in slowly and out fast.
+ *
+ * Colours pull from Omarchy's native tooltip role in shell.toml via Commons.Color
+ * — the same source the bar and panels use — so the pill's tooltips read as one
+ * surface with the rest of the shell rather than the pill's own surface palette.
  *
  * Non-interactive by design: no MouseArea or HoverHandler lives here, so it
  * never steals pointer events from the controls or the mixer's hover tracker.
@@ -32,7 +37,7 @@ Item {
 
     width: bubble.width
     height: bubble.height + pointerH
-    z: 20
+    z: 1000
 
     anchors.horizontalCenter: root.align === "center" ? parent.horizontalCenter : undefined
     anchors.left: root.align === "left" ? parent.left : undefined
@@ -62,65 +67,18 @@ Item {
 
     Rectangle {
         id: bubble
-        anchors.horizontalCenter: root.align === "center" ? parent.horizontalCenter : undefined
-        anchors.left: root.align === "left" ? parent.left : undefined
-        anchors.right: root.align === "right" ? parent.right : undefined
-        anchors.top: root.below ? undefined : parent.top
-        anchors.bottom: root.below ? parent.bottom : undefined
-        width: Math.max(titleText.implicitWidth, descText.implicitWidth) + 22 * root.s
-        height: column.implicitHeight + 14 * root.s
-        radius: 9 * root.s
+        anchors.centerIn: parent
+        width: Math.max(titleText.implicitWidth, descText.implicitWidth) + 24 * root.s
+        height: column.implicitHeight + 16 * root.s
+        radius: 8 * root.s
         border.width: 1
-        border.color: Theme.border
-        gradient: Gradient {
-            // Same fill as the pill and the dock: the theme's own background,
-            // a shade darker at the bottom. The card ramp is a warm derivative of
-            // the accent, so a tooltip left on it reads as a different surface
-            // floating over the same desktop.
-            GradientStop {
-                position: 0.0
-                color: Theme.omarchyBackground ? Theme.omarchyBackground : Theme.cardTop
-            }
-            GradientStop {
-                position: 1.0
-                color: Theme.omarchyBackground ? Qt.darker(Theme.omarchyBackground, 1.3) : Theme.cardBot
-            }
-        }
-
-        /**
-         * The theme's active-window rim, the same one the pill and the dock wear,
-         * so a tooltip is recognisably part of the same desktop rather than a
-         * separate chrome. Declared after the contrast veil so it sits on top of
-         * it rather than being dimmed by it, and falls back to the flat border
-         * above when a theme names no ring stops.
-         */
-        ActiveBorderRing {
-            anchors.fill: parent
-            radius: bubble.radius
-        }
-
-        /**
-         * Contrast veil: a solid bubble must read against the translucent glass
-         * and the wallpaper behind it, so the fill is deepened a notch past the
-         * plain card gradient. Kept 1px inside the border so the hairline stays
-         * crisp; keeps cream copy legible in both palettes.
-         */
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 1
-            radius: parent.radius - 1
-            color: Qt.rgba(0, 0, 0, 0.22)
-        }
-
-        ActiveBorderRing {
-            anchors.fill: parent
-            radius: bubble.radius
-        }
+        border.color: Commons.Color.tooltip.border
+        color: Commons.Color.tooltip.background
 
         layer.enabled: true
         layer.effect: MultiEffect {
             shadowEnabled: true
-            shadowColor: Qt.rgba(0, 0, 0, 0.7)
+            shadowColor: Qt.rgba(0, 0, 0, 0.55)
             shadowBlur: 0.7
             shadowVerticalOffset: 5 * root.s
         }
@@ -128,14 +86,16 @@ Item {
 
     Column {
         id: column
+        z: 5
         anchors.centerIn: bubble
-        spacing: 2 * root.s
+        anchors.margins: 6 * root.s
+        spacing: 3 * root.s
 
         Text {
             id: titleText
             anchors.horizontalCenter: parent.horizontalCenter
             text: root.title
-            color: Theme.cream
+            color: Commons.Color.tooltip.text
             font.family: Theme.font
             font.pixelSize: 11 * root.s
             font.weight: Font.Bold
@@ -145,36 +105,33 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: root.desc.length > 0
             text: root.desc
-            color: Theme.subtle
+            color: Qt.alpha(Commons.Color.tooltip.text, 0.6)
             font.family: Theme.font
             font.pixelSize: 10 * root.s
         }
     }
 
     Canvas {
-        width: 11 * root.s
-        height: root.pointerH
         anchors.horizontalCenter: root.align === "center" ? parent.horizontalCenter : undefined
         anchors.left: root.align === "left" ? parent.left : undefined
         anchors.right: root.align === "right" ? parent.right : undefined
-        anchors.top: root.below ? parent.top : undefined
-        anchors.bottom: root.below ? undefined : parent.bottom
+        anchors.top: root.below ? bubble.bottom : undefined
+        anchors.bottom: root.below ? undefined : bubble.top
+        width: 11 * root.s
+        height: root.pointerH
         onPaint: {
             var ctx = getContext("2d");
             ctx.reset();
-            /* Match the bubble's bottom under its contrast veil: cardBot mixed
-             * 22% toward black, same as the fill rectangle above. */
-            var c = Theme.cardBot;
-            ctx.fillStyle = Qt.rgba(c.r * 0.78, c.g * 0.78, c.b * 0.78, 1);
+            ctx.fillStyle = root.below ? Commons.Color.tooltip.background : Commons.Color.tooltip.background;
             ctx.beginPath();
             if (root.below) {
-                ctx.moveTo(0, height);
-                ctx.lineTo(width, height);
-                ctx.lineTo(width / 2, 0);
-            } else {
                 ctx.moveTo(0, 0);
                 ctx.lineTo(width, 0);
                 ctx.lineTo(width / 2, height);
+            } else {
+                ctx.moveTo(0, height);
+                ctx.lineTo(width, height);
+                ctx.lineTo(width / 2, 0);
             }
             ctx.closePath();
             ctx.fill();

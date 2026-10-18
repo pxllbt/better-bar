@@ -94,8 +94,9 @@ Singleton {
         id: probeProc
         command: ["sh", "-c", root.probeScript, "_", root.backgroundLink, root.colorsPath]
         stdout: StdioCollector {
+            id: probeStdout
             waitForEnd: true
-            onStreamFinished: root.apply(text)
+            onStreamFinished: root.apply(probeStdout.text || "")
         }
     }
 

@@ -293,7 +293,7 @@ Singleton {
         for (var i = 0; i < ids.length; i++) {
             var id = String(ids[i] || "");
             var p = root.byId(id);
-            if (!p || p.firstParty === true || p.enabled === true)
+            if (!p || p.enabled === true)
                 continue;
             if (p.canDisable === false)
                 continue;
@@ -893,11 +893,15 @@ Singleton {
         act("toggle", [id, payload || "{}"]);
     }
 
+    signal requestOpenPlugin(string id)
+
     /** The host's equivalent of `bar.requestPopout`: open a plugin's panel. */
     function openPanel(id) {
         act("summon", [id, "{}"]);
+        var p = root.byId(id);
+        if (p && p.kinds && p.kinds.indexOf("bar-widget") !== -1)
+            root.requestOpenPlugin(id);
     }
-
     /**
      * Open a plugin, enabling it first if the host has it switched off.
      *
@@ -1344,7 +1348,7 @@ Singleton {
             root.seenLoaded = true;
             root.reconcileSeen();
         }
-        onLoadFailed: {
+        function onLoadFailed(error) {
             if (error === FileViewError.FileNotFound) {
                 root.seenPluginIds = [];
                 root.seenLoaded = true;

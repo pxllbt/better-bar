@@ -21,9 +21,12 @@ Item {
     required property var notif
 
     readonly property bool critical: notif.urgency === NotificationUrgency.Critical
-    readonly property var acts: notif.actions.filter(function(a) { return a.text.length > 0; })
+    readonly property var acts: notif.actions.filter(function(a) {
+        return a && a.text && a.text.trim().length > 0 && a.identifier !== "default";
+    })
 
     implicitHeight: Math.max(iconTile.height, col.implicitHeight)
+    implicitWidth: Math.max(160 * root.s, iconTile.width + col.anchors.leftMargin + col.implicitWidth + 10 * root.s)
 
     /**
      * Deadline is snapshotted once: binding the interval to Notifs.expireAt
@@ -42,7 +45,13 @@ Item {
     MouseArea {
         anchors.fill: parent
         cursorShape: Qt.PointingHandCursor
-        onClicked: Notifs.removePopup(root.notif)
+        acceptedButtons: Qt.LeftButton | Qt.RightButton
+        onClicked: (mouse) => {
+            if (mouse.button === Qt.LeftButton) {
+                Notifs.activateNotif(root.notif);
+            }
+            Notifs.removePopup(root.notif);
+        }
     }
 
     Rectangle {
@@ -164,7 +173,7 @@ Item {
                     id: actPill
                     required property var modelData
                     required property int index
-
+                    visible: actPill.modelData && actPill.modelData.text && actPill.modelData.text.trim().length > 0
                     height: 20 * root.s
                     width: actText.implicitWidth + 18 * root.s
                     radius: 999
@@ -202,7 +211,7 @@ Item {
         // and drew on top of each other. This is the last child, so the Column
         // already flows it below the action pills.
         Row {
-            visible: root.notif.urgency !== NotificationUrgency.Critical
+            visible: false
             width: parent.width
             spacing: 4 * root.s
             topPadding: 4 * root.s

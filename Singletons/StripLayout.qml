@@ -34,10 +34,27 @@ Singleton {
     readonly property var nativeOrder: [
         "weather", "tray", "dnd",
         "wifi", "bt", "battery",
-        "inbox", "mixer", "sysmon", "wallpaper", "clipboard", "scratch",
+        "inbox", "mixer", "sysmon", "wallpaper", "clipboard",
         "launcher", "appearance", "power"
     ]
-
+    readonly property var initialLayout: [
+        { kind: "cell", id: "weather" },
+        { kind: "cell", id: "tray" },
+        { kind: "cell", id: "dnd" },
+        { kind: "cell", id: "wifi" },
+        { kind: "cell", id: "bt" },
+        { kind: "cell", id: "battery" },
+        { kind: "cell", id: "inbox" },
+        { kind: "cell", id: "mixer" },
+        { kind: "cell", id: "sysmon" },
+        { kind: "cell", id: "wallpaper" },
+        { kind: "cell", id: "clipboard" },
+        { kind: "cell", id: "launcher" },
+        { kind: "plugin", id: "pix.recast" },
+        { kind: "plugin", id: "omarchy.system-update" },
+        { kind: "cell", id: "appearance" },
+        { kind: "cell", id: "power" }
+    ]
     readonly property var plugins: Plugins.pillWidgetsGeneric
     readonly property var disabledBarWidgets: Plugins.barWidgets.filter(function(p) {
         return p.enabled !== true && Plugins.hostsInStrip(p);
@@ -81,6 +98,8 @@ Singleton {
      */
     function rebuild() {
         var stored = root.readLayout();
+        if (stored.length === 0)
+            stored = root.initialLayout;
         var out = [];
         var seenNative = {};
         var seenPlugin = {};

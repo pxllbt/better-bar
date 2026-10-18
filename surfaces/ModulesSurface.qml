@@ -23,7 +23,6 @@ SettingsSurface {
         { item: sysmonRow, kind: "toggle", get: function () { return Flags.pillShowSysmon; }, set: function (v) { Flags.pillShowSysmon = v; } },
         { item: recRow, kind: "toggle", get: function () { return Flags.pillShowRecorder; }, set: function (v) { Flags.pillShowRecorder = v; } },
         { item: wallRow, kind: "toggle", get: function () { return Flags.pillShowWallpaper; }, set: function (v) { Flags.pillShowWallpaper = v; } },
-        { item: scratchRow, kind: "toggle", get: function () { return Flags.pillShowScratch; }, set: function (v) { Flags.pillShowScratch = v; } },
         { item: launchRow, kind: "toggle", get: function () { return Flags.pillShowLauncher; }, set: function (v) { Flags.pillShowLauncher = v; } },
         { item: powerRow, kind: "toggle", get: function () { return Flags.pillShowPower; }, set: function (v) { Flags.pillShowPower = v; } }
     ]
@@ -79,19 +78,6 @@ SettingsSurface {
                 s: root.s
                 on: Flags.pillShowWallpaper
                 onToggled: Flags.pillShowWallpaper = !Flags.pillShowWallpaper
-            }
-        }
-
-        SettingsRow {
-            id: scratchRow
-            surface: root
-            name: "Scratchpad"
-            icon: "type"
-
-            LinkToggle {
-                s: root.s
-                on: Flags.pillShowScratch
-                onToggled: Flags.pillShowScratch = !Flags.pillShowScratch
             }
         }
 

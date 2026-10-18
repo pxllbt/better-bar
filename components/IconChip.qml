@@ -25,6 +25,7 @@ Rectangle {
     property string tooltipDesc: ""
     signal clicked()
 
+    z: 50
     width: 22 * chip.s
     height: 22 * chip.s
     radius: height / 2

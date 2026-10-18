@@ -269,8 +269,17 @@ Singleton {
      */
     property var fontFamilies: Qt.fontFamilies()
     function refreshFonts() { fontFamilies = Qt.fontFamilies(); }
-    readonly property string font: (Flags.uiFont.length > 0 && fontFamilies.indexOf(Flags.uiFont) >= 0) ? Flags.uiFont : "Inter"
-    readonly property var monoFamilies: ["JetBrains Mono", "Iosevka", "Berkeley Mono", "Fira Code", "Cascadia Code", "DejaVu Sans Mono"]
+    readonly property string font: {
+        if (Flags.uiFont.length > 0 && fontFamilies.indexOf(Flags.uiFont) >= 0)
+            return Flags.uiFont;
+        const candidates = ["Inter", "JetBrainsMono Nerd Font", "JetBrains Mono", "Liberation Sans", "Noto Sans", "sans-serif"];
+        for (let i = 0; i < candidates.length; i++) {
+            if (fontFamilies.indexOf(candidates[i]) >= 0)
+                return candidates[i];
+        }
+        return "sans-serif";
+    }
+    readonly property var monoFamilies: ["JetBrainsMono Nerd Font", "JetBrains Mono", "Iosevka", "Berkeley Mono", "Fira Code", "Cascadia Code", "DejaVu Sans Mono", "monospace"]
     readonly property string fontMono: {
         for (let i = 0; i < monoFamilies.length; i++) {
             if (fontFamilies.indexOf(monoFamilies[i]) >= 0)

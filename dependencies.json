@@ -96,6 +96,13 @@
       "pkg": ["cliphist", "wl-clipboard"],
       "why": "the clipboard history surface"
     }
+    ,
+    {
+      "id": "qt-multimedia",
+      "check": { "path": "/usr/lib/qt6/qml/QtMultimedia" },
+      "pkg": ["qt6-multimedia", "qt6-multimedia-ffmpeg"],
+      "why": "video preview playback in wallpaper surface"
+    }
   ],
 
   "optional": [

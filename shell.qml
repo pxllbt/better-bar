@@ -33,6 +33,40 @@ ShellRoot {
     property string openSurface: ""
     property string peekMon: ""
 
+    // Omarchy shell host contract
+    property string omarchyPath: Quickshell.env("OMARCHY_PATH") || "/usr/share/omarchy"
+    property var shell: null
+    property var barConfig: null
+    property var barWidgetRegistry: null
+    property var pluginRegistry: null
+    property string position: "top"
+    property int barSize: 38
+    property string fontFamily: Theme.font
+    property bool barHidden: false
+
+    function summonBarWidget(id) {
+        var mon = root.openMon || (Hyprland.focusedMonitor ? Hyprland.focusedMonitor.name : (Quickshell.screens.length > 0 ? Quickshell.screens[0].name : ""));
+        root.openMon = mon;
+        root.openSurface = "plugin:" + id + ":panel";
+        return true;
+    }
+
+    function hideBarWidget(id) {
+        if (root.openSurface === "plugin:" + id || root.openSurface === "plugin:" + id + ":panel") {
+            root.close();
+            return true;
+        }
+        return false;
+    }
+
+    function isBarWidgetOpen(id) {
+        return root.openSurface === "plugin:" + id || root.openSurface === "plugin:" + id + ":panel";
+    }
+
+    function toggleBarTransparency() {
+        Flags.glass = !Flags.glass;
+        return "ok";
+    }
     /**
      * Menu submenu the launcher should open at, set by the `menu` IPC handler
      * for the keys that used to summon `omarchy-menu toggle <route>`. Empty
@@ -345,6 +379,31 @@ ShellRoot {
         }
     }
 
+    property var activeAnchorX: ({})
+    property var barAnchors: ({})
+
+    function registerBarAnchor(mon, item) {
+        var m = Object.assign({}, root.barAnchors);
+        m[mon] = item;
+        root.barAnchors = m;
+    }
+
+    function setAnchorX(mon, xPos) {
+        var m = Object.assign({}, root.activeAnchorX);
+        m[mon] = xPos;
+        root.activeAnchorX = m;
+    }
+
+    function barAnchorFor(mon) {
+        return root.barAnchors[mon] || null;
+    }
+
+    Connections {
+        target: Plugins
+        function onRequestOpenPlugin(id) {
+            root.summonBarWidget(id);
+        }
+    }
     /**
      * How tall the band must be while `mon` has a surface open.
      *
@@ -400,6 +459,14 @@ ShellRoot {
      * pill and the dock each retract off their edge, and a band kept reserved
      * for a bar that has gone is a hole in the desktop.
      */
+    readonly property bool anyFullscreen: {
+        var mons = Hyprland.monitors.values;
+        for (var i = 0; i < mons.length; i++)
+            if (root.fullscreenOn(mons[i].name))
+                return true;
+        return false;
+    }
+
     function fullscreenOn(name) {
         if (!name)
             return false;
@@ -451,7 +518,6 @@ ShellRoot {
         function power(mon: string): void { root.toggleSurface(mon, "power"); }
         function link(mon: string): void { root.toggleSurface(mon, "link"); }
         function notifications(mon: string): void { root.toggleSurface(mon, "link"); }
-        function scratch(mon: string): void { root.toggleSurface(mon, "scratch"); }
         function profile(mon: string): void { root.toggleSurface(mon, "profile"); }
         function battery(mon: string): void { root.toggleSurface(mon, "battery"); }
         function gameMode(mon: string): void { Flags.gameMode = !Flags.gameMode; }
@@ -474,7 +540,7 @@ ShellRoot {
         }
         function peek(mon: string): void { if (!Flags.gameMode) root.peek(mon); }
         function hide(): void { root.close(); }
-        function reloadTheme(): void { ThemeSync.probe(); Color.reloadTheme(); }
+        function reloadTheme(): void { ThemeSync.probe(); Color.reloadTheme(); Stylus.sync(); }
         function toggleRecast(): void { Recast.toggleRecording(); }
 
         /**
@@ -537,8 +603,7 @@ ShellRoot {
             readonly property real restFaceH: 44 * s
 
                         /** Trimming the reserved band below the pill's bottom lets windows climb, so App gap sets the pill-to-window air without touching the desktop gaps_out. The strip face docks flush to the screen top (its own topGap is zero), so it never adds the margin. */
-            readonly property real reservedH: Flags.mainDisplay === "strip"
-                ? Math.max(0, restFaceH - 12 * (1 - Flags.appGap) * s)
+            readonly property real reservedH: Flags.gameMode ? gameBarH
                 : Math.max(0, restFaceH + topGap - 12 * (1 - Flags.appGap) * s)
 
             readonly property real gameBarH: 34 * s
@@ -555,10 +620,8 @@ ShellRoot {
             readonly property bool monFullscreen: root.fullscreenOn(modelData.name)
             readonly property bool specialActive: Flags.hideOnSpecial && root.specialOn(modelData.name)
             readonly property bool offCursor: CursorTrack.offCursor(modelData.name)
-            readonly property bool surfaceOpenHere: root.openMon === modelData.name && root.openSurface.length > 0
             readonly property real bandH: (monFullscreen || specialActive) ? 0
-                : (surfaceOpenHere ? root.openSurfaceHeight(modelData.name)
-                : (Flags.gameMode ? gameBarH : ((Flags.autoHide || offCursor) ? 0 : reservedH)))
+                : (Flags.gameMode ? gameBarH : ((Flags.autoHide || offCursor) ? 0 : reservedH))
 
             screen: modelData
             color: "transparent"
@@ -571,9 +634,21 @@ ShellRoot {
 
             mask: emptyReserve
             Region { id: emptyReserve }
+
+            Item {
+                id: barAnchor
+                x: {
+                    var ax = root.activeAnchorX[modelData.name];
+                    return (typeof ax === "number" && ax > 0) ? Math.round(ax - width / 2) : Math.round(reserve.width / 2 - width / 2);
+                }
+                y: 0
+                width: 20
+                height: Math.max(1, reserve.implicitHeight)
+
+                Component.onCompleted: root.registerBarAnchor(modelData.name, barAnchor)
+            }
         }
     }
-
     Variants {
         model: Quickshell.screens
 
@@ -764,14 +839,17 @@ ShellRoot {
                     if (overlay.surfaceOpen) {
                         var inside = mouse.x >= pillRegion.x && mouse.x <= pillRegion.x + pillRegion.width
                             && mouse.y >= pillRegion.y && mouse.y <= pillRegion.y + pillRegion.height;
-                        if (!inside)
+                        if (!inside) {
+                            pill.surfaceDismissLatch = true;
                             root.close();
+                        }
                         else if (mouse.y <= pillRegion.y + 40 * pill.s
                             && mouse.x <= pillRegion.x + 52 * pill.s)
                             pill.surfaceBack();
                     } else {
                         pill.pinned = false;
                         pill.expandLatch = false;
+                        pill.hoverLatch = false;
                         root.peekMon = "";
                     }
                 }
@@ -813,8 +891,10 @@ ShellRoot {
                  * leaving the bar, and re-shown by returning to it.
                  */
                 HoverHandler {
-                    enabled: (!overlay.surfaceOpen || pill.mediaFloats) && !pill.pinned
-                    onHoveredChanged: if (enabled) pill.hovered = hovered
+                    id: pillHover
+                    parent: pill
+                    enabled: true
+                    onHoveredChanged: pill.hovered = hovered
                 }
                 Keys.onEscapePressed: {
                     if (pill.stripMenuOpen) {
@@ -948,7 +1028,7 @@ ShellRoot {
                     property string menuRoute: root.menuRoute
                     hostRoot: root
                     anchors.top: parent.top
-                    anchors.topMargin: (pill.stripBar || pill.mode === "game") ? 0 : overlay.topGap
+                    anchors.topMargin: (pill.mode === "game") ? 0 : overlay.topGap
                     anchors.horizontalCenter: parent.horizontalCenter
 
                     Behavior on anchors.topMargin {
@@ -961,6 +1041,7 @@ ShellRoot {
                     s: overlay.s
                     screenName: overlay.modelData.name
                     barWindow: overlay
+                    barAnchorItem: root.barAnchorFor(overlay.modelData.name)
                     surface: overlay.surface
                     forcePinned: root.peekMon === overlay.modelData.name
 
@@ -992,18 +1073,21 @@ ShellRoot {
 
                     onRequestSurface: (name) => root.toggleSurface(overlay.modelData.name, name)
                     onRequestPluginSurface: (pluginId, settingsMode) => root.toggleSurface(overlay.modelData.name, "plugin:" + pluginId + (settingsMode ? ":panel" : ""))
-                    onRequestClose: root.close()
+                    onRequestClose: {
+                        pill.surfaceDismissLatch = true;
+                        root.close();
+                    }
                 }
 
                 OsdPopup {
                     id: osdPopup
                     anchors.top: parent.top
-                    anchors.topMargin: (pill.stripBar || pill.mode === "game") ? 0 : overlay.topGap
+                    anchors.topMargin: (pill.mode === "game") ? 0 : overlay.topGap
                     anchors.horizontalCenter: parent.horizontalCenter
                     s: overlay.s
                     screenName: overlay.modelData.name
                     expanded: pill.expanded
-                    topFlat: (pill.mode === "game" || pill.stripBar) ? 1 : 0
+                    topFlat: (pill.mode === "game") ? 1 : 0
                     suppressed: overlay.surfaceOpen || pill.held
                         || pill.mode === "game" || (pill.toastActive && Notifs.toastCritical)
                 }

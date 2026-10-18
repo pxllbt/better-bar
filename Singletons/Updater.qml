@@ -23,13 +23,44 @@ Singleton {
                 root.checkNow();
         }
     }
+    Timer {
+        interval: 15 * 60 * 1000
+        running: true
+        repeat: true
+        onTriggered: {
+            if (!omarchyProc.running)
+                omarchyProc.running = true;
+        }
+    }
 
     Timer { id: first; interval: 4000; running: true; onTriggered: root.checkNow() }
+
+    property bool omarchyUpdateAvailable: false
+    onOmarchyUpdateAvailableChanged: {
+        if (omarchyUpdateAvailable) {
+            if (typeof Plugins !== "undefined") {
+                try { Plugins.enable("omarchy.system-update"); } catch (e) {}
+            }
+        }
+    }
+    function runOmarchyUpdate() {
+        Quickshell.execDetached(["omarchy-launch-floating-terminal-with-presentation", "omarchy-update"]);
+    }
+
+    Process {
+        id: omarchyProc
+        command: ["omarchy-update-available"]
+        onExited: function(exitCode) {
+            root.omarchyUpdateAvailable = (exitCode === 0);
+        }
+    }
 
     function checkNow() {
         root.busy = true;
         root.lastCheck = Date.now();
         probeProc.running = true;
+        if (!omarchyProc.running)
+            omarchyProc.running = true;
     }
 
     Process {

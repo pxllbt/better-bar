@@ -415,11 +415,24 @@ Singleton {
         }
 
         onNotification: function(n) {
+            var app = String(n.appName || "").toLowerCase();
+            var sum = String(n.summary || "").toLowerCase();
+            var body = String(n.body || "").toLowerCase();
+            if (app.indexOf("recast") >= 0 || app.indexOf("omarchy-action") >= 0) {
+                if (sum.indexOf("recording starts in") >= 0 || body.indexOf("recording starts in") >= 0
+                    || sum.indexOf("recording started") >= 0 || body.indexOf("recording started") >= 0) {
+                    n.tracked = false;
+                    return;
+                }
+            }
             var a = Object.assign({}, root.arrivalMs);
             a[n.id] = Date.now();
             root.arrivalMs = a;
             var e = Object.assign({}, root.expireAt);
-            e[n.id] = Date.now() + (n.urgency === NotificationUrgency.Low ? 2500 : 3000);
+            var timeout = (n.expireTimeout && n.expireTimeout > 0)
+                ? n.expireTimeout
+                : (n.urgency === NotificationUrgency.Low ? 4000 : 6500);
+            e[n.id] = Date.now() + timeout;
             root.expireAt = e;
             n.tracked = true;
             root.hookClosed(n);

@@ -22,7 +22,7 @@ for arg in "$@"; do
     esac
 done
 
-INSTALL_DIR="${HOME}/.local/share/quickshell/better"
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ISSUES=0
 FIXED=0
 
@@ -39,7 +39,7 @@ while IFS= read -r pid; do
     [ -n "$pid" ] || continue
     [ -d "/proc/$pid" ] || continue
     bar_pids+=("$pid")
-done < <(ps -eo pid,args 2>/dev/null | grep "[q]uickshell --config" | awk '{print $1}')
+done < <(ps -eo pid,args 2>/dev/null | grep -E "[q]uickshell.*(--config|-p|shell)" | awk '{print $1}')
 
 bar_count=${#bar_pids[@]}
 watcher_running=false

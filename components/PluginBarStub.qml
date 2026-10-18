@@ -31,6 +31,7 @@ QtObject {
     // Set by the host button before the plugin loads.
     property real barHeightOverride: -1
     property real barWidthOverride: -1
+    property var anchorItem: null
     property var shell: null
     property string fontFamily: Theme.font
 

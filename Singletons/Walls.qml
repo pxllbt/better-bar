@@ -588,6 +588,7 @@ Singleton {
         id: stateProc
         command: ["sh", "-c", "cat \"$1\" 2>/dev/null || true", "_", root.stateFile]
         stdout: StdioCollector {
+            waitForEnd: true
             onStreamFinished: {
                 var live = this.text.trim();
                 if (live.length > 0)

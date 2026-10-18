@@ -26,11 +26,77 @@ fi
 printf "  -> Applying zero-CPU performance flags...\n"
 FLAGS_FILE="$STATE_DIR/flags.json"
 if [ ! -f "$FLAGS_FILE" ]; then
-  printf '{\n  "memorySaver": true,\n  "glass": true,\n  "musicViz": true\n}\n' > "$FLAGS_FILE"
-elif command -v jq >/dev/null 2>&1; then
-  # Ensure memorySaver is enabled if unset
-  tmp=$(mktemp)
-  jq '. + {memorySaver: (if .memorySaver == null then true else .memorySaver end)}' "$FLAGS_FILE" > "$tmp" 2>/dev/null && mv "$tmp" "$FLAGS_FILE" || rm -f "$tmp"
+  cat << 'EOF' > "$FLAGS_FILE"
+{
+  "accentOverride": "",
+  "appGap": 1,
+  "auraIntensity": 0.75,
+  "autoGameReplay": true,
+  "autoHide": false,
+  "clockIcon": true,
+  "clockSeconds": false,
+  "cursorFollow": false,
+  "dnd": true,
+  "dockAutoHide": true,
+  "dockEnabled": true,
+  "dockManualDark": true,
+  "dockManualHue": 30,
+  "dockManualSat": 0.5,
+  "dockMinimal": true,
+  "dockOled": false,
+  "dockStyle": "transparent",
+  "dockTheme": "dark",
+  "expandTo": "pill",
+  "gameMode": false,
+  "glass": false,
+  "glassFollowHypr": false,
+  "glassText": 0,
+  "hideOnSpecial": false,
+  "kbLabel": "",
+  "keepAwake": true,
+  "mainDisplay": "classic",
+  "manualDark": true,
+  "manualHue": 30,
+  "manualSat": 0.5,
+  "mediaAlways": false,
+  "memorySaver": true,
+  "musicStyle": "bars",
+  "musicViz": true,
+  "nightLightMode": "off",
+  "oled": false,
+  "omarchySurvival": true,
+  "paletteMode": "static",
+  "pillOpacity": 1,
+  "pillShowLauncher": true,
+  "pillShowPower": true,
+  "pillShowRecorder": true,
+  "pillShowSysmon": true,
+  "pillShowWallpaper": true,
+  "pluginAutoCheck": true,
+  "pluginAutoIntegrate": true,
+  "pluginAutoUpdate": false,
+  "pluginSelfHeal": true,
+  "randomScope": "all",
+  "reduceMotion": false,
+  "textOverride": "",
+  "time12h": true,
+  "topGap": 1,
+  "uiFont": "",
+  "uiScale": 0.9,
+  "unloadSec": 30,
+  "wallpaperDir": "",
+  "wallpaperFit": "stretch",
+  "weatherCity": ""
+}
+EOF
+fi
+
+# 4. Seed default strip layout
+PILL_STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/pill"
+mkdir -p "$PILL_STATE_DIR"
+STRIP_FILE="$PILL_STATE_DIR/strip-layout.json"
+if [ ! -f "$STRIP_FILE" ]; then
+  printf '[{"kind":"cell","id":"weather"},{"kind":"cell","id":"tray"},{"kind":"cell","id":"dnd"},{"kind":"cell","id":"wifi"},{"kind":"cell","id":"bt"},{"kind":"cell","id":"battery"},{"kind":"cell","id":"inbox"},{"kind":"cell","id":"mixer"},{"kind":"cell","id":"sysmon"},{"kind":"cell","id":"wallpaper"},{"kind":"cell","id":"clipboard"},{"kind":"cell","id":"launcher"},{"kind":"plugin","id":"pix.recast"},{"kind":"plugin","id":"omarchy.system-update"},{"kind":"cell","id":"appearance"},{"kind":"cell","id":"power"}]\n' > "$STRIP_FILE"
 fi
 
 # 4. Install Omarchy theme-sync hook
@@ -44,8 +110,8 @@ if command -v omarchy >/dev/null 2>&1 || [ -d "$HOME/.config/omarchy" ]; then
 # Better Bar: instant zero-delay theme & wallpaper sync hook
 set -uo pipefail
 
-INSTALL_DIR="${HOME}/.local/share/quickshell/better"
-BACKGROUND="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current/background"
+INSTALL_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/pix.bar"
+[ -d "$INSTALL_DIR" ] || INSTALL_DIR="${HOME}/.local/share/quickshell/better"
 
 # 1. Update theme gallery cache if themes script exists
 if [ -f "$INSTALL_DIR/scripts/themes.py" ]; then
@@ -72,9 +138,9 @@ EOF
 # Better Bar: background wallpaper sync hook
 set -uo pipefail
 
-INSTALL_DIR="${HOME}/.local/share/quickshell/better"
-BACKGROUND="${1:-${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current/background}"
-
+INSTALL_DIR="${BETTER_DIR}"
+INSTALL_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/pix.bar"
+[ -d "$INSTALL_DIR" ] || INSTALL_DIR="${HOME}/.local/share/quickshell/better"
 if [ -f "$BACKGROUND" ] && [ -x "$INSTALL_DIR/scripts/wallpaper.sh" ]; then
   "$INSTALL_DIR/scripts/wallpaper.sh" set "$BACKGROUND" 2>/dev/null &
 fi

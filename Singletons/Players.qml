@@ -25,6 +25,36 @@ Singleton {
         return !p.isPlaying && (!p.trackTitle || p.trackTitle.length === 0);
     }
 
+    /**
+     * A notification sound masquerades as a playing MPRIS player: it has
+     * isPlaying=true and a trackTitle (often the app name or "Notification")
+     * but no real media metadata. Real media always carries at least an
+     * artist or a URL; notification sounds do not.
+     *
+     * Additional signals for fake players:
+     *   - Webkit-based players (Dorion/Android emulator) register under
+     *     dbus names like "org.webkit.app-…" and never carry real media
+     *     metadata.
+     *   - Notification sounds are very short (<5s); real media is longer.
+     */
+    function isNotificationSound(p) {
+        if (!p)
+            return false;
+        var db = (p.dbusName || "").toLowerCase();
+        if (db.indexOf("webkit") >= 0 || db.indexOf("dorion") >= 0)
+            return true;
+        if (!p.metadata)
+            return false;
+        var md = p.metadata;
+        var artist = md["xesam:artist"];
+        var url = md["xesam:url"];
+        if (artist && artist.length > 0)
+            return false;
+        if (url && url.length > 0)
+            return false;
+        return true;
+    }
+
     function otherPlaying(self) {
         var l = root.list;
         for (var i = 0; i < l.length; i++)
@@ -130,6 +160,8 @@ Singleton {
 
     readonly property bool has: active !== null
     readonly property bool playing: has && active.isPlaying
+    readonly property bool isActualMedia: has && playing && title.trim().length > 0 && !isIdle(active) && !isNotificationSound(active)
+
     /** Falls back to the service label so a titleless DRM stream still reads as its site. */
     readonly property string title: has ? refineTitle(active, active.trackTitle || labelOf(active)) : ""
     readonly property string artist: has ? Theme.joinArtists(active.trackArtists, active.trackArtist) : ""

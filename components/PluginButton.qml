@@ -58,6 +58,7 @@ Item {
     /** The strip's real band size, forwarded to the panel's geometry. */
     property real barHeightOverride: -1
     property real barWidthOverride: -1
+    property var hostPill: null
 
     /**
      * A widget with a bar entry opens its content in the pill's own surface:
@@ -201,17 +202,10 @@ Item {
                 return;
             }
             if (button === Qt.RightButton) {
-                if (root.mounted && widget.item && typeof widget.item.togglePanel === "function") {
-                    widget.item.togglePanel();
+                if (root.openSurfaceRequest) {
+                    root.openSurfaceRequest("pix.recast", true);
                     return;
                 }
-                if (root.mounted && widget.item && typeof widget.item.open === "function") {
-                    widget.item.open();
-                    return;
-                }
-                root.pendingPress = Qt.RightButton;
-                root.mountRequested = true;
-                return;
             }
         }
         if (!root.mounted) {
@@ -221,6 +215,10 @@ Item {
             root.pendingPress = button;
             root.mountRequested = true;
             return;
+        }
+        if (root.hostPill && root.hostPill.hostRoot) {
+            var screenX = root.mapToItem(null, root.width / 2, 0).x;
+            root.hostPill.hostRoot.setAnchorX(root.hostPill.screenName, screenX);
         }
         if (barStub.pressAny(button))
             return;
@@ -257,6 +255,7 @@ Item {
         moduleId: root.pluginId
         barHeightOverride: root.barHeightOverride
         barWidthOverride: root.barWidthOverride
+        anchorItem: (root.hostPill && root.hostPill.barAnchorItem) ? root.hostPill.barAnchorItem : null
         // A nominal bar band so a widget's `bar ? bar.barSize : default`
         // fallback is not zero; the cell is clamped below regardless.
         barSize: Math.round(26 * root.s)
@@ -376,7 +375,7 @@ Item {
         // in glyph mode that is the point on the cell's centre the card hangs
         // from rather than the cell's left edge.
         if ("anchorItem" in target)
-            target.anchorItem = mount;
+            target.anchorItem = (root.hostPill && root.hostPill.barAnchorItem) ? root.hostPill.barAnchorItem : mount;
         if ("hostWidget" in target)
             target.hostWidget = root;
         if ("service" in target)

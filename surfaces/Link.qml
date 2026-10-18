@@ -262,9 +262,9 @@ PillSurface {
         spacing: 4 * root.s
 
         Item {
+            z: 50
             width: parent.width
             height: 24 * root.s
-
             Row {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter

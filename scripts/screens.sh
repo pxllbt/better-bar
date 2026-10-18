@@ -24,27 +24,26 @@ last_good="$state_dir/screens-last-good.json"
 # compositor rejection, without leaving a half-applied layout behind.
 apply_from_json() {
     local layout="$1" persist="${2:-0}"
-    local batch="" enabled_count=0 out en mode pos scale tr mirror spec cmd
+    local batch="" lua_cmds="" enabled_count=0 out en mode pos scale tr mirror spec cmd
 
-    # One jq pass over the JSON, one tab-separated line per screen -- never jq
-    # per screen. Screens with an empty/missing `output` are filtered here: a
-    # spec with no target carries no output and would at best be a no-op, at
-    # worst a Hyprland parse error, so they are dropped before the loop.
     while IFS=$'\t' read -r out en mode pos scale tr mirror; do
         [ -z "$out" ] && continue
         mirror="${mirror:-}"
         if [ "$en" = "1" ]; then
             enabled_count=$((enabled_count + 1))
-            # Tagged-token form the legacy `monitor` keyword expects:
-            # <output>,<mode>,<position>,<scale>,transform,<n>[,mirror,<target>]
             spec="$out,$mode,$pos,$scale,transform,${tr:-0}"
+            local args="output = \"$out\", mode = \"$mode\", position = \"$pos\", scale = $scale"
+            if [ -n "$tr" ] && [ "$tr" != "0" ]; then
+                args="$args, transform = $tr"
+            fi
             if [ -n "$mirror" ]; then
                 spec="$spec,mirror,$mirror"
+                args="$args, mirror = \"$mirror\""
             fi
+            lua_cmds="${lua_cmds}hl.monitor({ $args }); "
         else
-            # `disable` is the token Hyprland's monitor keyword uses to drop an
-            # output from the layout; mode/position/scale are meaningless then.
             spec="$out,disable"
+            lua_cmds="${lua_cmds}hl.monitor({ output = \"$out\", disabled = true }); "
         fi
         cmd="keyword monitor $spec"
         if [ -z "$batch" ]; then
@@ -65,30 +64,29 @@ apply_from_json() {
                 (.mirror  // "") ]
             | @tsv' 2>/dev/null) || true
 
-    # Refuse before the first compositor call: a layout with no enabled screen
-    # blanks the desktop, and turning off the last monitor is almost always a
-    # drag mistake, not a choice. hyprctl is never invoked, so the stub/log in
-    # tests stays empty on refusal.
     if [ "$enabled_count" -eq 0 ]; then
         printf 'better-screens: refused -- layout has no enabled screen\n' >&2
         return 1
     fi
 
-    # One synchronous dispatcher round trip for every screen (the wiki warns
-    # that each hyprctl call is synchronous, so batching is a real perf win and
-    # also means a partial failure does not abort the other monitors mid-batch).
-    if ! hyprctl --batch "$batch"; then
-        printf 'better-screens: apply failed -- hyprctl rejected the batch\n' >&2
-        return 1
+    # Try modern Lua eval first (Omarchy standard)
+    local applied=0
+    if [ -n "$lua_cmds" ] && hyprctl eval "${lua_cmds} return 0" >/dev/null 2>&1; then
+        applied=1
+    elif hyprctl --batch "$batch" >/dev/null 2>&1; then
+        applied=1
     fi
 
+    if [ "$applied" -eq 0 ]; then
+        printf 'better-screens: apply failed -- hyprctl rejected configuration\n' >&2
+        return 1
+    fi
     # Only the accepted layout becomes last-good, so a rejected apply can never
     # paper over itself: rescue replays the last thing that actually took.
-    if [ "$persist" = "1" ]; then
-        mkdir -p "$state_dir"
-        printf '%s' "$layout" > "$last_good.tmp"
-        mv -f "$last_good.tmp" "$last_good"
-    fi
+    mkdir -p "$state_dir" 2>/dev/null || true
+    printf '%s' "$layout" > "$last_good.tmp" 2>/dev/null || true
+    mv -f "$last_good.tmp" "$last_good" 2>/dev/null || true
+    printf '%s\n' "$layout" | persist_to_lua || true
     return 0
 }
 

@@ -40,8 +40,10 @@ Item {
         Qt.darker(Theme.accent, 1.22)
     ]
 
+    property color color: "transparent"
+    readonly property bool hasCustomColor: String(root.color) !== "#00000000" && String(root.color) !== "transparent" && String(root.color).length > 0
     function colorAt(index) {
-        return root.palette.length > 0 ? root.palette[index % root.palette.length] : Theme.accent;
+        return root.hasCustomColor ? root.color : (root.palette.length > 0 ? root.palette[index % root.palette.length] : Theme.accent);
     }
     property font font: Qt.font({})
     property real letterSpacing: 0
@@ -79,7 +81,7 @@ Item {
             delegate: Text {
                 required property int index
                 text: root.shown.charAt(index)
-                color: root.palette.length > 0 ? root.palette[index % root.palette.length] : Theme.accent
+                color: root.hasCustomColor ? root.color : (root.palette.length > 0 ? root.palette[index % root.palette.length] : Theme.accent)
                 font.family: root.font.family
                 font.pixelSize: root.font.pixelSize
                 font.weight: root.font.weight

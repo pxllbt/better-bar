@@ -56,17 +56,46 @@ PillSurface {
      */
     readonly property var rows: root.query.trim().length > 0 ? root.searchResults : root.childRows
 
-    readonly property var childRows: {
-        // A volatile provider (fonts, power profiles) is re-read on entry, so the
-        // row set reflects what is installed now rather than at shell start.
-        OmarchyMenu.refreshProvider(root.path);
-        return OmarchyMenu.childrenOf(root.path);
+    function isItemExcluded(item) {
+        if (!item) return false;
+        var id = String(item.id || "").toLowerCase();
+        var label = String(item.label || "").toLowerCase();
+        if (id === "about" || id.startsWith("about.") || label === "about")
+            return true;
+        if (id.indexOf("trigger.capture.screenshot") >= 0 || id.indexOf("trigger.capture.screenrecord") >= 0)
+            return true;
+        if (root.path === "trigger.capture" || root.path === "trigger.capture.screenrecord") {
+            if (id.indexOf("screenshot") >= 0 || id.indexOf("screenrecord") >= 0)
+                return true;
+            if (label.indexOf("screenshot") >= 0 || label.indexOf("screenrecord") >= 0)
+                return true;
+        }
+        return false;
     }
 
-    readonly property var searchResults: OmarchyMenu.search(root.query, {
-        fuzzy: Fuzzy,
-        usage: function (id) { return root.uses(id); }
-    })
+    readonly property var childRows: {
+        OmarchyMenu.refreshProvider(root.path);
+        var ch = OmarchyMenu.childrenOf(root.path);
+        if (Array.isArray(ch)) {
+            return ch.filter(function (e) {
+                return !root.isItemExcluded(e);
+            });
+        }
+        return ch;
+    }
+
+    readonly property var searchResults: {
+        var res = OmarchyMenu.search(root.query, {
+            fuzzy: Fuzzy,
+            usage: function (id) { return root.uses(id); }
+        });
+        if (Array.isArray(res)) {
+            return res.filter(function (r) {
+                return !root.isItemExcluded(r.entry || r);
+            });
+        }
+        return res;
+    }
 
     readonly property bool searching: root.query.trim().length > 0
     readonly property bool busy: !OmarchyMenu.guardsResolved

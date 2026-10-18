@@ -33,6 +33,7 @@ SettingsSurface {
 
     implicitHeight: content.implicitHeight
 
+    property string newProfileName: ""
     // Polling runs only while the surface is on screen.
     onActiveChanged: Screens.open = active
 
@@ -71,9 +72,10 @@ SettingsSurface {
 
     /** Save the current draft under the name in the field, then clear the field. */
     function commitProfileName() {
-        if (!root.newProfileName.length)
-            return false;
-        Screens.saveProfile(root.newProfileName);
+        var n = (root.newProfileName || "").trim();
+        if (!n.length)
+            n = "Layout " + (Screens.profiles.length + 1);
+        Screens.saveProfile(n);
         nameField.text = "";
         root.newProfileName = "";
         return true;
@@ -526,10 +528,7 @@ SettingsSurface {
                     s: root.s
                     options: [{ label: "save", value: "save" }]
                     value: ""
-                    onPicked: (v) => {
-                        if (root.newProfileName.length)
-                            Screens.saveProfile(root.newProfileName);
-                    }
+                    onPicked: (v) => root.commitProfileName()
                 }
 
                 // readOnly and edited through the TextEntry engine, the bar's
@@ -562,6 +561,11 @@ SettingsSurface {
                     onActiveFocusChanged: cursorVisible = activeFocus
                     onTextChanged: root.newProfileName = text
                 }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.IBeamCursor
+                        onClicked: nameField.forceActiveFocus()
+                    }
             }
         }
 

@@ -66,8 +66,6 @@ DockPanel {
     readonly property string pinSummary: DockPins.pins.length === 0
         ? "Choose which apps to pin"
         : DockPins.pins.length + (DockPins.pins.length === 1 ? " app pinned" : " apps pinned") + " · drag to reorder"
-    //* The glass depth axis is independent; legacy saves default to transparent.
-    readonly property string glassShown: Flags.dockStyle === "solid" ? "solid" : "transparent"
 
     /** Shorthands for this surface's own colour lookups. */
     readonly property color ink: root.pal ? root.pal.ink : "white"
@@ -266,7 +264,6 @@ DockPanel {
             if (root.themeShown === "dark")
                 base.push({ item: dockOledRow, kind: "toggle", get: function () { return Flags.dockOled; }, set: function (v) { Flags.dockOled = v; } });
             base.push(
-                { item: dockGlassRow, kind: "seg", vals: ["transparent", "solid"], get: function () { return root.glassShown; }, set: function (v) { Flags.dockStyle = v; } },
                 { item: dockMinimalRow, kind: "toggle", get: function () { return Flags.dockMinimal; }, set: function (v) { Flags.dockMinimal = v; } }
             );
         }
@@ -924,22 +921,6 @@ DockPanel {
                         Behavior on opacity { NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard } }
                     }
                 }
-            }
-        }
-
-        SettingsRow {
-            id: dockGlassRow
-            surface: root
-            name: "Dock glass"
-            icon: "droplet"
-            visible: Flags.dockEnabled
-
-            SettingsSeg {
-                s: root.s
-                pal: root.pal
-                options: [{ label: "Transparent", value: "transparent" }, { label: "Solid", value: "solid" }]
-                value: root.glassShown
-                onPicked: (v) => Flags.dockStyle = v
             }
         }
 

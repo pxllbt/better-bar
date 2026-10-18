@@ -798,7 +798,12 @@ SettingsSurface {
                                     hoverEnabled: true
                                     enabled: !root.busy
                                     cursorShape: Qt.PointingHandCursor
-                                    onClicked: Plugins.openOrEnable(prow.modelData.id)
+                                    onClicked: {
+                                        if (prow.modelData.kinds && prow.modelData.kinds.indexOf("bar-widget") !== -1)
+                                            root.requestSurface("plugin:" + prow.modelData.id + ":panel");
+                                        else
+                                            Plugins.openOrEnable(prow.modelData.id);
+                                    }
                                 }
                             }
 

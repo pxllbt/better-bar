@@ -11,7 +11,7 @@ Singleton {
     readonly property int glide:    Math.round(180 * mult)
     readonly property int heat:     Math.round(900 * mult)
     readonly property int easeStandard: Easing.OutCubic
-    readonly property int easeMorph:    Easing.OutCubic
+    readonly property int easeMorph:    Easing.Bezier
 
     /**
      * Smooth, responsive morph curve: Fast initial travel with an ultra-clean settle.

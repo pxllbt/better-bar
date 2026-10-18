@@ -227,8 +227,9 @@ Item {
         id: proc
         command: ["sh", "-c", "hyprctl monitors -j; printf '@@@'; hyprctl workspaces -j"]
         stdout: StdioCollector {
+            id: wsStdout
             onStreamFinished: {
-                var text = this.text;
+                var text = wsStdout.text || "";
                 var sep = text.indexOf("@@@");
                 var monJson = sep >= 0 ? text.slice(0, sep) : "[]";
                 var wsJson = sep >= 0 ? text.slice(sep + 3) : text;

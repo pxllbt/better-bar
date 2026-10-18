@@ -41,12 +41,13 @@ Item {
                 required property int index
 
                 width: root.barW
-                height: Math.max(2 * root.s, (Cava.levels[index] || 0) * root.span * root.s)
+                height: Math.max(3 * root.s, (Cava.levels[index] || 0) * root.span * root.s)
                 radius: width / 2
-                anchors.bottom: parent.bottom
+                anchors.verticalCenter: parent.verticalCenter
                 gradient: Gradient {
-                    GradientStop { position: 0.0; color: Theme.accent }
-                    GradientStop { position: 1.0; color: Theme.vermLit }
+                    GradientStop { position: 0.0; color: Theme.omarchyAccent || Theme.accent }
+                    GradientStop { position: 0.5; color: Theme.vermLit }
+                    GradientStop { position: 1.0; color: Theme.omarchyAccent || Theme.accent }
                 }
 
                 Behavior on height {

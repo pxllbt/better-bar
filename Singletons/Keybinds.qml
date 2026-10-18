@@ -41,9 +41,8 @@ Item {
     property bool listRunning: false
     property bool listRequested: false
 
-    readonly property string backendPath: Quickshell.env("HOME")
-        + "/.config/omarchy/plugins/meviusisback.keybinds/backend/keybinds_manager.py"
-
+    readonly property string backendPath: (Quickshell.env("HOME") || "")
+        + "/.config/omarchy/plugins/pix.bar/scripts/keybinds_manager.py"
     readonly property string baseTitle: "python3"
 
     readonly property var allRows: KeybindsModel.rowsFor(root.model, root.tab)

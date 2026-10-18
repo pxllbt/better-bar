@@ -5,6 +5,7 @@ ROOT="${1:-$(dirname "$(dirname "$0")")}"
 MEDIA="$ROOT/surfaces/Media.qml"
 CAVA="$ROOT/Singletons/Cava.qml"
 PILL="$ROOT/Pill.qml"
+SHELL_QML="$ROOT/shell.qml"
 STRIP_LAYOUT_FILE="$ROOT/Singletons/StripLayout.qml"
 LINK_FILE="$ROOT/surfaces/Link.qml"
 TOAST_FILE="$ROOT/surfaces/Toast.qml"
@@ -98,6 +99,13 @@ fi
 
 has_media_hover=$(printf '%s' "$hover_block" | grep -c 'pill.mode !== "game"' || true)
 ok "the pill hover still honours the game-mode gate" "$has_media_hover" "1"
+
+# The media surface trigger also checks for fullscreen (games), so it never
+# pops up over a fullscreen game even if music is playing.
+has_fs_gate=$(grep -c 'anyFullscreen' "$PILL" || true)
+ok "the media trigger is gated on fullscreen" "$has_fs_gate" "3"
+
+ok "shell.qml declares anyFullscreen for fullscreen games" "$(grep -c 'anyFullscreen' "$SHELL_QML" || true)" "1"
 
 # The tap path keeps its own guard so a click still pins the pill rather than
 # being stolen by the player.

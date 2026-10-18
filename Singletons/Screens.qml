@@ -172,9 +172,11 @@ Singleton {
     function readProfiles() {
         var raw = profileFile.text();
         try {
-            var v = JSON.parse(raw || "[]");
+            var v = JSON.parse(raw || "{}");
             if (Array.isArray(v))
                 profiles = v;
+            else if (v && Array.isArray(v.profiles))
+                profiles = v.profiles;
         } catch (e) { }
     }
 

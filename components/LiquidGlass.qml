@@ -153,16 +153,15 @@ Rectangle {
         && Theme.omarchyBackground !== ""
 
     readonly property color tintTop: useThemeBg
-        ? Theme.omarchyBgAnimated
+        ? (Theme.omarchyLight.length > 0 ? Theme.omarchyLight : Qt.lighter(Theme.omarchyBgAnimated, 1.25))
         : (glass.glassy
             ? Qt.alpha(blend(Theme.cardTop, accentColor, accent * (glass.active ? 1.3 : 1)), tintAlpha)
             : Qt.alpha(Theme.cardTop, tintAlpha))
     readonly property color tintBot: useThemeBg
-        ? Qt.darker(Theme.omarchyBgAnimated, 1.3)
+        ? (Theme.omarchyDarker.length > 0 ? Theme.omarchyDarker : Theme.omarchyBgAnimated)
         : (glass.glassy
             ? Qt.alpha(blend(Theme.cardBot, accentColor, accent * 0.6), tintAlpha)
             : Qt.alpha(Theme.cardBot, tintAlpha))
-
     border.width: activeRing.ringWidth > 0 ? 0 : 1
     border.color: glass.borderColor
 

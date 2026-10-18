@@ -131,7 +131,6 @@ Singleton {
     property alias pillShowSysmon: adapter.pillShowSysmon
     property alias pillShowRecorder: adapter.pillShowRecorder
     property alias pillShowWallpaper: adapter.pillShowWallpaper
-    property alias pillShowScratch: adapter.pillShowScratch
     property alias pillShowLauncher: adapter.pillShowLauncher
     property alias pillShowPower: adapter.pillShowPower
     property alias hideOnSpecial: adapter.hideOnSpecial
@@ -156,13 +155,13 @@ Singleton {
         JsonAdapter {
             id: adapter
 
-            property bool dnd: false
-            property bool keepAwake: false
-            property bool time12h: false
+            property bool dnd: true
+            property bool keepAwake: true
+            property bool time12h: true
             property string kbLabel: ""
             property bool clockSeconds: false
             //* Collapsed-pill face: "minimal" (glyph + time), "classic" (date + time), "system" (weekday, time, workspace, layout, battery) or "strip" (full-width top bar).
-            property string mainDisplay: "minimal"
+            property string mainDisplay: "classic"
             //* What the media card's Expand control opens: "media" keeps the surface as the main screen, "pill" swaps to the expanded pill. With auto-hide off, "media" also makes hovering the resting pill grow into the player.
             property string expandTo: "pill"
 //* Resting pill's clock icon, left of the time. The alternative to the 時 glyph in the same slot; always available now that the glyph is gone.
@@ -171,10 +170,10 @@ Singleton {
             //* Explicit wallpaper folder override. Empty means autodetect: the dir wallpaper.sh last resolved (better-wallpaper-dir state file), then ~/Pictures/Wallpapers. Lives in user state so an in-app update never clobbers a custom folder.
             property string wallpaperDir: ""
             //* Still/video wallpaper scaling: awww --resize "no" (center), "crop" (cover), "fit" (contain) or "stretch", driving the strip's Cover/Contain/Stretch/Center control.
-            property string wallpaperFit: "crop"
+            property string wallpaperFit: "stretch"
             //* Super+B random target: "all" repaints every monitor, "cursor" only the one under the pointer.
             property string randomScope: "all"
-            property real uiScale: 1
+            property real uiScale: 0.9
             property bool reduceMotion: false
             property int manualHue: 30
             property bool manualDark: true
@@ -191,7 +190,7 @@ Singleton {
             property string uiFont: ""
             property real pillOpacity: 1
             //* Transparency mode: translucent tinted slab over the desktop. Off restores the exact legacy flat gradient.
-            property bool glass: true
+            property bool glass: false
             /**
              * Let Hyprland decide the material instead of the bar deciding alone.
              *
@@ -204,7 +203,7 @@ Singleton {
             property bool glassFollowHypr: false
             //* Text-visibility boost when glass is on (0..1): lifts the readability veil behind copy so text keeps contrast on bright wallpapers. Persisted in the settings file like every other flag.
             property real glassText: 0
-            property bool autoHide: true
+            property bool autoHide: false
             //* Bar follows the cursor: the pill stays up on the monitor holding the pointer and retracts on the others, releasing their reserved band so no gap is left behind. Hovering a top edge still reveals that monitor as an escape hatch. Independent of auto-hide -- with this off the bar behaves exactly as before, and nothing is polled.
             property bool cursorFollow: false
             //* Bottom dock: macOS-style pinned + running app bar on every monitor.
@@ -216,16 +215,16 @@ Singleton {
             //* Dock pane depth: "transparent" lets the desktop glow through, "solid" paints the pane opaque.
             property string dockStyle: "transparent"
             //* Minimal dock: icon-only chips with the small active dot, no inline title label.
-            property bool dockMinimal: false
+            property bool dockMinimal: true
             //* Keep the media bud entry point available with no player; the pill still shows the real player detail whenever one exists.
-            property bool mediaAlways: true
+            property bool mediaAlways: false
             property bool omarchySurvival: true
             //* Top margin as a fraction of the shipped 8px. 0 sits the pill flush to the screen edge.
             property real topGap: 1
             //* Pill-to-window band as a fraction of the shipped 12px. 0 tucks the windows flush under the pill.
             property real appGap: 1
             property string weatherCity: ""
-            property string musicStyle: "wave"
+            property string musicStyle: "bars"
             //* Ambient aura strength behind the pill: 0 = off, 1 = full bloom.
             property real auraIntensity: 0.75
             //* Plymouth unlock background hex (#RRGGBB).
@@ -260,7 +259,6 @@ Singleton {
             property bool pillShowSysmon: true
             property bool pillShowRecorder: true
             property bool pillShowWallpaper: true
-            property bool pillShowScratch: true
             property bool pillShowLauncher: true
             property bool pillShowPower: true
             property bool hideOnSpecial: false

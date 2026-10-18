@@ -762,17 +762,27 @@ PillSurface {
             }
 
             /* Expand control */
-            Row {
+            Item {
                 width: infoStack.width
                 height: 15 * root.s
 
                 Item {
                     id: expandCtl
-                    width: 48 * root.s
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 58 * root.s
                     height: 15 * root.s
 
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 5 * root.s
+                        color: expandMouse.containsMouse ? Qt.alpha(Theme.cream, 0.1) : "transparent"
+                        border.width: 1
+                        border.color: expandMouse.containsMouse ? Qt.alpha(Theme.cream, 0.2) : "transparent"
+                        Behavior on color { ColorAnimation { duration: Motion.fast } }
+                    }
+
                     Row {
-                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.centerIn: parent
                         spacing: 5 * root.s
 
                         GlyphIcon {
@@ -799,7 +809,10 @@ PillSurface {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: root.requestExpand()
+                        onClicked: (mouse) => {
+                            mouse.accepted = true;
+                            root.requestExpand();
+                        }
                     }
                 }
             }

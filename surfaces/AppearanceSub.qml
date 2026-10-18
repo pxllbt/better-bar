@@ -27,10 +27,6 @@ SettingsSurface {
         { item: accentTile, kind: "nav", surface: "accent" },
         { item: glassTile, kind: "nav", surface: "glass" },
         { item: fontColorTile, kind: "nav", surface: "fontcolor" },
-        { item: lockTile, kind: "nav", surface: "lockstyle" },
-        { item: plymouthTile, kind: "nav", surface: "plymouth" },
-        { item: hyprTile, activate: () => Quickshell.execDetached(["omarchy-launch-config-editor", (Quickshell.env("HOME") || "") + "/.config/hypr/looknfeel.lua"]) },
-        { item: screensaverTile, activate: () => Quickshell.execDetached(["omarchy-branding-screensaver", "text"]) }
     ]
 
     /**
@@ -108,96 +104,12 @@ SettingsSurface {
             name: "Font colour"
             sub: "Recolour the text family"
 
+            last: true
             GlyphIcon {
                 width: 16 * root.s
                 height: 16 * root.s
                 name: "chevron-right"
                 color: root.focusRowItem === fontColorTile ? Theme.cream : Theme.iconDim
-                stroke: 1.9
-            }
-        }
-
-        SettingsRow {
-            id: hyprTile
-            surface: root
-            glyph: "❖"
-            name: "Window Effects & Borders"
-            sub: "Hyprland borders · gaps · blur · animations"
-
-            GlyphIcon {
-                width: 16 * root.s
-                height: 16 * root.s
-                name: "chevron-right"
-                color: root.focusRowItem === hyprTile ? Theme.cream : Theme.iconDim
-                stroke: 1.9
-            }
-        }
-
-        /**
-         * The second section: what happens when the machine is locked, booting,
-         * or left idle. Nothing here is "appearance" in the colour sense, which
-         * is exactly why it gets its own label.
-         */
-        Item { width: 1; height: 9 * root.s }
-
-        Text {
-            text: "LOCK · BOOT · IDLE"
-            color: Theme.faint
-            font.family: Theme.font
-            font.pixelSize: 9.5 * root.s
-            font.weight: Font.DemiBold
-            font.letterSpacing: 1.4
-            anchors.left: parent.left
-            anchors.leftMargin: 15 * root.s
-            topPadding: 2 * root.s
-            bottomPadding: 3 * root.s
-        }
-
-        SettingsRow {
-            id: lockTile
-            surface: root
-            glyph: "🔒"
-            name: "Lock Screen Theme"
-            sub: "Customise the session lock screen, clock & blur"
-
-            GlyphIcon {
-                width: 16 * root.s
-                height: 16 * root.s
-                name: "chevron-right"
-                color: root.focusRowItem === lockTile ? Theme.cream : Theme.iconDim
-                stroke: 1.9
-            }
-        }
-
-        SettingsRow {
-            id: plymouthTile
-            surface: root
-            glyph: "▶"
-            name: "Plymouth Unlock"
-            sub: "Custom boot colors and logo, or theme presets"
-
-            GlyphIcon {
-                width: 16 * root.s
-                height: 16 * root.s
-                name: "chevron-right"
-                color: root.focusRowItem === plymouthTile ? Theme.cream : Theme.iconDim
-                stroke: 1.9
-            }
-        }
-
-        SettingsRow {
-            id: screensaverTile
-            surface: root
-            glyph: "✨"
-            name: "Screensaver"
-            sub: "Configure screensaver text & branding"
-            last: true
-
-            GlyphIcon {
-                width: 16 * root.s
-                height: 16 * root.s
-                name: "chevron-right"
-                color: root.focusRowItem === screensaverTile ? Theme.cream : Theme.iconDim
                 stroke: 1.9
             }
         }

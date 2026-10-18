@@ -43,6 +43,7 @@ Item {
      */
     required property var hostRoot
     property var barWindow
+    property var barAnchorItem: null
     property string surface: ""
 
     /**
@@ -148,6 +149,10 @@ Item {
     readonly property bool powerOpen: surface === "power"
     readonly property bool mediaOpen: surface === "media"
 
+    /** True while any monitor has a fullscreen client — the media surface
+     *  stays closed over a game to avoid popping up during gameplay. */
+    readonly property bool anyFullscreen: hostRoot.anyFullscreen
+
     /**
      * The floating media island: in strip mode the now-playing card hovers
      * *above* the bar instead of replacing it.
@@ -180,8 +185,7 @@ Item {
      * The centred pill keeps the morph, because there the island *is* the pill
      * and nothing is stolen from it.
      */
-    readonly property bool mediaFloats: pill.stripBar && pill.mediaOpen
-        && !pill.pluginSurfaceOpen && !pill.recastActive
+    readonly property bool mediaFloats: false
 
     /** Air between the strip and the island's underside. */
     readonly property real islandGap: 9 * s
@@ -189,14 +193,13 @@ Item {
     readonly property real islandH: mediaH
     /** Island rect in pill coordinates; shell.qml reads these for the input mask. */
     readonly property real islandX: (pill.width - islandW) / 2
-    readonly property real islandY: -(islandH + islandGap)
+    readonly property real islandY: pill.height + islandGap
     readonly property bool linkOpen: surface === "link"
     readonly property bool weatherOpen: surface === "weather"
     readonly property bool wifiOpen: surface === "wifi"
     readonly property bool btOpen: surface === "bt"
     readonly property bool batteryOpen: surface === "battery"
     readonly property bool sysmonOpen: surface === "sysmon"
-    readonly property bool scratchOpen: surface === "scratch"
     readonly property bool profileOpen: surface === "profile"
     readonly property bool modulesOpen: surface === "modules"
     readonly property bool screensOpen: surface === "screens"
@@ -210,11 +213,9 @@ Item {
     readonly property bool fontpickerOpen: surface === "fontpicker"
     readonly property bool pluginsOpen: surface === "plugins"
     readonly property bool updateOpen: surface === "update"
-    readonly property bool lockstyleOpen: surface === "lockstyle"
-    readonly property bool plymouthOpen: surface === "plymouth"
     readonly property bool keybindsOpen: surface === "keybinds"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || modulesOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || plymouthOpen || keybindsOpen || profileOpen
-    readonly property bool hasMedia: Players.list.length > 0
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || modulesOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || fontpickerOpen || pluginsOpen || updateOpen || keybindsOpen || profileOpen
+    readonly property bool hasMedia: Players.has && (Players.playing || (Flags.mediaAlways && Players.title.length > 0)) && !Players.isIdle(Players.active) && Players.title.trim().length > 0
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
     readonly property var wifiDev: netDevices.find(function(d) { return d && d.type === DeviceType.Wifi }) || null
@@ -269,9 +270,15 @@ Item {
     property bool bootSettled: false
 
     Timer {
-        interval: 3000
+        interval: 1200
         running: true
-        onTriggered: pill.bootSettled = true
+        onTriggered: {
+            pill.bootSettled = true;
+            if (Players.isActualMedia && !pill.recastActive && !pill.surfaceOpen && !pill.pluginSurfaceOpen && !Flags.gameMode && pill.mode !== "game" && !pill.toastActive) {
+                pill.surfaceDismissLatch = false
+                pill.requestSurface("media");
+            }
+        }
     }
 
     readonly property bool expanded: surfaceOpen || held || hoverLatch || expandLatch || stripMenuOpen
@@ -508,7 +515,7 @@ Item {
     readonly property real stripGap: 16 * s
     readonly property bool stripHover: stripFaceMouse.containsMouse
     property bool ghostStripHover: false
-    readonly property real stripCap: Math.max(320 * s, Math.min(600 * s, (barWindow ? barWindow.width : 1920 * s) - 60 * s))
+    readonly property real stripCap: Math.max(480 * s, Math.min(850 * s, (barWindow ? barWindow.width : 1920 * s) - 80 * s))
 
     // No strip-face zoom property lives here any more. The width slider used to
     // scale the whole notch (content and box) through a transform, with the
@@ -518,7 +525,7 @@ Item {
     // do anything but still has to agree with the width it was computed from.
     readonly property real stripArtW: 22 * s
     readonly property real stripMinTitle: 55 * s
-    readonly property real stripMaxTitle: 220 * s
+    readonly property real stripMaxTitle: 280 * s
 
     readonly property real stripVizW: (Cava.bars * 1.8 + (Cava.bars - 1) * 1.2) * s
 
@@ -530,30 +537,26 @@ Item {
     // read as media. The full title still gets the min-width preference when
     // none is playing, so an idle bar is not steadily crowded.
     readonly property bool stripMedia: Players.has
-        && (Players.playing || stripRoomForTitle >= stripMinTitle)
+        && (Players.playing || (Flags.mediaAlways && Players.title.length > 0))
+        && !Players.isIdle(Players.active) && Players.title.trim().length > 0
         && stripRoomForTitle > 0
     readonly property real stripRoomForTitle: stripCap - 2 * stripPad - stripArtW - stripFixedW
         - 4 * stripGap - stripMediaGaps * stripGap
         - (Cava.active ? stripVizW : 0)
 
-    readonly property real stripTitleW: stripMedia ? Math.min(stripMaxTitle, stripRoomForTitle, Math.max(stripMinTitle, stripTitleMetrics.advanceWidth)) : 0
+    readonly property real stripTitleW: stripMedia ? Math.min(stripMaxTitle, Math.max(stripMinTitle, stripTitleMetrics.advanceWidth + 4 * s)) : 0
     readonly property real stripFixedW: stripDay.implicitWidth + stripTime.implicitWidth
         + stripWs.implicitWidth + stripLay.implicitWidth + (Battery.present ? stripBat.implicitWidth : 0)
+        + (Updater.omarchyUpdateAvailable ? stripUpdate.implicitWidth : 0)
 
     readonly property real stripFaceW: {
         if (pill.recastActive)
-            return 156 * s;
+            return Math.max(156 * s, stripRecordingFace.implicitWidth + 24 * s);
         if (pill.specialView !== "")
-            return 144 * s;
-        let fixedCount = 4 + (Battery.present ? 1 : 0);
-        let gaps = Math.max(0, fixedCount - 1);
-        let w = 2 * stripPad + stripFixedW + gaps * stripGap;
-        if (stripMedia) {
-            w += stripArtW + stripGap + stripTitleW;
-            if (Cava.active) w += stripVizW + stripGap;
-            w += stripGap;
-        }
-        return w;
+            return Math.max(144 * s, stripSpecialFace.implicitWidth + 24 * s);
+        let neededW = stripFace ? stripFace.implicitWidth + 2 * stripPad : 0;
+        let contentW = (stripFace && stripFace.implicitWidth > 0) ? stripFace.implicitWidth : (stripFixedW + (stripMedia ? stripArtW + stripGap + 100 * s : 0));
+        return Math.min(stripCap, Math.max(contentW + 2 * stripPad, neededW));
     }
     readonly property real hoverPad: 20 * s
     readonly property real hoverW: hoverRow.implicitWidth + 2 * hoverPad
@@ -576,8 +579,6 @@ Item {
     readonly property real settingsScale: 0.9
     readonly property real settingsW: 392 * s * settingsScale
     readonly property real profileW: 620 * s * settingsScale
-    readonly property real scratchW: 556 * s
-    readonly property real scratchH: 348 * s
     readonly property real fontpickerW: 360 * s * settingsScale
     readonly property real toastW: 342 * s
     readonly property real dragOverW: 300 * s
@@ -658,16 +659,15 @@ Item {
         weather:   { size: () => { const it = surfaceItem("weather"); if (!it) return Qt.size(282 * s + 36 * s, 260 * s + 32 * s); return Qt.size((it.implicitWidth > 0 ? it.implicitWidth : 282 * s) + 36 * s, it.implicitHeight + 32 * s); }, ame: () => surfaceItem("weather") },
         launcher:  { size: () => { surfaceItem("launcher"); return Qt.size(launcherW, launcherH); }, ame: () => surfaceItem("launcher") },
         clipboard: { size: () => { surfaceItem("clipboard"); return Qt.size(clipboardW, clipboardH); }, ame: () => surfaceItem("clipboard") },
-        scratch:   { size: () => { surfaceItem("scratch"); return Qt.size(scratchW, scratchH); }, ame: () => surfaceItem("scratch") },
         wallpaper: { size: () => { surfaceItem("wallpaper"); return Qt.size(wallpaperW, wallpaperH); }, ame: () => null },
         power:     { size: () => { surfaceItem("power"); return Qt.size(powerW, powerH); }, ame: () => surfaceItem("power") },
-        media:     { size: () => { surfaceItem("media"); return pill.mediaFloats ? restSize : Qt.size(mediaW, mediaH); }, ame: () => surfaceItem("media") },
-        mixer:     { size: () => Qt.size(93 * Math.max(4, surfaceItem("mixer").faderCount) * s, mixerH), ame: () => surfaceItem("mixer") },
-        link:      { size: () => { const it = surfaceItem("link"); return Qt.size(it.desiredW, it.implicitHeight + 26 * s); }, ame: () => surfaceItem("link") },
-        wifi:      { size: () => Qt.size(wifiW, surfaceItem("wifi").implicitHeight + 26 * s), ame: () => surfaceItem("wifi") },
-        bt:        { size: () => Qt.size(btW, surfaceItem("bt").implicitHeight + 26 * s), ame: () => surfaceItem("bt") },
-        battery:   { size: () => Qt.size(batteryW, surfaceItem("battery").implicitHeight + 26 * s), ame: () => surfaceItem("battery") },
-        sysmon:    { size: () => Qt.size(sysmonW, surfaceItem("sysmon").implicitHeight + 33 * s), ame: () => surfaceItem("sysmon") },
+        media:     { size: () => { surfaceItem("media"); return Qt.size(mediaW, mediaH); }, ame: () => surfaceItem("media") },
+        mixer:     { size: () => { const it = surfaceItem("mixer"); return Qt.size(93 * Math.max(4, it ? it.faderCount : 4) * s, mixerH); }, ame: () => surfaceItem("mixer") },
+        link:      { size: () => { const it = surfaceItem("link"); return Qt.size(it ? it.desiredW : 360 * s, (it ? it.implicitHeight : 240 * s) + 26 * s); }, ame: () => surfaceItem("link") },
+        wifi:      { size: () => { const it = surfaceItem("wifi"); return Qt.size(wifiW, (it ? it.implicitHeight : 260 * s) + 26 * s); }, ame: () => surfaceItem("wifi") },
+        bt:        { size: () => { const it = surfaceItem("bt"); return Qt.size(btW, (it ? it.implicitHeight : 260 * s) + 26 * s); }, ame: () => surfaceItem("bt") },
+        battery:   { size: () => { const it = surfaceItem("battery"); return Qt.size(batteryW, (it ? it.implicitHeight : 240 * s) + 26 * s); }, ame: () => surfaceItem("battery") },
+        sysmon:    { size: () => { const it = surfaceItem("sysmon"); return Qt.size(sysmonW, (it ? it.implicitHeight : 260 * s) + 33 * s); }, ame: () => surfaceItem("sysmon") },
         // The monitor-layout surface is a settings surface (SettingsSeg rows
         // need the settings scale), so it is sized like the others rather than
         // like the dials; its own content drives the height.
@@ -684,8 +684,6 @@ Item {
         fontpicker: { size: () => Qt.size(fontpickerW, settingsSurfaceH("fontpicker")), ame: () => surfaceItem("fontpicker") },
         plugins:    { size: () => Qt.size(settingsW, settingsSurfaceH("plugins")), ame: () => surfaceItem("plugins") },
         update:     { size: () => Qt.size(settingsW, settingsSurfaceH("update")), ame: () => surfaceItem("update") },
-        lockstyle:  { size: () => Qt.size(settingsW, settingsSurfaceH("lockstyle")), ame: () => surfaceItem("lockstyle") },
-        plymouth:   { size: () => Qt.size(settingsW, settingsSurfaceH("plymouth")), ame: () => surfaceItem("plymouth") },
         keybinds:   { size: () => Qt.size(settingsW, settingsSurfaceH("keybinds")), ame: () => surfaceItem("keybinds") },
         plugin:     { size: () => {
                 // Omarchy plug-ins render their UIs as popout layer surfaces;
@@ -710,7 +708,6 @@ Item {
         weather:    () => ldWeather,
         launcher:   () => ldLauncher,
         clipboard:  () => ldClip,
-        scratch:    () => ldScratch,
         wallpaper:  () => ldWall,
         power:      () => ldPower,
         media:      () => ldMedia,
@@ -733,8 +730,6 @@ Item {
         fontpicker: () => ldFontpicker,
         plugins:    () => ldPlugins,
         update:     () => ldUpdate,
-        lockstyle:  () => ldLockstyle,
-        plymouth:   () => ldPlymouth,
         keybinds:   () => ldKeybinds,
         plugin:     () => ldPluginSurface
     })
@@ -1211,19 +1206,25 @@ Item {
      * volume/brightness/record keep their fixed widths. The toast keeps its
      * fixed width and sizes its height to the notification.
      */
+    readonly property real minFaceW: {
+        switch (Flags.mainDisplay) {
+            case "minimal": return 76 * s;
+            case "classic": return 130 * s;
+            case "system":  return 150 * s;
+            default:        return 120 * s;
+        }
+    }
+
     readonly property var modeSize: ({
-        toast: () => Qt.size(toastW, toastLoader.item ? toastLoader.item.implicitHeight + 24 * s : restH),
+        toast: () => Qt.size(toastLoader.item ? Math.max(200 * s, Math.min(380 * s, toastLoader.item.implicitWidth + 32 * s)) : 240 * s, toastLoader.item ? toastLoader.item.implicitHeight + 24 * s : restH),
         hover: () => Qt.size(hoverW, hoverH),
         dragOver:    () => Qt.size(dragOverW, dragOverH),
         game:        () => Qt.size(gameW, gameH)
     })
 
-    /**
-     * The pill's resting size for the current display mode.
-     */
     readonly property size restSize: stripBar
-        ? Qt.size(Math.max(restW, stripFaceW), restH)
-        : Qt.size(Math.max(restW, restRow.implicitWidth + 36 * s), restH)
+        ? Qt.size(stripFaceW, restH)
+        : Qt.size(Math.max(minFaceW, restRow.implicitWidth + 24 * s), restH)
 
     readonly property size targetSize: {
         const sf = surfaces[mode];
@@ -1331,8 +1332,7 @@ Item {
         // Decoration, not a hit target: it must never eat a click that belongs
         // to one of the pill's children.
         enabled: false
-        visible: opacity > 0.005
-
+        visible: (aura.intensity > 0 && Flags.musicViz && Cava.active) && opacity > 0.005
         /** Shimmer needs repainting; a calm bloom does not. */
         readonly property bool shimmer: !Flags.reduceMotion && Cava.active
 
@@ -1455,8 +1455,7 @@ Item {
         // The media bud stays available whenever a track is actually playing,
         // even if the persistent "always show media" toggle is off. Paused/idle
         // media still follows the user's toggle.
-        readonly property bool shown: (pill.mode === "rest" || pill.mode === "hover")
-            && (Flags.mediaAlways || Players.playing)
+        readonly property bool shown: !pill.stripBar && (pill.mode === "hover") && pill.hasMedia
         property real budR: (budArea.containsMouse ? 15 : 12) * pill.s
         width: budR * 2
         height: budR * 2
@@ -1548,7 +1547,7 @@ Item {
          */
         property real gameFlat: pill.mode === "game" ? 1 : 0
         Behavior on gameFlat { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph; easing.bezierCurve: Motion.morphCurve } }
-        property real topFlat: (pill.mode === "game" || pill.stripBar) ? 1 : 0
+        property real topFlat: pill.mode === "game" ? 1 : 0
         Behavior on topFlat { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph; easing.bezierCurve: Motion.morphCurve } }
 
         radius: pill.morphRadius
@@ -1575,7 +1574,7 @@ Item {
          * off-screen (nobody sees the shadow there) — the layer's FBO and the
          * per-frame update only exist while the pill is actually visible.
          */
-        layer.enabled: !pill.morphing && !pill.hidden
+        layer.enabled: !pill.hidden
         layer.effect: MultiEffect {
             shadowEnabled: true
             shadowColor: Qt.rgba(0, 0, 0, Theme.shadowOpacity)
@@ -1736,13 +1735,21 @@ Item {
     Connections {
         target: Players
         function onPlayingChanged() {
-            // Anything audible cancels a pending dismiss immediately, so
-            // re-opening on a new track is instant rather than waiting out the
-            // timer.
-            if (Players.playing)
+            if (Players.isActualMedia) {
                 mediaAutoDismiss.stop();
-            else if (pill.mediaOpen && !Players.has)
+                pill.surfaceDismissLatch = false
+                if (!pill.recastActive && !pill.surfaceOpen && !pill.pluginSurfaceOpen && !Flags.gameMode && !pill.anyFullscreen && pill.mode !== "game" && !pill.toastActive) {
+                    pill.requestSurface("media");
+                }
+            } else if (pill.mediaOpen && !Players.has) {
                 mediaAutoDismiss.restart();
+            }
+        }
+        function onTitleChanged() {
+            if (Players.isActualMedia && !pill.recastActive && !pill.surfaceOpen && !pill.pluginSurfaceOpen && !Flags.gameMode && !pill.anyFullscreen && pill.mode !== "game" && !pill.toastActive) {
+                pill.surfaceDismissLatch = false
+                pill.requestSurface("media");
+            }
         }
     }
 
@@ -1764,10 +1771,10 @@ Item {
      * entry, so "come back later" always works.
      */
     function checkMediaHover() {
-        if (Flags.expandTo === "media" && pill.hasMedia
+        if (pill.hasMedia && Players.playing && !pill.expandLatch && !pill.hoverLatch
             && !pill.surfaceOpen && !pill.dragActive
             && !surfaceDismissLatch
-            && bootSettled && !toastActive) {
+            && bootSettled && !toastActive && !pill.recastActive) {
             pill.requestSurface("media");
             return true;
         }
@@ -1794,9 +1801,6 @@ Item {
     }
 
     onHoveredChanged: {
-        if (!hovered) {
-            surfaceDismissLatch = false;
-        }
         if (hovered && pill.mode !== "game") {
             /* Re-entering the bar always re-arms the island. The latch is the
              * "the user dismissed this on purpose" memory and it is scoped to
@@ -1847,17 +1851,14 @@ Item {
 
     Timer {
         id: graceTimer
-        interval: 300
+        interval: 220
         onTriggered: {
-            if (pill.morphCloseness < 0.95) {
-                graceTimer.restart();
-                return;
-            }
             pill.hoverLatch = false;
-            // Only ever reached from the not-hovered branch of
-            // `onHoveredChanged`, so this is "the pointer settled outside"
-            // and not a timer that happens to expire.
             pill.expandLatch = false;
+            if (!pill.hovered && !pill.pinned && pill.mediaOpen) {
+                pill.surfaceDismissLatch = true;
+                pill.requestClose();
+            }
         }
     }
 
@@ -1913,10 +1914,13 @@ Item {
         enabled: (!pill.surfaceOpen || pill.mediaOpen) && pill.mode !== "game"
         gesturePolicy: TapHandler.WithinBounds
         onTapped: {
-            if (pill.mediaOpen)
+            if (pill.mediaOpen) {
+                pill.surfaceDismissLatch = true;
                 pill.requestClose();
-            else
+            } else {
+                pill.surfaceDismissLatch = false;
                 pill.requestSurface("media");
+            }
         }
     }
 
@@ -2460,10 +2464,6 @@ Item {
 
         Row {
             id: stripFace
-            // Hides while a surface is open: this is the resting bar, and in
-            // strip mode it is far wider than the card-sized body a surface
-            // morphs the pill into, so leaving it up overflows the pill and
-            // covers the surface.
             visible: pill.specialView === "" && !pill.recastActive && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen || pill.mediaFloats) && !Flags.gameMode
             anchors.centerIn: parent
             spacing: pill.stripGap
@@ -2509,7 +2509,7 @@ Item {
                     onClicked: (mouse) => {
                         if (mouse.button === Qt.MiddleButton) {
                             if (Players.active && Players.active.canTogglePlaying)
-                                Players.active.togglePlaying();
+                                 Players.active.togglePlaying();
                         } else {
                             pill.requestSurface("media");
                         }
@@ -2580,11 +2580,19 @@ Item {
                 s: pill.s
                 span: 14
             }
+            Rectangle {
+                visible: pill.stripMedia
+                anchors.verticalCenter: parent.verticalCenter
+                width: 1
+                height: 14 * pill.s
+                color: Theme.hair
+            }
 
             AltText {
                 id: stripDay
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.weekday
+                color: Theme.dim
                 font.family: Theme.font
                 font.pixelSize: 12 * pill.s
                 font.weight: Font.DemiBold
@@ -2595,6 +2603,7 @@ Item {
                 id: stripTime
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.hhmm
+                color: Theme.bright
                 font.family: Theme.font
                 font.pixelSize: 17 * pill.s
                 font.weight: Font.DemiBold
@@ -2604,6 +2613,7 @@ Item {
                 id: stripWs
                 anchors.verticalCenter: parent.verticalCenter
                 text: ws.activeWs
+                color: Theme.accent
                 font.family: Theme.font
                 font.pixelSize: 12 * pill.s
                 font.weight: Font.DemiBold
@@ -2615,6 +2625,7 @@ Item {
                 id: stripLay
                 anchors.verticalCenter: parent.verticalCenter
                 text: kbLayout.code
+                color: Theme.dim
                 font.family: Theme.font
                 font.pixelSize: 12 * pill.s
                 font.weight: Font.DemiBold
@@ -2664,6 +2675,44 @@ Item {
                     font.pixelSize: 12 * pill.s
                     font.weight: Font.DemiBold
                     font.features: { "tnum": 1 }
+                }
+            }
+            Item {
+                id: stripUpdate
+                visible: Updater.omarchyUpdateAvailable
+                anchors.verticalCenter: parent.verticalCenter
+                width: 16 * pill.s
+                height: 16 * pill.s
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    width: 13 * pill.s
+                    height: 13 * pill.s
+                    name: "refresh"
+                    color: Theme.accent
+                    stroke: 1.8
+                }
+
+                MouseArea {
+                    id: stripUpdateMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (Updater.omarchyUpdateAvailable) {
+                            Updater.runOmarchyUpdate();
+                        } else {
+                            pill.requestSurface("update");
+                        }
+                    }
+                }
+
+                Tooltip {
+                    s: pill.s
+                    placement: "below"
+                    title: "Omarchy update available"
+                    desc: "Click to run omarchy-update"
+                    show: stripUpdateMouse.containsMouse
                 }
             }
         }
@@ -2792,7 +2841,7 @@ Item {
 
                 Text {
                     id: stripRecordingTimer
-                    text: Recast.countdownPending ? (Recast.formattedCountdown + "\u2026") : Recast.formattedTime
+                    text: Recast.countdownPending ? Recast.formattedCountdown : Recast.formattedTime
                     font.family: Theme.font
                     font.pixelSize: 12.5 * pill.s
                     font.weight: Font.Bold
@@ -2809,7 +2858,7 @@ Item {
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 onClicked: function (mouse) {
                     if (mouse.button === Qt.RightButton) {
-                        Plugins.openOrEnable("pix.recast");
+                        pill.requestPluginSurface("pix.recast", true);
                     } else {
                         Recast.toggleRecording();
                     }
@@ -2877,7 +2926,9 @@ Item {
 
         Row {
             id: restRow
-            visible: !pill.stripBar
+            visible: !pill.stripBar && opacity > 0.01
+            opacity: (pill.mode === "rest" && !pill.recastActive) ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: Motion.fast } }
             anchors.centerIn: parent
             spacing: 9 * pill.s
             Item {
@@ -2891,8 +2942,8 @@ Item {
                  * time sitting a few pixels right of centre.
                  */
                 readonly property bool slotUsed: barsOn || Flags.clockIcon
-                visible: !Recast.recording && pill.specialView === ""
-                    && (Flags.mainDisplay === "minimal" ? slotUsed : (Flags.mainDisplay === "classic" && barsOn))
+                visible: !pill.recastActive && pill.specialView === ""
+                    && (Flags.mainDisplay === "system" ? barsOn : slotUsed)
                 anchors.verticalCenter: parent.verticalCenter
                 width: clockGlyph.width
                 height: clockGlyph.height
@@ -2908,7 +2959,7 @@ Item {
                     width: pill.iconCell
                     height: pill.iconCell
                     name: "clock"
-                    color: Theme.cream
+                    color: Theme.accent
                     stroke: 1.7
                     Behavior on opacity { NumberAnimation { duration: Motion.standard; easing.type: Motion.easeStandard } }
                 }
@@ -2928,62 +2979,117 @@ Item {
                 }
             }
             AltText {
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "minimal"
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "minimal"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.hhmm
+                color: Theme.bright
                 font.family: Theme.font
                 font.pixelSize: 16 * pill.s
                 font.weight: Font.DemiBold
                 font.features: { "tnum": 1 }
             }
             AltText {
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "classic"
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "classic"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.date
+                color: Theme.dim
                 font.family: Theme.font
-                font.pixelSize: 11 * pill.s
-                font.weight: Font.DemiBold
+                font.pixelSize: 11.5 * pill.s
+                font.weight: Font.Medium
+            }
+            Rectangle {
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "classic"
+                anchors.verticalCenter: parent.verticalCenter
+                width: 1
+                height: 11 * pill.s
+                color: Theme.hair
             }
             AltText {
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "classic"
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "classic"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.hhmm
+                color: Theme.bright
                 font.family: Theme.font
-                font.pixelSize: 16 * pill.s
-                font.weight: Font.DemiBold
+                font.pixelSize: 15.5 * pill.s
+                font.weight: Font.Bold
                 font.features: { "tnum": 1 }
             }
+            Rectangle {
+                id: restWsBadge
+                visible: !pill.recastActive && pill.specialView === "" && ws && ws.activeWs !== ""
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.max(18 * pill.s, restWsText.implicitWidth + 10 * pill.s)
+                height: 17 * pill.s
+                radius: 8.5 * pill.s
+                color: Qt.alpha(Theme.accent, 0.14)
+                border.width: 1
+                border.color: Qt.alpha(Theme.accent, 0.32)
+
+                Text {
+                    id: restWsText
+                    anchors.centerIn: parent
+                    text: ws ? ws.activeWs : "1"
+                    color: Theme.accent
+                    font.family: Theme.font
+                    font.pixelSize: 10 * pill.s
+                    font.weight: Font.Bold
+                    font.features: { "tnum": 1 }
+                }
+
+                MouseArea {
+                    id: wsBadgeMouse
+                    anchors.fill: parent
+                    anchors.margins: -4 * pill.s
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        pill.hoverLatch = !pill.hoverLatch;
+                    }
+                }
+
+                Tooltip {
+                    s: pill.s
+                    placement: "below"
+                    title: "Workspace " + (ws ? ws.activeWs : "1")
+                    desc: "Click to toggle control center"
+                    show: wsBadgeMouse.containsMouse && pill.mode === "rest"
+                }
+            }
             AltText {
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.weekday
+                color: Theme.dim
                 font.family: Theme.font
                 font.pixelSize: 11 * pill.s
                 font.weight: Font.DemiBold
             }
             AltText {
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
                 anchors.verticalCenter: parent.verticalCenter
                 text: clock.hhmm
+                color: Theme.bright
                 font.family: Theme.font
                 font.pixelSize: 15 * pill.s
                 font.weight: Font.DemiBold
                 font.features: { "tnum": 1 }
             }
             AltText {
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
                     && ws.activeWs !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 text: ws.activeWs
+                color: Theme.accent
                 font.family: Theme.font
                 font.pixelSize: 11 * pill.s
                 font.weight: Font.Bold
                 font.features: { "tnum": 1 }
             }
             AltText {
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
                 anchors.verticalCenter: parent.verticalCenter
                 text: kbLayout.code
+                color: Theme.dim
                 font.family: Theme.font
                 font.pixelSize: 11 * pill.s
                 font.weight: Font.DemiBold
@@ -3006,7 +3112,7 @@ Item {
                 }
             }
             Row {
-                visible: !Recast.recording && pill.specialView === "" && Flags.mainDisplay === "system"
+                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
                     && Battery.present
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 3 * pill.s
@@ -3051,29 +3157,47 @@ Item {
                 Row {
                     id: recastRestRow
                     anchors.centerIn: parent
-                    spacing: 6 * pill.s
+                    spacing: 8 * pill.s
 
                     Rectangle {
-                        width: 7 * pill.s
-                        height: 7 * pill.s
-                        radius: 3.5 * pill.s
-                        color: Recast.countdownPending ? Theme.accent : (Recast.paused ? "#ff9f0a" : "#ff3b30")
+                        width: 18 * pill.s
+                        height: 18 * pill.s
+                        radius: 9 * pill.s
+                        color: Qt.rgba(0.95, 0.18, 0.22, 0.22)
+                        border.width: 1
+                        border.color: Qt.rgba(0.95, 0.22, 0.28, 0.6)
 
-                        opacity: (Recast.recording && !Recast.paused && (Recast._tick % 2 === 1)) ? 0.35 : 1.0
-                        Behavior on opacity {
-                            NumberAnimation { duration: 250 }
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: 7 * pill.s
+                            height: 7 * pill.s
+                            radius: 3.5 * pill.s
+                            color: Recast.countdownPending ? Theme.accent : (Recast.paused ? "#ff9f0a" : "#ff3b30")
+
+                            opacity: (Recast.recording && !Recast.paused && (Recast._tick % 2 === 1)) ? 0.35 : 1.0
+                            Behavior on opacity {
+                                NumberAnimation { duration: 250 }
+                            }
                         }
                     }
 
                     Text {
-                        text: Recast.countdownPending
-                            ? ("STARTING " + Recast.formattedCountdown + "…")
-                            : ((Recast.paused ? "PAUSED " : "REC ") + Recast.formattedTime)
+                        text: Recast.countdownPending ? "STARTING" : (Recast.paused ? "PAUSED" : "REC")
                         font.family: Theme.font
-                        font.pixelSize: 13 * pill.s
+                        font.pixelSize: 11 * pill.s
+                        font.weight: Font.Black
+                        color: Recast.countdownPending ? Theme.accent : (Recast.paused ? "#ff9f0a" : "#ff453a")
+                        height: 18 * pill.s
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    Text {
+                        text: Recast.countdownPending ? Recast.formattedCountdown : Recast.formattedTime
+                        font.family: Theme.font
+                        font.pixelSize: 12.5 * pill.s
                         font.weight: Font.Bold
-                        color: Recast.countdownPending ? Theme.accent : (Recast.paused ? "#ff9f0a" : Theme.cream)
-                        height: 13 * pill.s
+                        color: Theme.cream
+                        height: 18 * pill.s
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -3085,7 +3209,7 @@ Item {
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     onClicked: function (mouse) {
                         if (mouse.button === Qt.RightButton) {
-                            Plugins.openOrEnable("pix.recast");
+                            pill.requestPluginSurface("pix.recast", true);
                         } else {
                             Recast.toggleRecording();
                         }
@@ -3133,6 +3257,44 @@ Item {
                     font.weight: Font.Bold
                 }
             }
+            Item {
+                id: restUpdate
+                visible: Updater.omarchyUpdateAvailable
+                anchors.verticalCenter: parent.verticalCenter
+                width: 16 * pill.s
+                height: 16 * pill.s
+
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    width: 13 * pill.s
+                    height: 13 * pill.s
+                    name: "refresh"
+                    color: Theme.accent
+                    stroke: 1.8
+                }
+
+                MouseArea {
+                    id: restUpdateMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (Updater.omarchyUpdateAvailable) {
+                            Updater.runOmarchyUpdate();
+                        } else {
+                            pill.requestSurface("update");
+                        }
+                    }
+                }
+
+                Tooltip {
+                    s: pill.s
+                    placement: "below"
+                    title: "Omarchy update available"
+                    desc: "Click to run omarchy-update"
+                    show: restUpdateMouse.containsMouse
+                }
+            }
         }
     }
 
@@ -3148,11 +3310,10 @@ Item {
         Behavior on opacity { NumberAnimation { duration: pill.mode === "hover" ? Motion.fast : 40 } }
 
         readonly property bool live: pill.mode === "hover"
-
         Row {
             id: hoverRow
             anchors.centerIn: parent
-            spacing: 20 * pill.s
+            spacing: 16 * pill.s
 
             OsMark {
                 id: osMark
@@ -3185,6 +3346,7 @@ Item {
             }
 
             Item {
+                id: hoverClockBox
                 anchors.verticalCenter: parent.verticalCenter
                 width: hoverClock.implicitWidth
                 height: hoverClock.implicitHeight
@@ -3196,6 +3358,7 @@ Item {
                     AltText {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: clock.hhmm
+                        color: Theme.bright
                         font.family: Theme.font
                         font.pixelSize: 18 * pill.s
                         font.weight: Font.DemiBold
@@ -3204,6 +3367,7 @@ Item {
                     AltText {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: clock.date
+                        color: Theme.dim
                         letterSpacing: 1.6 * pill.s
                         font.family: Theme.font
                         font.pixelSize: 8.5 * pill.s
@@ -3231,7 +3395,6 @@ Item {
                     desc: "Date and agenda"
                     show: clockTip.hovered && hover.live
                 }
-                // better: tooltip calendar
             }
 
             Rectangle {
@@ -3240,7 +3403,6 @@ Item {
                 height: 22 * pill.s
                 color: Theme.hair
             }
-
             Row {
                 id: statusRow
                 anchors.verticalCenter: parent.verticalCenter
@@ -3252,7 +3414,6 @@ Item {
 
                     delegate: StripCell {
                         required property var modelData
-
                         anchors.verticalCenter: statusRow.verticalCenter
 
                         kind: modelData ? modelData.kind : ""
@@ -3887,44 +4048,6 @@ Item {
                 }
     }
 
-    Component {
-        id: cellScratch
-                Item {
-                    id: scratchIcon
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: pill.iconCell
-                    height: pill.iconCell
-                    visible: Flags.pillShowScratch && !Plugins.surfaceDisabled("scratch")
-                    property bool cellPresent: Flags.pillShowScratch && !Plugins.surfaceDisabled("scratch")
-
-                    GlyphIcon {
-                        anchors.fill: parent
-                        name: "type"
-                        color: scratchArea.containsMouse ? Theme.cream : Theme.iconDim
-                        stroke: 1.7
-                    }
-
-                    MouseArea {
-                        id: scratchArea
-                        anchors.fill: parent
-                        anchors.margins: -6 * pill.s
-                        hoverEnabled: true
-                        enabled: hover.live
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: pill.requestSurface("scratch")
-                        onContainsMouseChanged: if (containsMouse) pill.soulTarget = "scratch"
-                    }
-
-                    Tooltip {
-                        s: pill.s
-                        placement: "below"
-                        title: "Scratchpad"
-                        desc: "Quick notes and scratchpad"
-                        show: scratchArea.containsMouse
-                    }
-                    // better: tooltip scratch
-                }
-    }
 
     Component {
         id: cellLauncher
@@ -4087,7 +4210,6 @@ Item {
         case "sysmon": return cellSysmon;
         case "wallpaper": return cellWallpaper;
         case "clipboard": return cellClipboard;
-        case "scratch": return cellScratch;
         case "launcher": return cellLauncher;
         case "appearance": return cellAppearance;
         case "power": return cellPower;
@@ -4149,6 +4271,7 @@ Item {
             morphCloseness: pill.morphCloseness
             pluginId: pill.pluginSurfaceId
             barHeightOverride: pill.y + pill.height
+            barAnchorItem: pill.barAnchorItem
             entryPoint: pill.pluginSurfaceEntryPoint
             onRequestClose: pill.requestClose()
         }
@@ -4221,18 +4344,7 @@ Item {
      */
     Item {
         id: mediaHost
-
-        readonly property real islandGap: pill.islandGap
-
-        width: pill.mediaFloats ? pill.islandW : pill.width
-        height: pill.mediaFloats ? pill.islandH : pill.height
-        x: pill.mediaFloats ? pill.islandX : 0
-        y: pill.mediaFloats ? pill.islandY : 0
-
-        Behavior on width { NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic } }
-        Behavior on height { NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic } }
-        Behavior on x { NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic } }
-        Behavior on y { NumberAnimation { duration: Motion.morph; easing.type: Easing.OutCubic } }
+        anchors.fill: parent
 
         Loader {
             id: ldMedia
@@ -4254,9 +4366,11 @@ sourceComponent: Media {
                 topFlat: (pill.mode === "game") ? 1 : 0
                 onRequestClose: pill.requestClose()
                 onRequestExpand: {
-                    pill.requestClose();
+                    pill.surfaceDismissLatch = true;
+                    pill.pinned = true;
                     pill.hoverLatch = true;
                     pill.expandLatch = true;
+                    pill.requestClose();
                 }
             }
         }
@@ -4476,31 +4590,6 @@ sourceComponent: Media {
         }
     }
 
-    Loader {
-        id: ldLockstyle
-        active: false
-        anchors.fill: parent
-        sourceComponent: LockStyleSurface {
-            s: pill.s * pill.settingsScale
-            open: pill.lockstyleOpen
-            morphCloseness: pill.morphCloseness
-            onRequestClose: pill.requestClose()
-            onRequestSurface: (name) => pill.requestSurface(name)
-        }
-    }
-
-    Loader {
-        id: ldPlymouth
-        active: false
-        anchors.fill: parent
-        sourceComponent: PlymouthSurface {
-            s: pill.s * pill.settingsScale
-            open: pill.plymouthOpen
-            morphCloseness: pill.morphCloseness
-            onRequestClose: pill.requestClose()
-            onRequestSurface: (name) => pill.requestSurface(name)
-        }
-    }
 
     Loader {
         id: ldKeybinds
@@ -4528,17 +4617,6 @@ sourceComponent: Media {
         }
     }
 
-    Loader {
-        id: ldScratch
-        active: false
-        anchors.fill: parent
-        sourceComponent: Scratchpad {
-            s: pill.s
-            open: pill.scratchOpen
-            morphCloseness: pill.morphCloseness
-            onRequestClose: pill.requestClose()
-        }
-    }
 
     Loader {
         id: ldModules

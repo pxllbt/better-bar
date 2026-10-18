@@ -95,7 +95,6 @@ Item { width: 1; height: 7 * root.s }
             name: "Background"
             icon: "layers"
             sub: ""
-            enabled: !root.following
 
             SettingsSeg {
                 s: root.s
@@ -118,28 +117,6 @@ Item { width: 1; height: 7 * root.s }
          * the feature in the abstract, so "solid · 100% opaque" is a decidable
          * answer instead of a promise.
          */
-        SettingsRow {
-            id: followRow
-            surface: root
-            icon: "droplet"
-            name: "Match Hyprland"
-            sub: {
-                if (!HyprGlass.usable)
-                    return "Hyprland is not being read, so the bar keeps its own setting";
-                var v = [HyprGlass.blurEnabled ? "blurred" : "solid"];
-                v.push(Math.round(HyprGlass.pillOpacity * 100) + "% opaque");
-                return v.join(" · ");
-            }
-
-            LinkToggle {
-                s: root.s
-                on: Flags.glassFollowHypr
-                onToggled: Flags.glassFollowHypr = !Flags.glassFollowHypr
-            }
-        }
-
-        /** True while the compositor, not the bar, is choosing the material. */
-        readonly property bool following: (Flags.glassFollowHypr || false) && HyprGlass.usable
 
         SettingsRow {
             id: glassTextRow

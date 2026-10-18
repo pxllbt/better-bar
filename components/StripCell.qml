@@ -117,6 +117,7 @@ Item {
         hoverLive: root.hoverLive
         barHeightOverride: root.barHeightOverride
         barWidthOverride: root.barWidthOverride
+        hostPill: root.hostPill
         openSurfaceRequest: (id, settingsMode) => root.hostPill.requestPluginSurface(id, settingsMode)
     }
 
