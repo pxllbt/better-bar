@@ -359,8 +359,11 @@ component ArtDot: Rectangle {
     Column {
         id: discCol
         anchors.left: parent.left
+        anchors.leftMargin: root.pad
         anchors.right: infoStack.left
         anchors.rightMargin: 14 * root.s
+        anchors.top: parent.top
+        anchors.topMargin: root.pad
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.pad
         spacing: 10 * root.s
@@ -938,12 +941,12 @@ component ArtDot: Rectangle {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         width: root.railW
-        height: infoCol.height
 
         Column {
             id: infoCol
             anchors.left: parent.left
             anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
             spacing: 8 * root.s
 
             // Bluetooth / device status badge or compact muted chip
