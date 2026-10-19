@@ -1597,7 +1597,7 @@ PillSurface {
         width: 22 * root.s
         height: 22 * root.s
         radius: height / 2
-        color: "transparent"
+        color: acChipHover.hovered ? Qt.alpha(Theme.cream, 0.10) : Qt.alpha(Theme.cream, 0.04)
 
         GlyphIcon {
             id: acGlyph
@@ -1647,7 +1647,7 @@ PillSurface {
         width: 22 * root.s
         height: 22 * root.s
         radius: height / 2
-        color: "transparent"
+        color: wwChipHover.hovered ? Qt.alpha(Theme.cream, 0.10) : Qt.alpha(Theme.cream, 0.04)
 
         GlyphIcon {
             id: wwGlyph
@@ -1737,7 +1737,7 @@ PillSurface {
         width: 22 * root.s
         height: 22 * root.s
         radius: height / 2
-        color: refHover.hovered ? Theme.frameBg : "transparent"
+        color: refHover.hovered ? Qt.alpha(Theme.cream, 0.10) : Qt.alpha(Theme.cream, 0.04)
         border.width: refHover.hovered ? 1 : 0
         border.color: Theme.hairSoft
 
@@ -1809,11 +1809,11 @@ PillSurface {
             anchors.left: parent.left
             anchors.right: parent.right
             visible: !root.editingDir
-            text: Walls.wpDir
+            text: Walls.wpDir.replace(/^\/home\/[^/]+\//, "~/")
             elide: Text.ElideMiddle
-            color: folderHover.hovered ? Theme.subtle : Theme.faint
+            color: folderHover.hovered ? Theme.cream : Theme.dim
             font.family: Theme.font
-            font.pixelSize: 9.5 * root.s
+            font.pixelSize: 10.5 * root.s
             Behavior on color { ColorAnimation { duration: Motion.fast } }
         }
 
@@ -1976,7 +1976,7 @@ PillSurface {
                 id: card
                 anchors.fill: parent
                 radius: tile.corner
-                color: Theme.tileBg
+                color: Qt.alpha(Theme.cream, 0.03)
                 clip: true
 
                 layer.enabled: !tile.dead && tile.ao <= 5
@@ -2162,11 +2162,13 @@ PillSurface {
                 anchors.fill: parent
                 radius: tile.corner
                 color: "transparent"
-                border.width: 1
+                border.width: tile.focused ? 1.5 : 1
                 border.color: {
                     if (tile.remote && dlProc.failed.length && dlProc.failed === tile.modelData.image)
                         return Theme.vermLit;
-                    return tile.committing ? Theme.vermLit : Theme.border;
+                    if (tile.committing)
+                        return Theme.vermLit;
+                    return tile.focused ? Qt.alpha(Theme.accent, 0.40) : Qt.alpha(Theme.cream, 0.08);
                 }
                 Behavior on border.color { ColorAnimation { duration: Motion.fast } }
             }

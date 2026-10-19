@@ -272,13 +272,12 @@ PillSurface {
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
-                    text: "INBOX"
-                    color: Theme.subtle
+                    text: "Inbox"
+                    color: Theme.bright
                     font.family: Theme.font
-                    font.pixelSize: 10 * root.s
+                    font.pixelSize: 12.5 * root.s
                     font.weight: Font.DemiBold
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 1.6 * root.s
+                    font.letterSpacing: 0.3 * root.s
                 }
             }
 
@@ -307,12 +306,11 @@ PillSurface {
 
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        text: Notifs.unread + " NEW"
+                        text: Notifs.unread + " new"
                         color: Theme.dim
                         font.family: Theme.font
-                        font.pixelSize: 9.5 * root.s
-                        font.weight: Font.Bold
-                        font.letterSpacing: 1.4 * root.s
+                        font.pixelSize: 10 * root.s
+                        font.weight: Font.DemiBold
                     }
                 }
 
@@ -337,12 +335,11 @@ PillSurface {
                         }
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
-                            text: "CLEAR"
+                            text: "Clear"
                             color: clearArea.containsMouse ? Theme.vermLit : Theme.vermDim
                             font.family: Theme.font
-                            font.pixelSize: 9 * root.s
-                            font.weight: Font.Bold
-                            font.letterSpacing: 1.4 * root.s
+                            font.pixelSize: 10 * root.s
+                            font.weight: Font.DemiBold
                         }
                     }
 
@@ -388,10 +385,10 @@ PillSurface {
                     text: "SNOOZED"
                     color: Theme.subtle
                     font.family: Theme.font
-                    font.pixelSize: 10 * root.s
+                    font.pixelSize: 10.5 * root.s
                     font.weight: Font.DemiBold
                     font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 1.6 * root.s
+                    font.letterSpacing: 0.8 * root.s
                 }
 
                 Repeater {
@@ -565,10 +562,9 @@ PillSurface {
                                     text: group.modelData.app
                                     color: Theme.subtle
                                     font.family: Theme.font
-                                    font.pixelSize: 9 * root.s
-                                    font.weight: Font.Bold
-                                    font.capitalization: Font.AllUppercase
-                                    font.letterSpacing: 1.2 * root.s
+                                    font.pixelSize: 10 * root.s
+                                    font.weight: Font.DemiBold
+                                    font.letterSpacing: 0.3 * root.s
                                     elide: Text.ElideRight
                                 }
 

@@ -76,8 +76,7 @@ PillSurface {
                     font.family: Theme.font
                     font.pixelSize: 9.5 * root.s
                     font.weight: Font.DemiBold
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 0.8 * root.s
+                    font.letterSpacing: 0.3 * root.s
                     elide: Text.ElideRight
                 }
                 MouseArea {
@@ -107,8 +106,7 @@ PillSurface {
                     font.family: Theme.font
                     font.pixelSize: 9.5 * root.s
                     font.weight: Font.DemiBold
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 0.8 * root.s
+                    font.letterSpacing: 0.3 * root.s
                     placeholderText: "town"
                     placeholderTextColor: Theme.faint
                     selectByMouse: false
@@ -210,13 +208,12 @@ PillSurface {
                 spacing: 7 * root.s
 
                 Text {
-                    text: "NEXT HOURS"
+                    text: "Hourly"
                     color: Theme.faint
                     font.family: Theme.font
-                    font.pixelSize: 8.5 * root.s
+                    font.pixelSize: 10 * root.s
                     font.weight: Font.DemiBold
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 1.2 * root.s
+                    font.letterSpacing: 0.3 * root.s
                 }
 
                 Repeater {
@@ -282,13 +279,12 @@ PillSurface {
                 spacing: 6 * root.s
 
                 Text {
-                    text: "5 DAY"
+                    text: "5-day"
                     color: Theme.faint
                     font.family: Theme.font
-                    font.pixelSize: 8.5 * root.s
+                    font.pixelSize: 10 * root.s
                     font.weight: Font.DemiBold
-                    font.capitalization: Font.AllUppercase
-                    font.letterSpacing: 1.2 * root.s
+                    font.letterSpacing: 0.3 * root.s
                 }
 
                 Repeater {
@@ -309,7 +305,6 @@ PillSurface {
                             font.family: Theme.font
                             font.pixelSize: 10.5 * root.s
                             font.weight: Font.Medium
-                            font.capitalization: Font.AllUppercase
                         }
                         GlyphIcon {
                             width: 16 * root.s

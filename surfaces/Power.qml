@@ -125,13 +125,12 @@ PillSurface {
             spacing: 8 * root.s
             Text {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "POWER"
-                color: Theme.subtle
+                text: "Power"
+                color: Theme.bright
                 font.family: Theme.font
-                font.pixelSize: 10 * root.s
+                font.pixelSize: 12.5 * root.s
                 font.weight: Font.DemiBold
-                font.capitalization: Font.AllUppercase
-                font.letterSpacing: 1.6 * root.s
+                font.letterSpacing: 0.4 * root.s
             }
         }
     }
@@ -210,9 +209,9 @@ PillSurface {
                     Rectangle {
                         anchors.fill: parent
                         radius: Motion.rTile * root.s
-                        color: tile.isHover ? Theme.frameBg : "transparent"
+                        color: tile.isHover ? Qt.alpha(Theme.cream, 0.10) : Qt.alpha(Theme.cream, 0.04)
                         border.width: 1
-                        border.color: tile.isHover ? Theme.frameBorder : Theme.border
+                        border.color: tile.isHover ? Qt.alpha(Theme.accent, 0.35) : Qt.alpha(Theme.cream, 0.08)
                         Behavior on color { ColorAnimation { duration: Motion.fast } }
                     }
 

@@ -737,6 +737,9 @@ SettingsSurface {
                             font.family: Theme.font
                             font.pixelSize: 11 * root.s
                             clip: true
+                            readOnly: true
+                            selectByMouse: false
+                            onActiveFocusChanged: cursorVisible = activeFocus
                             Keys.onPressed: (e) => {
                                 TextEntry.handle(pathInput, e);
                                 if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
