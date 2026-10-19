@@ -1854,8 +1854,10 @@ Item {
         id: graceTimer
         interval: 220
         onTriggered: {
-            pill.hoverLatch = false;
-            pill.expandLatch = false;
+            if (!pill.pinned) {
+                pill.hoverLatch = false;
+                pill.expandLatch = false;
+            }
             if (!pill.hovered && !pill.pinned && pill.mediaOpen) {
                 pill.surfaceDismissLatch = true;
                 pill.requestClose();

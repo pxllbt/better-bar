@@ -355,11 +355,27 @@ PillSurface {
 
     // ---- chrome -------------------------------------------------------------
 
+    LiquidGlass {
+        id: card
+        anchors.fill: parent
+        radius: 20 * root.s
+        style: "regular"
+        themeBackgroundFill: true
+        materialOpacity: 0.94
+        legacyOpacity: 0.96
+        veil: 0.25
+        accent: 0.06
+        borderColor: Theme.frameBorder
+    }
+
     SearchField {
         id: search
         anchors.top: parent.top
+        anchors.topMargin: 12 * root.s
         anchors.left: parent.left
+        anchors.leftMargin: 14 * root.s
         anchors.right: parent.right
+        anchors.rightMargin: 14 * root.s
         s: root.s
         placeholder: root.searching ? "Search everything" : "Search apps and commands"
         counterText: root.busy ? "…" : (root.searching
@@ -527,7 +543,7 @@ PillSurface {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: hint.visible ? hint.top : parent.bottom
-        anchors.bottomMargin: hint.visible ? 4 * root.s : 0
+        anchors.bottomMargin: hint.visible ? 8 * root.s : 0
         spacing: 3 * root.s
         clip: true
         boundsBehavior: Flickable.StopAtBounds
@@ -571,9 +587,9 @@ PillSurface {
 
             Rectangle {
                 anchors.fill: parent
-                radius: 9 * root.s
+                radius: 8 * root.s
                 visible: menuRow.selected || rowArea.containsMouse
-                color: menuRow.selected ? Theme.frameBg : Qt.rgba(0.94, 0.88, 0.84, 0.03)
+                color: menuRow.selected ? Qt.alpha(Theme.cream, 0.08) : Qt.alpha(Theme.cream, 0.04)
                 border.width: menuRow.selected ? 1 : 0
                 border.color: Theme.frameBorder
             }
@@ -626,13 +642,12 @@ PillSurface {
                 Rectangle {
                     id: iconBg
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 22 * root.s
-                    height: 22 * root.s
-                    radius: 5 * root.s
-                    color: Qt.rgba(1, 1, 1, 0.05)
+                    width: 24 * root.s
+                    height: 24 * root.s
+                    radius: 6 * root.s
+                    color: Qt.rgba(1, 1, 1, 0.04)
                     visible: menuRow.isApp && !(icon.status === Image.Ready && icon.source != "")
                 }
-
                 // Menu icons are Nerd Font glyphs from the JSONC, drawn as text in
                 // the menu font. `monospace` is the stock default (Style.font.
                 // menuFamily) and is what fontconfig resolves the glyphs through;
@@ -797,10 +812,10 @@ PillSurface {
                                     return menuRow.entry.label + " ✓";
                                 return menuRow.entry.label;
                             }
-                            color: Theme.cream
+                            color: menuRow.selected ? Theme.cream : Theme.bright
                             font.family: Theme.font
                             font.pixelSize: 13 * root.s
-                            font.weight: menuRow.selected ? Font.DemiBold : Font.Normal
+                            font.weight: menuRow.selected ? Font.DemiBold : Font.Medium
                             elide: Text.ElideRight
                         }
                         TextInput {
@@ -853,12 +868,12 @@ PillSurface {
         flick: list
     }
 
-    /** Faint nudge so the drag-to-install gesture is discoverable at all. */
+    /** Bottom guide bar */
     Row {
         id: hint
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 2 * root.s
+        anchors.bottomMargin: 6 * root.s
         spacing: 5 * root.s
         visible: root.query.length === 0 && root.editIndex === -1 && root.path === "root"
         opacity: 0.6
@@ -869,14 +884,14 @@ PillSurface {
             height: 12 * root.s
             stroke: 1.7
             name: "download"
-            color: Theme.faint
+            color: Theme.dim
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter
             text: "Drag an AppImage onto the pill · / to search · → to pin"
-            color: Theme.faint
+            color: Theme.dim
             font.family: Theme.font
-            font.pixelSize: 10.5 * root.s
+            font.pixelSize: 10 * root.s
         }
     }
 }

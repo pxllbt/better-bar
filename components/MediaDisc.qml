@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import "../Singletons"
 
 /**
@@ -38,12 +39,16 @@ Item {
             color: Theme.tileBg
         }
 
-        // Album art clipped to a circle when present; hidden entirely when empty.
-        Rectangle {
+        // Album art clipped to a circle via MultiEffect mask when present.
+        Item {
+            id: artWrap
             anchors.fill: parent
-            clip: true
-            radius: width / 2
             visible: root.coverUrl.length > 0
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: discMask
+            }
 
             Image {
                 anchors.fill: parent
@@ -54,6 +59,15 @@ Item {
                 cache: String(source).indexOf("file:") !== 0
                 visible: status === Image.Ready || status === Image.Loading
             }
+        }
+
+        Rectangle {
+            id: discMask
+            anchors.fill: parent
+            radius: width / 2
+            color: "black"
+            visible: false
+            layer.enabled: true
         }
 
         // Outer rim: enough contrast for the disc to survive over a busy pill.

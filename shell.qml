@@ -847,10 +847,14 @@ ShellRoot {
                             && mouse.x <= pillRegion.x + 52 * pill.s)
                             pill.surfaceBack();
                     } else {
-                        pill.pinned = false;
-                        pill.expandLatch = false;
-                        pill.hoverLatch = false;
-                        root.peekMon = "";
+                        var inside = mouse.x >= pillRegion.x && mouse.x <= pillRegion.x + pillRegion.width
+                            && mouse.y >= pillRegion.y && mouse.y <= pillRegion.y + pillRegion.height;
+                        if (!inside) {
+                            pill.pinned = false;
+                            pill.expandLatch = false;
+                            pill.hoverLatch = false;
+                            root.peekMon = "";
+                        }
                     }
                 }
             }

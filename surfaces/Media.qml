@@ -362,26 +362,14 @@ component ArtDot: Rectangle {
         anchors.left: parent.left
         anchors.leftMargin: 16 * root.s
         anchors.verticalCenter: parent.verticalCenter
-        width: 104 * root.s
-        height: 104 * root.s
-
-        // Subtle ambient glow bezel
-        Rectangle {
-            anchors.centerIn: parent
-            width: parent.width + 4 * root.s
-            height: parent.height + 4 * root.s
-            radius: width / 2
-            color: "transparent"
-            border.width: 1.5
-            border.color: root.playing ? Qt.alpha(Theme.accent, 0.35) : Qt.alpha(Theme.cream, 0.08)
-            Behavior on border.color { ColorAnimation { duration: Motion.fast } }
-        }
+        width: 88 * root.s
+        height: 88 * root.s
 
         MediaDisc {
             id: deckDisc
             anchors.centerIn: parent
-            width: 98 * root.s
-            height: 98 * root.s
+            width: 86 * root.s
+            height: 86 * root.s
             s: root.s
             spinning: root.playing
             coverUrl: root.coverSource
@@ -693,14 +681,14 @@ component ArtDot: Rectangle {
         // Transport controls row: -10s, prev, Play/Pause (36x36), next, +10s, loop
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
-            spacing: 8 * root.s
-            height: 36 * root.s
+            spacing: 6 * root.s
+            height: 34 * root.s
 
             // Seek -10s micro-chip
             Item {
                 id: r10Btn
                 anchors.verticalCenter: parent.verticalCenter
-                width: 28 * root.s
+                width: 26 * root.s
                 height: 22 * root.s
                 opacity: (root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live) ? 1.0 : 0.4
                 Behavior on opacity { NumberAnimation { duration: Motion.fast } }
@@ -753,8 +741,8 @@ component ArtDot: Rectangle {
             Item {
                 id: prevBtn
                 anchors.verticalCenter: parent.verticalCenter
-                width: 28 * root.s
-                height: 28 * root.s
+                width: 26 * root.s
+                height: 26 * root.s
                 opacity: Boolean(root.hasPlayer && root.player && root.player.canGoPrevious) ? 1.0 : 0.4
                 Behavior on opacity { NumberAnimation { duration: Motion.fast } }
 
@@ -786,12 +774,12 @@ component ArtDot: Rectangle {
                 }
             }
 
-            // Center Play/Pause button: prominent 36x36px circular button
+            // Center Play/Pause button: prominent 34x34px circular button
             Rectangle {
                 id: playBtn
                 anchors.verticalCenter: parent.verticalCenter
-                width: 36 * root.s
-                height: 36 * root.s
+                width: 34 * root.s
+                height: 34 * root.s
                 radius: width / 2
                 scale: playMouse.pressed ? 0.94 : (playMouse.containsMouse ? 1.05 : 1.0)
                 Behavior on scale { NumberAnimation { duration: Motion.fast; easing.type: Easing.OutBack } }
@@ -824,8 +812,8 @@ component ArtDot: Rectangle {
             Item {
                 id: nextBtn
                 anchors.verticalCenter: parent.verticalCenter
-                width: 28 * root.s
-                height: 28 * root.s
+                width: 26 * root.s
+                height: 26 * root.s
                 opacity: Boolean(root.hasPlayer && root.player && root.player.canGoNext) ? 1.0 : 0.4
                 Behavior on opacity { NumberAnimation { duration: Motion.fast } }
 
@@ -861,7 +849,7 @@ component ArtDot: Rectangle {
             Item {
                 id: f10Btn
                 anchors.verticalCenter: parent.verticalCenter
-                width: 28 * root.s
+                width: 26 * root.s
                 height: 22 * root.s
                 opacity: (root.hasPlayer && root.player && root.player.canSeek && root.lengthSec > 0 && !root.live) ? 1.0 : 0.4
                 Behavior on opacity { NumberAnimation { duration: Motion.fast } }
@@ -914,8 +902,8 @@ component ArtDot: Rectangle {
             Item {
                 id: loopBtn
                 anchors.verticalCenter: parent.verticalCenter
-                width: 22 * root.s
-                height: 22 * root.s
+                width: 26 * root.s
+                height: 26 * root.s
                 visible: root.loopOk
                 opacity: root.loopNone ? 0.45 : 1.0
                 Behavior on opacity { NumberAnimation { duration: Motion.fast } }
@@ -969,11 +957,10 @@ component ArtDot: Rectangle {
     Item {
         id: infoStack
         anchors.right: parent.right
-        anchors.rightMargin: root.railInset
+        anchors.rightMargin: 16 * root.s
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: root.railW
-
+        width: 96 * root.s
         Column {
             id: infoCol
             anchors.left: parent.left
