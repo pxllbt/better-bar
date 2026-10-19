@@ -1506,6 +1506,7 @@ Item {
             height: 18 * pill.s
             s: pill.s
             spinning: budArea.containsMouse || (Players.has && Players.playing)
+            coverUrl: Players.has && Players.artUrl ? Players.artUrl : ""
         }
 
         MouseArea {

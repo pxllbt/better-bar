@@ -349,19 +349,51 @@ component ArtDot: Rectangle {
         topRightRadius: radius * (1 - root.topFlat)
 
         themeBackgroundFill: true
-        style: "clear"
-        legacyOpacity: 1
+        style: "regular"
+        legacyOpacity: 0.92
+        materialOpacity: 0.88
         accent: 0.08
-        veil: 0.08
+        veil: 0.20
         borderColor: Theme.frameBorder
+    }
+
+    Item {
+        id: discWell
+        anchors.left: parent.left
+        anchors.leftMargin: 16 * root.s
+        anchors.verticalCenter: parent.verticalCenter
+        width: 104 * root.s
+        height: 104 * root.s
+
+        // Subtle ambient glow bezel
+        Rectangle {
+            anchors.centerIn: parent
+            width: parent.width + 4 * root.s
+            height: parent.height + 4 * root.s
+            radius: width / 2
+            color: "transparent"
+            border.width: 1.5
+            border.color: root.playing ? Qt.alpha(Theme.accent, 0.35) : Qt.alpha(Theme.cream, 0.08)
+            Behavior on border.color { ColorAnimation { duration: Motion.fast } }
+        }
+
+        MediaDisc {
+            id: deckDisc
+            anchors.centerIn: parent
+            width: 98 * root.s
+            height: 98 * root.s
+            s: root.s
+            spinning: root.playing
+            coverUrl: root.coverSource
+        }
     }
 
     Column {
         id: discCol
-        anchors.left: parent.left
-        anchors.leftMargin: root.pad
+        anchors.left: discWell.right
+        anchors.leftMargin: 16 * root.s
         anchors.right: infoStack.left
-        anchors.rightMargin: 14 * root.s
+        anchors.rightMargin: 16 * root.s
         anchors.top: parent.top
         anchors.topMargin: root.pad
         anchors.bottom: parent.bottom
