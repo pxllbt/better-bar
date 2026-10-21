@@ -493,8 +493,29 @@ Item {
      * Kept as one property so the strip copy and the rest-row copy cannot drift
      * apart again -- they did once, and that is how the doubled face started.
      */
+    /**
+     * The recording chip yields to NOTHING.
+     *
+     * The special view (the Minimized stash, the scratchpad) and a recording
+     * used to EXCLUDE each other, and the exclusion was total:
+     *
+     *   - the resting row hides itself while a recording runs,
+     *   - the special word stands down for a recording,
+     *   - and the chip used to stand down for the special view.
+     *
+     * So with a minimized-window stash active and a recording running, every
+     * element of the pill hid at once: the date, the time, the badge, the
+     * clock, the special word, the chip. The pill was an empty outline for
+     * the whole take -- no REC, no countdown, no elapsed count.
+     *
+     * The OSD and the toast are separate layer surfaces drawn ON TOP of the
+     * pill, and they are not opaque, so yielding to them had the same effect:
+     * the pill went blank with a translucent notification over the hole.
+     *
+     * A recording is the more important thing to say, so the chip does not
+     * yield to any of them.
+     */
     readonly property bool recastFaceVisible: recastActive
-        && !osdActive && !toastActive && specialView === ""
     readonly property bool toastActive: Notifs.popups.length > 0
     readonly property bool osdActive: osd.flashing
 
@@ -532,11 +553,8 @@ Item {
      *   restPad   the capsule's inset at both ends of the row. The left end
      *             and the disc's right end share this number, so the bar is
      *             symmetric instead of trailing air on one side.
-     *   budGap    the air between the row and the disc. It is the same
-     *             measure as the row's own gaps -- the disc is the row's
-     *             last neighbour, not a thing parked in a corner -- and
-     *             the disc's glass edge adds the last fraction of a pixel
-     *             to it.
+     *   budGap    the air between the row and the disc -- the disc's
+     *             neighbour, so this is a hair, not a margin.
      *   budRestW  the disc's width.
      *
      * The disc does NOT grow on hover any more. It used to swell from 24*s
@@ -551,7 +569,7 @@ Item {
     readonly property real restPad: 5 * s
     readonly property real budInset: restPad
     readonly property real budRestW: 24 * s
-    readonly property real budGap: 5 * s
+    readonly property real budGap: 3 * s
     /**
      * The room the pill reserves for the media bud: the hair of air between
      * the row and the disc, plus the disc itself.
@@ -1285,23 +1303,6 @@ Item {
             + (Flags.clockSeconds ? ":ss" : "")
             + (Flags.time12h ? " AP" : "")
         readonly property string hhmm: Qt.formatTime(now, timeFormat)
-        /**
-         * The time in its two halves: the digits, and the meridiem.
-         *
-         * `Qt.formatTime` writes "8:36 PM" with the meridiem separated by a
-         * space, and that space is the FONT's space at the time's size --
-         * nine pixels, where the date's words are separated by six and a
-         * half at the date's smaller size. The two halves of the block then
-         * did not share a rhythm: one read as a phrase, the other as two
-         * words with a hole in the middle.
-         *
-         * Split on any whitespace (the separator may be a non-breaking
-         * space) and lay the halves out with the block's own measure, so
-         * the meridiem sits where a suffix belongs instead of floating off
-         * the digits. The 24-hour format has no second half and the row
-         * simply drops it.
-         */
-        readonly property var hhmmParts: hhmm.trim().split(/\s+/)
         readonly property string date: loc.toString(now, "ddd d MMM")
         readonly property string weekday: loc.toString(now, "ddd")
     }
@@ -1966,33 +1967,22 @@ Item {
     Connections {
         target: Players
         function onPlayingChanged() {
-            if (!Players.has) {
-                if (pill.mediaOpen)
-                    mediaAutoDismiss.restart();
-                return;
-            }
-            if (!Players.isActualMedia)
-                return;
-            mediaAutoDismiss.stop();
-            pill.surfaceDismissLatch = false
-            /* The card ANNOUNCES the media, and it announces it ONCE.
-             *
-             * A pause keeps the player alive, so pressing play again is a
-             * RESUME, not a new thing happening -- and the card jumping open
-             * for it every time was the wrong behaviour. The announcement
-             * window opens with the first playback of a session and stays shut
-             * for the rest of it; after that the card comes back when the
-             * user asks for it, by hovering the pill. */
-            if (!Players.justStarted)
-                return;
-            if (!pill.mediaOpen && !pill.recastActive && !pill.surfaceOpen && !pill.pluginSurfaceOpen && !Flags.gameMode && !pill.anyFullscreen && pill.mode !== "game" && !pill.toastActive) {
-                pill.requestSurface("media");
+            if (Players.isActualMedia) {
+                mediaAutoDismiss.stop();
+                pill.surfaceDismissLatch = false
+                /* The card ANNOUNCES the media, and it announces it ONCE. A
+                 * pause is not a start, so pressing play again is a resume, not
+                 * a new thing happening. */
+                if (!Players.justStarted)
+                    return;
+                if (!pill.mediaOpen && !pill.recastActive && !pill.surfaceOpen && !pill.pluginSurfaceOpen && !Flags.gameMode && !pill.anyFullscreen && pill.mode !== "game" && !pill.toastActive) {
+                    pill.requestSurface("media");
+                }
+            } else if (pill.mediaOpen && !Players.has) {
+                mediaAutoDismiss.restart();
             }
         }
         function onTitleChanged() {
-            // A title arriving is not a separate event to announce: the play
-            // edge already opened the window, and opening the card twice would
-            // close it again.
             if (!Players.justStarted || pill.mediaOpen)
                 return;
             if (Players.isActualMedia && !pill.recastActive && !pill.surfaceOpen && !pill.pluginSurfaceOpen && !Flags.gameMode && !pill.anyFullscreen && pill.mode !== "game" && !pill.toastActive) {
@@ -3116,7 +3106,7 @@ Item {
              * the whole take: no REC, no countdown, no elapsed count. The two
              * gates have to be exact opposites, or BOTH render in strip mode
              * and the pill draws a second REC face over the first. */
-            visible: pill.recastFaceVisible && pill.stripBar
+            visible: pill.recastFaceVisible
             /* The chip takes the row's place when the bar is recording, so it
              * stands where the row stands: flush-left inside the capsule's
              * inset, with the disc on its right. Centred in the pill it would
@@ -3279,19 +3269,11 @@ Item {
              * Nine scaled pixels between every pair of items was nine pixels
              * of nothing between the waveform and the date, again between the
              * date and the divider, again between the divider and the time.
-             * Five was too little: the items ended up closer together than
-             * the words inside the date are, and a gap that is smaller than
-             * the text's own word space does not read as a gap at all.
-             *
-             * Seven is the font's own word space at the date's size, so
-             * every gap on the bar -- between the waveform and the date,
-             * between the time and the badge, between the badge and the
-             * disc -- is one measure, and the date's own words sit at the
-             * same measure. The one break that is NOT that measure is the
-             * one that should not be: the space between the date and the
-             * time, which is a section break (see `restDateTime`).
+             * Five is enough for two pieces of information to sit apart and
+             * little enough that the bar reads as ONE group of information
+             * rather than five things standing on a shelf.
              */
-            spacing: 7 * pill.s
+            spacing: 5 * pill.s
             Item {
                 id: restClock
                 /**
@@ -3306,20 +3288,7 @@ Item {
                 visible: !pill.recastActive && pill.specialView === ""
                     && (Flags.mainDisplay === "system" ? barsOn : slotUsed)
                 anchors.verticalCenter: parent.verticalCenter
-                /**
-                 * The slot is exactly as wide as the thing it holds.
-                 *
-                 * It used to be the clock glyph's cell (17*s) whatever was
-                 * drawn inside it -- and the visualiser is WIDER than that
-                 * cell: seven bars at 1.8*s plus six gaps at 1.2*s is
-                 * 19.8*s, so the bars hung a pixel and a half over the
-                 * slot's edges on each side. The row measures its spacing
-                 * from the slot, not from the ink, so the visualiser
-                 * ended up jammed against the date and against the
-                 * capsule's cap: the only two gaps on the whole bar that
-                 * were not the gaps the layout asked for.
-                 */
-                width: restClock.barsOn ? musicBars.width : clockGlyph.width
+                width: clockGlyph.width
                 height: clockGlyph.height
 
                 /** Audio leaving the speakers flips the clock face over to the live waveform. */
@@ -3376,17 +3345,12 @@ Item {
              * them reading as two readings of the moment rather than one
              * run-together string -- "Wed 21 Oct" and "7:21 PM" are still two
              * things, and the bar is narrower for it.
-             *
-             * The gap between the two halves is the block's ONE section
-             * break: wider than the bar's measure, because the two halves
-             * are two different sizes of the same idea and a reader needs
-             * to be told where one ends.
              */
             Row {
                 id: restDateTime
                 visible: !pill.recastActive && Flags.mainDisplay === "classic"
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 10 * pill.s
+                spacing: 9 * pill.s
                 AltText {
                     anchors.verticalCenter: parent.verticalCenter
                     text: clock.date
@@ -3395,38 +3359,14 @@ Item {
                     font.pixelSize: 11 * pill.s
                     font.weight: Font.Medium
                 }
-                /**
-                 * The time, with its meridiem set at the block's measure.
-                 *
-                 * "8:36 PM" is one time, not two words: the meridiem is a
-                 * suffix, and a suffix wants the same gap the rest of the
-                 * block uses, not the font's idea of a word space at the
-                 * time's larger size. Splitting it out is what lets the
-                 * whole line share one rhythm.
-                 */
-                Row {
-                    id: restTime
+                AltText {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 7 * pill.s
-                    AltText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: clock.hhmmParts[0]
-                        color: Theme.bright
-                        font.family: Theme.font
-                        font.pixelSize: 15.5 * pill.s
-                        font.weight: Font.Bold
-                        font.features: { "tnum": 1 }
-                    }
-                    AltText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: clock.hhmmParts.length > 1
-                        text: clock.hhmmParts.length > 1 ? clock.hhmmParts[1] : ""
-                        color: Theme.bright
-                        font.family: Theme.font
-                        font.pixelSize: 15.5 * pill.s
-                        font.weight: Font.Bold
-                        font.features: { "tnum": 1 }
-                    }
+                    text: clock.hhmm
+                    color: Theme.bright
+                    font.family: Theme.font
+                    font.pixelSize: 15.5 * pill.s
+                    font.weight: Font.Bold
+                    font.features: { "tnum": 1 }
                 }
             }
             Rectangle {
@@ -3475,15 +3415,13 @@ Item {
              *
              * The same treatment the classic face gives its date: the pair
              * stands a whole gap apart inside a group of its own, so the
-             * row's tighter rhythm never squeezes the two readings together,
-             * and the time's meridiem sits at the block's measure rather
-             * than at the font's word space.
+             * row's tighter rhythm never squeezes the two readings together.
              */
             Row {
                 id: restWeekTime
                 visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 10 * pill.s
+                spacing: 9 * pill.s
                 AltText {
                     anchors.verticalCenter: parent.verticalCenter
                     text: clock.weekday
@@ -3492,29 +3430,14 @@ Item {
                     font.pixelSize: 11 * pill.s
                     font.weight: Font.DemiBold
                 }
-                Row {
-                    id: restWeekClock
+                AltText {
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 7 * pill.s
-                    AltText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: clock.hhmmParts[0]
-                        color: Theme.bright
-                        font.family: Theme.font
-                        font.pixelSize: 15 * pill.s
-                        font.weight: Font.DemiBold
-                        font.features: { "tnum": 1 }
-                    }
-                    AltText {
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: clock.hhmmParts.length > 1
-                        text: clock.hhmmParts.length > 1 ? clock.hhmmParts[1] : ""
-                        color: Theme.bright
-                        font.family: Theme.font
-                        font.pixelSize: 15 * pill.s
-                        font.weight: Font.DemiBold
-                        font.features: { "tnum": 1 }
-                    }
+                    text: clock.hhmm
+                    color: Theme.bright
+                    font.family: Theme.font
+                    font.pixelSize: 15 * pill.s
+                    font.weight: Font.DemiBold
+                    font.features: { "tnum": 1 }
                 }
             }
             AltText {
@@ -3592,7 +3515,7 @@ Item {
                 // here both render at once in strip mode and the pill draws a
                 // second REC face over the first -- the doubled, offset
                 // outline you see while recording.
-                visible: pill.recastFaceVisible && !pill.stripBar
+                visible: false
                 anchors.verticalCenter: parent.verticalCenter
                 width: recastRestRow.implicitWidth
                 height: recastRestRow.implicitHeight
@@ -3765,18 +3688,13 @@ Item {
             /**
              * The gap between the expanded face's sections.
              *
-             * This is the number that made the START of the expanded bar
-             * read as two things with a hole between them: the logo is a
-             * narrow chevron in a square cell, so four of these pixels fell
-             * inside the cell where nothing is drawn, and the rest fell
-             * between the logo and the workspace stick -- fifteen pixels of
-             * empty capsule around the one indicator the bar is showing.
-             *
-             * Six is still a clear break between sections (the hairline
-             * rules need it) and it leaves the workspace indicator where it
-             * belongs: next to the logo, not adrift.
+             * Sixteen scaled pixels put a fourteen-pixel void between the
+             * logo and the workspace dots, which is the one place the
+             * expanded bar read as two things rather than one. Eleven is
+             * still a clear section break at this size and it stops the
+             * middle of the bar looking empty.
              */
-            spacing: 6 * pill.s
+            spacing: 11 * pill.s
 
             OsMark {
                 id: osMark

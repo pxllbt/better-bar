@@ -43,31 +43,21 @@ no() {
 # Pull every recastActive gate out whole. Both legitimately mention stripBar --
 # one requires it, one forbids it -- so they are told apart by the `!`, not by
 # the presence of the name.
-mapfile -t gates < <(grep -oE 'visible: pill\.recastFaceVisible *(&&) *!?[A-Za-z.]*' "$PILL")
+mapfile -t gates < <(grep -oE 'visible: pill\.recastFaceVisible *( *&& *!?[A-Za-z.]*)?' "$PILL")
 
-[ "${#gates[@]}" -eq 2 ] || {
-    echo "expected exactly 2 REC face gates, found ${#gates[@]} -- a face is bypassing recastFaceVisible" >&2
+# ONE chip for both faces. There used to be two -- a strip copy and a
+# "mirror" for the classic pill -- and the mirror never rendered at all, so
+# the classic pill showed an EMPTY capsule for the whole of a recording: no
+# REC, no countdown, no elapsed count. One chip, gated once, cannot drift
+# from itself.
+[ "${#gates[@]}" -eq 1 ] || {
+    echo "expected exactly 1 REC face gate, found ${#gates[@]} -- a face is bypassing recastFaceVisible" >&2
     printf '  %s\n' "${gates[@]}" >&2
     exit 1
 }
 
-strip_gate=""
-rest_gate=""
-for g in "${gates[@]}"; do
-    if [[ "$g" == *"&& !pill.stripBar"* ]]; then
-        rest_gate="$g"
-    elif [[ "$g" == *"&& pill.stripBar"* ]]; then
-        strip_gate="$g"
-    fi
-done
-
-[ -n "$strip_gate" ] || { echo "no gate requiring stripBar" >&2; exit 1; }
-[ -n "$rest_gate" ]  || { echo "no gate forbidding stripBar" >&2; exit 1; }
-
-ok "the strip REC face is gated on stripBar" \
-    "$(printf '%s' "$strip_gate" | grep -c '&& pill\.stripBar$')" "1"
-ok "the rest-row REC face is gated on !stripBar" \
-    "$(printf '%s' "$rest_gate" | grep -c '&& !pill\.stripBar$')" "1"
+ok "the one REC face is NOT gated on the bar's mode" \
+    "$(printf '%s\n' "${gates[@]}" | grep -c 'stripBar')" "0"
 
 # --- the REC face must yield the pill to whatever owns it ------------------
 # Nine slots already gate on `!Recast.recording`. The chip had no reciprocal, so
@@ -77,20 +67,46 @@ ok "the rest-row REC face is gated on !stripBar" \
 # Exactly the declaration and its one continuation line. A range-to-blank-line
 # slice swallows the properties declared immediately after it, which double-counts
 # every owner name and makes the test pass or fail for the wrong reason.
-face_pred="$(grep -A1 'readonly property bool recastFaceVisible' "$PILL" | head -2)"
+# The declaration plus any CONTINUATION lines -- a line that starts with `&&`.
+# A fixed -A1 slice swallows the property declared immediately after it, which
+# made the check read a neighbouring declaration and fail for the wrong reason.
+face_pred="$(awk '/readonly property bool recastFaceVisible/{f=1; print; next} f && /^[[:space:]]*&&/{print; next} f{exit}' "$PILL")"
 [ -n "$face_pred" ] || { echo "could not find recastFaceVisible" >&2; exit 1; }
 
+# The REC face yields to the two TRANSIENT overlays -- the OSD flash and the
+# toast -- because those are on top of the pill and have to be readable.
+#
+# It does NOT yield to the special view. The special view is a PERSISTENT
+# state (the Minimized stash, the scratchpad), and the special word that
+# stands for it already stands down for a recording (`!recastActive`). When
+# the chip yielded to the special view as well, the two excluded each other
+# and EVERY element of the resting row hid itself at once: the chip (special
+# view), the date and the time and the badge (recording), and the special word
+# (recording). The pill went blank for the whole take. A recording is the more
+# important thing to say, so the chip does not yield.
+# The REC face yields to NOTHING.
+#
+# The OSD and the toast are separate layer surfaces drawn ON TOP of the pill,
+# and they are not opaque -- so yielding to them left the pill as an empty
+# outline with a translucent notification floating over the hole, and a
+# recording running with no REC, no countdown and no elapsed count. It also
+# cost the OSD its job: the OSD is sized and placed to read as ONE pill, and
+# that only works when the pill's own content is still there under it.
+#
+# The special view is the same argument from the other side: the special word
+# already stands down for a recording (`!recastActive`), so the two used to
+# exclude each other and EVERY element of the resting row hid at once.
 for owner in osdActive toastActive specialView; do
-    ok "the REC face yields to $owner" \
-        "$(printf '%s' "$face_pred" | grep -c "$owner")" "1"
+    ok "the REC face does NOT yield to $owner" \
+        "$(printf '%s' "$face_pred" | grep -c "$owner")" "0"
 done
 
 ok "recastFaceVisible still requires an active recording" \
     "$(printf '%s' "$face_pred" | grep -c 'recastActive')" "1"
 
 # The faces must gate on the predicate, not re-derive recastActive themselves.
-ok "both faces gate on the shared predicate, not raw recastActive" \
-    "$(grep -c 'visible: pill.recastFaceVisible' "$PILL")" "2"
+ok "the face gates on the shared predicate, not raw recastActive" \
+    "$(grep -c 'visible: pill.recastFaceVisible' "$PILL")" "1"
 no "no face bypasses the shared predicate" \
     "$(grep -c 'visible: pill.recastActive' "$PILL")"
 
