@@ -162,6 +162,56 @@ Singleton {
     readonly property bool playing: has && active.isPlaying
     readonly property bool isActualMedia: has && playing && title.trim().length > 0 && !isIdle(active) && !isNotificationSound(active)
 
+    /**
+     * True for a short window after playback starts.
+     *
+     * The bar's media entry is an ANNOUNCEMENT, not a status light. It appears
+     * when a track starts, so the user can see the bar pick it up, and then it
+     * gets out of the way: a permanently visible media badge is one more thing
+     * to look at, and it made the resting bar busier than it needed to be.
+     *
+     * After the window closes the entry comes back for exactly one reason --
+     * the pointer is on the pill, which is the moment the user is actually
+     * looking for it.
+     *
+     * The window is on the PLAYER rather than on the pill, so it survives the
+     * pill being rebuilt underneath it.
+     */
+    property bool justStarted: false
+
+    /**
+     * True once the media has announced itself in this session.
+     *
+     * The distinction that matters is PAUSED versus STOPPED. A pause keeps the
+     * player alive, so the media is still there and the bar has nothing new to
+     * say; pressing play again is a RESUME, not a new thing happening, and
+     * re-opening the card for it made the bar jump every time the user
+     * paused and came back.
+     *
+     * When the player goes away entirely, the next thing that starts is a new
+     * session, and it gets to announce itself again.
+     */
+    property bool sessionAnnounced: false
+
+    Timer {
+        id: startedHold
+        interval: 5000
+        onTriggered: Players.justStarted = false
+    }
+
+    onPlayingChanged: {
+        if (!has) {
+            root.sessionAnnounced = false;
+            root.justStarted = false;
+            return;
+        }
+        if (!playing || root.sessionAnnounced)
+            return;
+        root.sessionAnnounced = true;
+        root.justStarted = true;
+        startedHold.restart();
+    }
+
     /** Falls back to the service label so a titleless DRM stream still reads as its site. */
     readonly property string title: has ? refineTitle(active, active.trackTitle || labelOf(active)) : ""
     readonly property string artist: has ? Theme.joinArtists(active.trackArtists, active.trackArtist) : ""

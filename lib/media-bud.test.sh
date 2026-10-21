@@ -32,8 +32,12 @@ ok "the always-media flag is persisted" \
 ok "always-media defaults to on so the control comes back" \
     "$(grep -c 'property bool mediaAlways: true' "$FLAGS")" "1"
 
-ok "the media bud survives with no active player" \
-    "$(grep -c 'readonly property bool shown: (pill.mode === "rest" || pill.mode === "hover")' "$PILL")" "1"
+# The media entry is an ANNOUNCEMENT, not a status light: it shows when a
+# track starts, and after that only when the pointer is on the pill. The old
+# contract -- visible at rest whenever media was playing -- left a permanent
+# badge on the bar for as long as anything was playing.
+ok "the media bud is an announcement: hover, or the window right after playback starts" \
+    "$(grep -c 'readonly property bool shown: (pill.mode === "hover" || Players.justStarted)' "$PILL")" "1"
 
 ok "playing media forces the bud on even when always-media is off" \
     "$(grep -c '(Flags.mediaAlways || Players.playing)' "$PILL")" "1"
