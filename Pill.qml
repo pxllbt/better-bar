@@ -3020,7 +3020,7 @@ Item {
 
         Row {
             id: stripSpecialFace
-            visible: !pill.recastActive && pill.specialView !== "" && pill.stripBar && (!pill.surfaceOpen || pill.pluginPopupOpen || pill.mediaFloats)
+            visible: !pill.recastActive && pill.specialView !== "" && (!pill.surfaceOpen || pill.pluginPopupOpen || pill.mediaFloats)
             anchors.centerIn: parent
             spacing: 8 * pill.s
 
@@ -3320,7 +3320,7 @@ Item {
              */
             Row {
                 id: restDateTime
-                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "classic"
+                visible: !pill.recastActive && Flags.mainDisplay === "classic"
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 9 * pill.s
                 AltText {
@@ -3343,7 +3343,7 @@ Item {
             }
             Rectangle {
                 id: restWsBadge
-                visible: !pill.recastActive && pill.specialView === "" && ws && ws.activeWs !== ""
+                visible: !pill.recastActive && ws && ws.activeWs !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.max(18 * pill.s, restWsText.implicitWidth + 10 * pill.s)
                 height: 17 * pill.s
