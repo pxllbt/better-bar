@@ -368,8 +368,7 @@ Item {
      * the first attempt and it read as a divider across the desktop, not as
      * a bar.
      */
-    readonly property real notchW: Math.max(minFaceW,
-        restRow.implicitWidth + 2 * pill.notchPad + pill.budSlot)
+    readonly property real notchW: restRow.implicitWidth + 2 * pill.notchPad + pill.budSlot
 
     /**
      * The notch's own inset and row spacing.
