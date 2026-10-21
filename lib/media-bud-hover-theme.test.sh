@@ -156,8 +156,11 @@ ok "the bud sits inside the pill's right edge outside strip mode" \
 
 # ...and the pill has to reserve room for it, or the disc would sit on top of
 # the last thing in the row (the notification badge).
+# A FLOOR, not an exact count: the slot is referenced by the resting width,
+# the hover width and the notch's width, and a fourth face may want it
+# tomorrow. What must never happen is the slot going away.
 ok "the pill reserves a slot for the bud" \
-    "$(grep -c 'budSlot' "$PILL")" "3"
+    "$([ "$(grep -c 'budSlot' "$PILL")" -ge 3 ] && echo yes || echo no)" "yes"
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then

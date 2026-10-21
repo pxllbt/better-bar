@@ -359,8 +359,28 @@ Item {
      */
     readonly property bool notchBar: Flags.mainDisplay === "notch"
 
-    /** The notch's width: the whole monitor. The bar's own window IS the monitor. */
-    readonly property real notchW: barWindow ? barWindow.width : 1920
+    /**
+     * The notch's width: the CONTENT's width, not the monitor's.
+     *
+     * The notch is a tab in the middle of the top edge, not a band across
+     * the whole screen -- it is the classic capsule's width with its top
+     * corners squared off and its margin cancelled. A full-width band was
+     * the first attempt and it read as a divider across the desktop, not as
+     * a bar.
+     */
+    readonly property real notchW: Math.max(minFaceW,
+        restRow.implicitWidth + 2 * pill.notchPad + pill.budSlot)
+
+    /**
+     * The notch's own inset and row spacing.
+     *
+     * A notch is a tab cut into the screen, not a floating capsule, so it can
+     * sit tighter than the capsule does: a smaller inset at each end, and
+     * less air between the items. The capsule keeps its own numbers, because
+     * a floating pill needs the air to read as a separate object.
+     */
+    readonly property real notchPad: 3 * s
+    readonly property real notchSpacing: 4 * s
 
     /**
      * True when this pill sits on the monitor Hyprland currently has focused.
@@ -733,9 +753,8 @@ Item {
      * glyph. The content now stands flush-left inside the face's own
      * padding, which is the same rule the resting face follows.
      */
-    readonly property real hoverW: (pill.notchBar ? pill.notchW
-        : hoverRow.implicitWidth + hoverPad
-        + (bud.shown ? hoverBudReserve : hoverPad))
+    readonly property real hoverW: hoverRow.implicitWidth + hoverPad
+        + (bud.shown ? hoverBudReserve : hoverPad)
     /**
      * How far left of the centre the expanded row stands.
      *
@@ -3298,7 +3317,7 @@ Item {
              * little enough that the bar reads as ONE group of information
              * rather than five things standing on a shelf.
              */
-            spacing: 5 * pill.s
+            spacing: pill.notchBar ? pill.notchSpacing : 5 * pill.s
             Item {
                 id: restClock
                 /**
