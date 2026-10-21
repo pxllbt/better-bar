@@ -3342,7 +3342,7 @@ Item {
                  * time sitting a few pixels right of centre.
                  */
                 readonly property bool slotUsed: barsOn || Flags.clockIcon
-                visible: !pill.recastActive && pill.specialView === ""
+                visible: !pill.recastActive && (pill.specialView === "" || pill.notchBar)
                     && (Flags.mainDisplay === "system" ? barsOn : slotUsed)
                 anchors.verticalCenter: parent.verticalCenter
                 width: clockGlyph.width
@@ -3561,7 +3561,7 @@ Item {
                 }
             }
             AltText {
-                visible: !pill.recastActive && pill.specialView !== ""
+                visible: !pill.recastActive && pill.specialView !== "" && !pill.notchBar
                 anchors.verticalCenter: parent.verticalCenter
                 text: pill.specialView
                 font.family: Theme.font
