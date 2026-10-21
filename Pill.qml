@@ -444,7 +444,21 @@ Item {
      * the strip's edge cannot bounce it. The reveal strip still catches the
      * pointer, so a hidden pill slides back in on reach.
      */
-    readonly property bool specialHidden: Flags.hideOnSpecial && activeSpecial.length > 0
+    /**
+     * Whether a special workspace (the scratchpad, the Minimized stash) takes
+     * the bar off the screen.
+     *
+     * The NOTCH is exempt. A notch is the bar's SHAPE rather than an object
+     * floating in front of the screen: it is cut INTO the top edge. Hiding it
+     * would not tidy the desktop up, it would leave a hole where the bar was,
+     * and the bar would come back as a different shape when you left the
+     * workspace -- so the setting would mean "a notch, except not on the
+     * workspaces where you would look for it". The notch stays a notch.
+     *
+     * The word itself (Scratchpad, Minimized) still replaces the clock in the
+     * notch, so the state is still said out loud; only the shape is kept.
+     */
+    readonly property bool specialHidden: Flags.hideOnSpecial && activeSpecial.length > 0 && !pill.notchBar
     readonly property bool hidden: heldOpen ? false : (Flags.autoHide || offCursor || specialHidden)
 
     /**
