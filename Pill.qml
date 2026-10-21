@@ -214,8 +214,32 @@ Item {
     readonly property bool pluginsOpen: surface === "plugins"
     readonly property bool updateOpen: surface === "update"
     readonly property bool keybindsOpen: surface === "keybinds"
-    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || modulesOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || fontpickerOpen || pluginsOpen || updateOpen || keybindsOpen || profileOpen
-    readonly property bool hasMedia: Players.has && (Players.playing || (Flags.mediaAlways && Players.title.length > 0)) && !Players.isIdle(Players.active) && Players.title.trim().length > 0
+    readonly property bool lockstyleOpen: surface === "lockstyle"
+    readonly property bool settingsLike: appearanceOpen || appcatOpen || displayOpen || modulesOpen || themeOpen || accentOpen || glassOpen || fontColorOpen || fontpickerOpen || pluginsOpen || updateOpen || lockstyleOpen || keybindsOpen || profileOpen
+    /**
+     * Real media is on screen: a player that is not idle and has a title.
+     *
+     * This is what "there is something to show" means — the player detail in
+     * the pill, the strip's title, the card's own rows.
+     */
+    readonly property bool mediaContent: Players.has
+        && (Players.playing || (Flags.mediaAlways && Players.title.length > 0))
+        && !Players.isIdle(Players.active) && Players.title.trim().length > 0
+    /**
+     * The media *entry* is available.
+     *
+     * `Flags.mediaAlways` used to be unreachable: this predicate demanded
+     * `Players.has`, so the moment the last player exited, every media control
+     * vanished with it — which is the one thing "Always show media" promises
+     * not to do. An entry you can only find while something is playing is not
+     * an entry; it is a notification of the music.
+     *
+     * So the flag keeps the entry alive on its own terms: the bud stays on the
+     * bar, hovering it still opens the player, and the card it opens can say
+     * "Nothing playing" instead of the control disappearing. With the flag off
+     * this is exactly the old predicate — media, or nothing.
+     */
+    readonly property bool hasMedia: Flags.mediaAlways || pill.mediaContent
 
     readonly property var netDevices: (typeof Networking !== "undefined" && Networking && Networking.devices) ? Networking.devices.values : []
     readonly property var wifiDev: netDevices.find(function(d) { return d && d.type === DeviceType.Wifi }) || null
@@ -491,6 +515,32 @@ Item {
      * disagree with the scale they were measured against, and is gone.
      */
     readonly property real restW: 160 * s
+
+    /**
+     * The room the media bud needs at the pill's right edge.
+     *
+     * The bud is a child of the pill, not of the resting row, so it does not
+     * make the row any wider -- it has to be given space of its own or it
+     * hangs over the right edge of the capsule. It used to be positioned at
+     * `pill.width - budR`, which put its RIGHT edge `budR` past the pill's
+     * right edge: the disc sat half outside the bar, on the desktop, looking
+     * like a widget that had escaped rather than part of the bar.
+     *
+     * The slot is a CONSTANT rather than the bud's live width, because the
+     * bud grows on hover -- a slot sized to the live width would make the pill
+     * resize the moment the pointer touched the bud, and the bud would chase
+     * its own edge.
+     *
+     * The row is CENTRED, so the extra width comes out of the slack on both
+     * sides and the row drifts left by half the slot. That drift is what
+     * keeps the row and the bud from overlapping: the row's right edge ends
+     * at (24s + slot)/2 from the pill's right, and the bud's left edge is at
+     * (budInset + 30s) from it. The numbers below are chosen so the row's
+     * last item -- the notification badge -- clears the disc by a few pixels
+     * instead of being half-covered by it.
+     */
+    readonly property real budSlot: (bud.shown ? 56 * s : 0)
+    readonly property real budInset: 6 * s
     readonly property real restH: 38 * s
 
     /**
@@ -536,10 +586,20 @@ Item {
     // cannot fit a full-width title: a partial title and the album art still
     // read as media. The full title still gets the min-width preference when
     // none is playing, so an idle bar is not steadily crowded.
+    //
+    // Two questions, kept apart on purpose:
+    //
+    //   stripMedia      — is there a track to describe? The title, the
+    //     visualiser and the hairline that go with it answer to this.
+    //   stripMediaEntry — is the media *entry* on the bar? The album-art tile
+    //     is the click target that opens the player, and the always-media flag
+    //     keeps it on screen with no track at all: an entry that disappears
+    //     with its content is not an entry.
     readonly property bool stripMedia: Players.has
         && (Players.playing || (Flags.mediaAlways && Players.title.length > 0))
         && !Players.isIdle(Players.active) && Players.title.trim().length > 0
         && stripRoomForTitle > 0
+    readonly property bool stripMediaEntry: Flags.mediaAlways || pill.stripMedia
     readonly property real stripRoomForTitle: stripCap - 2 * stripPad - stripArtW - stripFixedW
         - 4 * stripGap - stripMediaGaps * stripGap
         - (Cava.active ? stripVizW : 0)
@@ -555,11 +615,11 @@ Item {
         if (pill.specialView !== "")
             return Math.max(144 * s, stripSpecialFace.implicitWidth + 24 * s);
         let neededW = stripFace ? stripFace.implicitWidth + 2 * stripPad : 0;
-        let contentW = (stripFace && stripFace.implicitWidth > 0) ? stripFace.implicitWidth : (stripFixedW + (stripMedia ? stripArtW + stripGap + 100 * s : 0));
+        let contentW = (stripFace && stripFace.implicitWidth > 0) ? stripFace.implicitWidth : (stripFixedW + (stripMediaEntry ? stripArtW + stripGap : 0) + (stripMedia ? 100 * s : 0));
         return Math.min(stripCap, Math.max(contentW + 2 * stripPad, neededW));
     }
     readonly property real hoverPad: 20 * s
-    readonly property real hoverW: hoverRow.implicitWidth + 2 * hoverPad
+    readonly property real hoverW: hoverRow.implicitWidth + 2 * hoverPad + budSlot
     readonly property real hoverH: 58 * s
     readonly property real mixerH: 214 * s
     readonly property real launcherW: 360 * s
@@ -570,8 +630,19 @@ Item {
     readonly property real wallpaperH: 172 * s
     readonly property real powerW: 414 * s
     readonly property real powerH: 150 * s
-    readonly property real mediaW: 470 * s
-    readonly property real mediaH: 132 * s
+    readonly property real mediaW: 520 * s
+    /**
+     * Nominal height of the media card — the FALLBACK, not the real thing.
+     *
+     * The card measures itself: Media.qml sums its own rows and publishes the
+     * total as `implicitHeight`, and the surfaces map below sizes the card
+     * from that value. This number only covers the very first frame, before
+     * the loader has built the surface — `surfaceItem()` returns null on the
+     * first evaluation, exactly as the calendar and weather entries above
+     * handle it. It is the card's height with its artist line showing, which
+     * is the shape it opens in.
+     */
+    readonly property real mediaH: 166 * s
     readonly property real batteryW: 316 * s
     readonly property real wifiW: 272 * s
     readonly property real btW: 286 * s
@@ -661,7 +732,7 @@ Item {
         clipboard: { size: () => { surfaceItem("clipboard"); return Qt.size(clipboardW, clipboardH); }, ame: () => surfaceItem("clipboard") },
         wallpaper: { size: () => { surfaceItem("wallpaper"); return Qt.size(wallpaperW, wallpaperH); }, ame: () => null },
         power:     { size: () => { surfaceItem("power"); return Qt.size(powerW, powerH); }, ame: () => surfaceItem("power") },
-        media:     { size: () => { surfaceItem("media"); return Qt.size(mediaW, mediaH); }, ame: () => surfaceItem("media") },
+        media:     { size: () => { const it = surfaceItem("media"); if (!it) return Qt.size(mediaW, mediaH); const h = it.implicitHeight; return Qt.size(mediaW, h > 0 ? h : mediaH); }, ame: () => surfaceItem("media") },
         mixer:     { size: () => { const it = surfaceItem("mixer"); return Qt.size(93 * Math.max(4, it ? it.faderCount : 4) * s, mixerH); }, ame: () => surfaceItem("mixer") },
         link:      { size: () => { const it = surfaceItem("link"); return Qt.size(it ? it.desiredW : 360 * s, (it ? it.implicitHeight : 240 * s) + 26 * s); }, ame: () => surfaceItem("link") },
         wifi:      { size: () => { const it = surfaceItem("wifi"); return Qt.size(wifiW, (it ? it.implicitHeight : 260 * s) + 26 * s); }, ame: () => surfaceItem("wifi") },
@@ -685,6 +756,7 @@ Item {
         plugins:    { size: () => Qt.size(settingsW, settingsSurfaceH("plugins")), ame: () => surfaceItem("plugins") },
         update:     { size: () => Qt.size(settingsW, settingsSurfaceH("update")), ame: () => surfaceItem("update") },
         keybinds:   { size: () => Qt.size(settingsW, settingsSurfaceH("keybinds")), ame: () => surfaceItem("keybinds") },
+        lockstyle:  { size: () => Qt.size(settingsW, settingsSurfaceH("lockstyle")), ame: () => surfaceItem("lockstyle") },
         plugin:     { size: () => {
                 // Omarchy plug-ins render their UIs as popout layer surfaces;
                 // there is no embeddable content to morph the pill into, so the
@@ -731,6 +803,7 @@ Item {
         plugins:    () => ldPlugins,
         update:     () => ldUpdate,
         keybinds:   () => ldKeybinds,
+        lockstyle:  () => ldLockstyle,
         plugin:     () => ldPluginSurface
     })
 
@@ -1224,7 +1297,7 @@ Item {
 
     readonly property size restSize: stripBar
         ? Qt.size(stripFaceW, restH)
-        : Qt.size(Math.max(minFaceW, restRow.implicitWidth + 24 * s), restH)
+        : Qt.size(Math.max(minFaceW, restRow.implicitWidth + 24 * s + budSlot), restH)
 
     readonly property size targetSize: {
         const sf = surfaces[mode];
@@ -1452,10 +1525,20 @@ Item {
 
     LiquidGlass {
         id: bud
-        // The media bud stays available whenever a track is actually playing,
-        // even if the persistent "always show media" toggle is off. Paused/idle
-        // media still follows the user's toggle.
-        readonly property bool shown: !pill.stripBar && (pill.mode === "hover") && pill.hasMedia
+        /* The media bud is the bar's entry point to the player, and an entry
+         * that disappears with its content is not an entry.
+         *
+         * It used to need a live player, so the last player to exit took the
+         * control with it and the only way back was to start audio again. The
+         * always-media setting is the user's promise that the entry outlives
+         * the music, and playing media keeps the bud on even with the setting
+         * off.
+         *
+         * It shows at rest as well as on hover: the resting pill is exactly
+         * where the entry has to be findable, and a control that only appears
+         * once you are already looking for the bar is a control nobody finds.
+         */
+        readonly property bool shown: (pill.mode === "rest" || pill.mode === "hover") && (Flags.mediaAlways || Players.playing)
         property real budR: (budArea.containsMouse ? 15 : 12) * pill.s
         width: budR * 2
         height: budR * 2
@@ -1469,15 +1552,25 @@ Item {
          *
          * `mapToItem`, not `stripTitle.x`: the title lives inside the strip's
          * own Row, so its raw x is in that Row's coordinates and would place the
-         * disc against the left edge of the pill instead of after the title. */
+         * disc against the left edge of the pill instead of after the title.
+         *
+         * The strip's row keeps a slot for the bead (see `stripBudSlot`), so
+         * the disc lands in the gap the row makes for it rather than on top of
+         * the visualiser that follows the title. */
         readonly property real stripBudX: {
             void pill.width;
             void pill.height;
+            void stripFace.x;
+            void stripTitle.x;
+            void stripTitle.width;
             if (!pill.stripBar || !stripTitle || stripTitle.width <= 0)
                 return -1;
             return stripTitle.mapToItem(pill, 0, 0).x + stripTitle.width + 10 * pill.s;
         }
-        x: stripBudX >= 0 ? stripBudX : (pill.width - budR)
+        /* Anchored on its LEFT edge, so the hover growth extends rightward
+         * into the slot the pill reserved for it instead of pushing the disc
+         * back over the row it sits next to. */
+        x: stripBudX >= 0 ? stripBudX : (pill.width - pill.budInset - 30 * pill.s)
         anchors.verticalCenter: parent.verticalCenter
         visible: opacity > 0.01
         opacity: shown ? 1 : 0
@@ -1706,11 +1799,14 @@ Item {
      * So it closes itself a beat after playback stops, and re-opening on a new
      * track is instant because a restart cancels the pending dismiss.
      *
-     * The bud is deliberately untouched by this: `Flags.mediaAlways` is about
-     * the entry point staying reachable, and it keeps rendering whatever happens
-     * here. A user who wants the card to persist across a pause still has the
-     * media surface's own open state; this only fires once *nothing* is playing,
-     * which is the state the card cannot say anything useful about.
+     * The bud is deliberately untouched by this: the bud's own visibility
+     * comes from the always-media setting and from playback, never from the
+     * card being open. So whatever this timer does to the card, the way back
+     * into the player stays on the bar — the entry outlives the thing it
+     * opens, which is the whole point of the setting. A user who wants the
+     * card to persist across a pause still has the media surface's own open
+     * state; this only fires once *nothing* is playing, which is the state
+     * the card cannot say anything useful about.
      */
     Timer {
         id: mediaAutoDismiss
@@ -1894,8 +1990,13 @@ Item {
              * surface instead of expanding the pill, and the hoverLatch toggle --
              * the only expand entry point while a reveal session holds the pill
              * -- was dead whenever something was playing. In strip mode the tap
-             * expands the pill, like every other click on it. */
-            if (Flags.expandTo === "media" && pill.hasMedia
+             * expands the pill, like every other click on it.
+             *
+             * The tap asks for the media card only when there is media to show
+             * (`mediaContent`), not merely because the entry is on the bar: a
+             * click on a resting pill should pin the pill, not open a card that
+             * has nothing to say. */
+            if (Flags.expandTo === "media" && pill.mediaContent
                 && !Flags.autoHide && !pill.stripBar) {
                 pill.requestSurface("media");
             } else if (Flags.autoHide) {
@@ -2474,7 +2575,7 @@ Item {
             Rectangle {
                 id: stripArt
                 anchors.verticalCenter: parent.verticalCenter
-                visible: pill.stripMedia
+                visible: pill.stripMediaEntry
                 width: pill.stripArtW
                 height: pill.stripArtW
                 radius: 5 * pill.s
@@ -2501,6 +2602,17 @@ Item {
                     asynchronous: true
                     smooth: true
                     visible: stripArtImg.status !== Image.Ready && status === Image.Ready
+                }
+                /* Nothing playing and no artwork to show: the tile is still the
+                 * entry that opens the player, so it carries the media glyph
+                 * rather than sitting there as a blank square. */
+                GlyphIcon {
+                    anchors.centerIn: parent
+                    width: parent.width - 9 * pill.s
+                    height: parent.height - 9 * pill.s
+                    name: "music"
+                    color: Theme.faint
+                    visible: stripArtImg.status !== Image.Ready && stripArtIcon.status !== Image.Ready
                 }
 
                 MouseArea {
@@ -2574,6 +2686,18 @@ Item {
                     desc: (Players.artist.length > 0 ? Players.artist + (Players.serviceLabel.length > 0 ? " · " + Players.serviceLabel : "") : (Players.serviceLabel || "Scroll: volume · Middle: pause"))
                     show: stripTitleMouse.containsMouse || stripArtMouse.containsMouse
                 }
+            }
+
+            /* The media bud rides next to the strip's title, so the row keeps a
+             * slot for it: without the spacer the bead would land on the
+             * visualiser and the hairline that follow the title. The slot is
+             * a fixed width so hovering the bud — which makes it grow — never
+             * reflows the bar under the pointer. */
+            Item {
+                id: stripBudSlot
+                anchors.verticalCenter: parent.verticalCenter
+                width: (pill.stripBar && bud.shown) ? 40 * pill.s : 0
+                height: 1
             }
 
             MusicBars {
@@ -4593,6 +4717,19 @@ sourceComponent: Media {
         }
     }
 
+
+    Loader {
+        id: ldLockstyle
+        active: false
+        anchors.fill: parent
+        sourceComponent: LockStyleSurface {
+            s: pill.s * pill.settingsScale
+            open: pill.lockstyleOpen
+            morphCloseness: pill.morphCloseness
+            onRequestClose: pill.requestClose()
+            onRequestSurface: (name) => pill.requestSurface(name)
+        }
+    }
 
     Loader {
         id: ldKeybinds

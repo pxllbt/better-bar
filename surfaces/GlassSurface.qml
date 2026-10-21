@@ -20,6 +20,13 @@ SettingsSurface {
     rows: [
         { item: glassRow, kind: "toggle", get: function () { return Flags.glass; }, set: function (v) { Flags.glass = v; } },
         { item: bgRow, kind: "seg", vals: [1, 0.8, 0.6], get: function () { return bgLevel(); }, set: function (v) { Flags.pillOpacity = v; } },
+        // The follow row goes through its own control rather than through the
+        // flag directly, so the mouse and the keyboard share ONE writer: the
+        // toggle's own handler. Two writers would be two places to keep in
+        // step, and a toggle that flips twice is worse than one that does not
+        // move. `on` is the flag the switch is bound to, so it is the same
+        // state either way -- read here, written by the control.
+        { item: followRow, kind: "toggle", get: function () { return followToggle.on; }, set: function (v) { if (v !== followToggle.on) followToggle.toggled(); } },
         { item: glassTextRow, kind: "seg", vals: [0, 0.5, 1], get: function () { return Flags.glassText; }, set: function (v) { Flags.glassText = v; } }
     ]
 
@@ -53,6 +60,17 @@ SettingsSurface {
         }
         return best;
     }
+
+    /**
+     * True while the compositor, not the bar, is choosing the material.
+     *
+     * On the surface root, not inside the content column, because the rows ask
+     * for it as `root.following`. A property declared on the column answers
+     * `undefined` to that question, and `!undefined` is true, so the row that
+     * is supposed to stand down while Hyprland is in charge would never stand
+     * down at all.
+     */
+    readonly property bool following: (Flags.glassFollowHypr || false) && HyprGlass.usable
 
     Column {
         id: content
@@ -95,6 +113,7 @@ Item { width: 1; height: 7 * root.s }
             name: "Background"
             icon: "layers"
             sub: ""
+            enabled: !root.following
 
             SettingsSeg {
                 s: root.s
@@ -117,6 +136,26 @@ Item { width: 1; height: 7 * root.s }
          * the feature in the abstract, so "solid · 100% opaque" is a decidable
          * answer instead of a promise.
          */
+        SettingsRow {
+            id: followRow
+            surface: root
+            icon: "droplet"
+            name: "Match Hyprland"
+            sub: {
+                if (!HyprGlass.usable)
+                    return "Hyprland is not being read, so the bar keeps its own setting";
+                var v = [HyprGlass.blurEnabled ? "blurred" : "solid"];
+                v.push(Math.round(HyprGlass.pillOpacity * 100) + "% opaque");
+                return v.join(" · ");
+            }
+
+            LinkToggle {
+                id: followToggle
+                s: root.s
+                on: Flags.glassFollowHypr
+                onToggled: Flags.glassFollowHypr = !Flags.glassFollowHypr
+            }
+        }
 
         SettingsRow {
             id: glassTextRow

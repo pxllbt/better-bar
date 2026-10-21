@@ -68,6 +68,17 @@ Singleton {
     property alias uiFont: adapter.uiFont
     property alias pillOpacity: adapter.pillOpacity
     property alias glass: adapter.glass
+    /**
+     * Let Hyprland decide the material instead of the bar deciding alone.
+     *
+     * This needs a Singleton-level alias, not just the adapter property: an
+     * adapter-only property is not exposed on the singleton, so `Flags.x`
+     * reads as `undefined` and every `if (Flags.x)` in the tree silently
+     * takes the false branch. The Glass surface's toggle would render, animate
+     * and then discard the write -- a control that does nothing, which is
+     * worse than a missing one.
+     */
+    property alias glassFollowHypr: adapter.glassFollowHypr
     //* Text-visibility boost when transparency mode is on: 0 (off) to 1 (strong) — lifts the readability veil behind copy so pale text keeps contrast on bright wallpapers.
     property alias glassText: adapter.glassText
     property alias autoHide: adapter.autoHide
@@ -93,12 +104,6 @@ Singleton {
     property alias musicStyle: adapter.musicStyle
     //* Ambient aura strength behind the pill: 0 = off, 1 = full bloom.
     property alias auraIntensity: adapter.auraIntensity
-    //* Plymouth unlock background hex (#RRGGBB), independent of the desktop theme.
-    property alias plymouthBg: adapter.plymouthBg
-    //* Plymouth unlock text hex (#RRGGBB), independent of the desktop theme.
-    property alias plymouthText: adapter.plymouthText
-    //* Plymouth unlock logo path; empty uses the stock Omarchy logo.
-    property alias plymouthLogo: adapter.plymouthLogo
     property alias musicViz: adapter.musicViz
     property alias gameMode: adapter.gameMode
     //* Autonomous GameMode auto-shadowplay: automatically arms Better Recast replay buffer on game launch.
@@ -218,7 +223,7 @@ Singleton {
             //* Minimal dock: icon-only chips with the small active dot, no inline title label.
             property bool dockMinimal: true
             //* Keep the media bud entry point available with no player; the pill still shows the real player detail whenever one exists.
-            property bool mediaAlways: false
+            property bool mediaAlways: true
             property bool omarchySurvival: true
             //* Top margin as a fraction of the shipped 8px. 0 sits the pill flush to the screen edge.
             property real topGap: 1
@@ -228,12 +233,6 @@ Singleton {
             property string musicStyle: "bars"
             //* Ambient aura strength behind the pill: 0 = off, 1 = full bloom.
             property real auraIntensity: 0.75
-            //* Plymouth unlock background hex (#RRGGBB).
-            property string plymouthBg: "#1a1b26"
-            //* Plymouth unlock text hex (#RRGGBB).
-            property string plymouthText: "#ebdbb2"
-            //* Plymouth unlock logo path; empty uses the stock Omarchy logo.
-            property string plymouthLogo: ""
             property bool musicViz: true
             property bool gameMode: false
             property bool autoGameReplay: true

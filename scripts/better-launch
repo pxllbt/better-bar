@@ -33,7 +33,12 @@ wait_for_session() {
 wait_for_session || echo "better-launch: session not ready after 20s, launching anyway" >&2
 
 
-INSTALL_DIR="$HOME/.local/share/quickshell/better"
+# Resolve the install directory from this script's own location. It used to be
+# hardcoded to ~/.local/share/quickshell/better, which is the STANDALONE
+# layout -- but the Omarchy plugin install lives at
+# ~/.config/omarchy/plugins/pix.bar. On a plugin install the launcher pointed
+# at a directory that does not exist, so it could never find the bar.
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Only one bar may own the desktop at a time. Each instance reserves its own
 # exclusive band, so two shells stack two bands and windows start below both --

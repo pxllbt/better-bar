@@ -146,8 +146,18 @@ ok "the bud moves next to the media title in strip mode" \
 ok "the bud placement maps the title into pill coordinates" \
     "$(printf '%s\n' "$BUD" | grep -c 'stripTitle.mapToItem(pill' )" "1"
 
-ok "the bud still sits on the pill edge outside strip mode" \
-    "$(printf '%s\n' "$BUD" | grep -c 'pill.width - budR')" "1"
+# Outside strip mode the bud belongs at the pill's right edge -- but INSIDE
+# it. It used to be placed at `pill.width - budR`, which put its right edge
+# `budR` PAST the pill's right edge: the disc sat on the desktop, half
+# outside the bar. The invariant that matters now is that the bud is inset
+# from the pill's edge by a known amount, never past it.
+ok "the bud sits inside the pill's right edge outside strip mode" \
+    "$(printf '%s\n' "$BUD" | grep -c 'pill.width - pill.budInset')" "1"
+
+# ...and the pill has to reserve room for it, or the disc would sit on top of
+# the last thing in the row (the notification badge).
+ok "the pill reserves a slot for the bud" \
+    "$(grep -c 'budSlot' "$PILL")" "3"
 
 printf '\n'
 if [ "$failed" -gt 0 ]; then

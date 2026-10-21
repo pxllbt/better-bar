@@ -56,7 +56,27 @@ bind = SUPER, SHIFT+V, exec, qs -p ~/.local/share/quickshell/better ipc call bet
 bind = SUPER, L,       exec, ~/.local/share/quickshell/better/scripts/lock.sh
 ```
 
-Full list of IPC targets: `launcher`, `wallpaper`, `clipboard`, `mixer`, `calendar`, `media`, `power`, `battery`, `sysmon`, `link`, `theme`, `weather`, `wifi`, `bt`, `accent`, `glass`, `interface`, `fontpicker`, `plugins`, `update`, `appearance`, `display`, `fontcolor`, `appcat`.
+Full list of IPC targets on the `better` handler: `launcher`, `wallpaper`, `clipboard`, `mixer`, `calendar`, `media`, `power`, `battery`, `sysmon`, `system`, `screens`, `screensrescue`, `link`, `notifications`, `profile`, `gameMode`, `peek`, `hide`, `reloadTheme`, `toggleRecast`, `unloadAll`, `page`, `menu`, `minimizeWindow`, `restoreWindow`.
+
+`page` opens any surface by name, including the settings sub-pages: `appearance`, `appcat`, `display`, `modules`, `theme`, `accent`, `glass`, `fontcolor`, `fontpicker`, `plugins`, `update`, `keybinds`, `lockstyle`, `weather`, `wifi`, `bt`.
+
+## Diagnostics
+
+`scripts/better-doctor.sh` is the diagnostic and self-repair engine. It checks two kinds of thing, and both have to pass:
+
+- **Runtime** — is the bar running, is the layer-shell surface mapped, is the wallpaper daemon up and painting a file that still exists, is the monitor layout sane.
+- **Static** — does the tree agree with itself: the QML integrity gate, qmldir registration drift, the surface registry, script syntax, the settings-flag schema, the install layout, and the project's own test suite.
+
+```bash
+scripts/better-doctor.sh            # everything cheap
+scripts/better-doctor.sh --deep     # also the full suite and the live omarchy-shell load test
+scripts/better-doctor.sh --fix      # repair what can be repaired
+scripts/better-doctor.sh --json     # machine-readable
+scripts/better-doctor.sh --report   # sanitized Markdown for a GitHub issue
+scripts/better-doctor.sh --static   # source-tree checks only (this is what CI runs)
+```
+
+The report is emitted in a fixed order, so two runs can be diffed against each other.
 
 ## Tests
 

@@ -42,12 +42,24 @@ Singleton {
     Component.onCompleted: {
         // Sync once at startup so the file exists before any browser opens.
         root.sync();
-        // Watch for theme changes. ThemeSync.revision bumps on every
-        // palette or wallpaper swap, which is the cadence we mirror.
-        Connections {
-            target: ThemeSync
-            onRevisionChanged: root.sync();
-        }
+    }
+
+    /**
+     * Watch for theme changes. ThemeSync.revision bumps on every palette or
+     * wallpaper swap, which is the cadence we mirror.
+     *
+     * This has to be a top-level Connections object with the handler written
+     * as a function. Declared inside the Component.onCompleted block it is a
+     * syntax error under QML's bound behaviour -- and because the whole
+     * Singletons module fails to compile when one file in it is malformed,
+     * that took the ENTIRE bar down to the stock omarchy one rather than
+     * costing one feature. The singleton had never been registered in
+     * Singletons/qmldir, which is the only reason the broken file had never
+     * been compiled before.
+     */
+    Connections {
+        target: ThemeSync
+        function onRevisionChanged() { root.sync(); }
     }
 
     /**

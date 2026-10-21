@@ -43,7 +43,38 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else ".").resolve()
+_argv = sys.argv[1:]
+# `--check` compares against the reviewed baseline instead of reporting raw
+# counts. The baseline lives in lib/qml-audit.test.sh, so there is exactly one
+# place to edit when a finding is reviewed and accepted -- and the raw report
+# can never be mistaken for a pass, because it always exits non-zero when it
+# finds anything at all.
+CHECK = bool(_argv) and _argv[0] == "--check"
+if CHECK:
+    _argv = _argv[1:]
+
+ROOT = Path(_argv[0] if _argv else ".").resolve()
+
+
+def reviewed_baseline() -> set[str]:
+    """The unresolved references a human has already signed off on.
+
+    Read out of lib/qml-audit.test.sh rather than duplicated here, so the gate
+    and the test can never disagree about what has been reviewed.
+    """
+    path = ROOT / "lib" / "qml-audit.test.sh"
+    if not path.exists():
+        return set()
+    text = path.read_text()
+    m = re.search(r"^EXPECTED='(.*?)'$", text, re.S | re.M)
+    if not m:
+        return set()
+    out: set[str] = set()
+    for line in m.group(1).splitlines():
+        line = line.strip()
+        if line:
+            out.add(re.sub(r"\s+", " ", line))
+    return out
 
 # --- lexical noise -------------------------------------------------------
 # Comments and string literals must not contribute "code", and getting this
@@ -465,6 +496,31 @@ def main() -> int:
     by_kind: dict[str, list[tuple[str, str]]] = defaultdict(list)
     for f, kind, detail in problems:
         by_kind[kind].append((f, detail))
+
+    if CHECK:
+        # The gate: only findings the reviewer has NOT signed off on fail.
+        # Anything that is not an unresolved-id is a failure by definition --
+        # an undeclared Theme/Flags token or a duplicate id has no baseline.
+        baseline = reviewed_baseline()
+        actual = {f"{f}: {d}" for f, d in by_kind.get("unresolved-id", [])}
+        new_refs = sorted(actual - baseline)
+        hard = sorted(
+            f"{f}: {d}"
+            for kind, rows in by_kind.items()
+            if kind != "unresolved-id"
+            for f, d in rows
+        )
+        if not new_refs and not hard:
+            print(f"qml-audit: clean against the reviewed baseline "
+                  f"({len(actual)} known finding(s), {len(files)} files)")
+            return 0
+        print(f"qml-audit: {len(new_refs) + len(hard)} unreviewed problem(s) "
+              f"across {len(files)} files\n")
+        for d in new_refs:
+            print(f"  NEW unresolved-id: {d}")
+        for d in hard:
+            print(f"  NEW {d}")
+        return 1
 
     print(f"qml-audit: {len(problems)} problem(s) across {len(files)} files\n")
     for kind in sorted(by_kind):

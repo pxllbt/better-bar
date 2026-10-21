@@ -1157,7 +1157,11 @@ Singleton {
             if (cliProc.verb === "update") {
                 root.needsShellRestart = root.lastOutput.indexOf("Updated ") !== -1;
                 if (root.needsShellRestart)
-                    root.updateCount = 0;
+                    // `updateCount` is a READ-ONLY view of pendingUpdates --
+                    // assigning to it is silently dropped, so the badge kept
+                    // claiming there were still updates to apply after the
+                    // update had already run. Clear the list the count reads.
+                    root.pendingUpdates = [];
             }
         }
     }

@@ -58,7 +58,7 @@ if [ ! -f "$FLAGS_FILE" ]; then
   "manualDark": true,
   "manualHue": 30,
   "manualSat": 0.5,
-  "mediaAlways": false,
+  "mediaAlways": true,
   "memorySaver": true,
   "musicStyle": "bars",
   "musicViz": true,

@@ -231,11 +231,55 @@ PillSurface {
     /** Card geometry tokens, all scaled to the monitor. */
     readonly property real pad: 12 * s
     readonly property real artMargin: 16 * s
+    /** Gutter between the disc, the centre column and the right rail. */
+    readonly property real colInset: 16 * s
     readonly property real railInset: 16 * s
     readonly property real railW: 112 * s
 
-    /** Diameter of the centered circular media card. */
-    readonly property real discD: Math.min(180 * root.s, Math.min(width - 2 * root.artMargin, height - 110 * root.s))
+    /**
+     * The centre column, row by row.
+     *
+     * These tokens are the single source of truth for the layout *and* for the
+     * card's own height: `contentH` sums them, and the card publishes that
+     * total as its `implicitHeight` so the pill sizes the card from what it
+     * actually draws.
+     *
+     * The card used to be a fixed 132*s tall — a number kept in another file,
+     * for a column whose rows needed 166*s. The overflow was exactly one row
+     * deep: the transport controls hung out through the bottom edge and
+     * floated on the desktop below the card. Deriving the height from the
+     * content is what makes that class of bug impossible to reintroduce: a
+     * new row, a taller header, a missing artist line — the card measures
+     * itself and the pill follows.
+     */
+    readonly property real headerH: root.picking ? 22 * root.s : 18 * root.s
+    readonly property real titleH: 19 * root.s
+    readonly property real subH: 15 * root.s
+    readonly property real seekH: 16 * root.s
+    readonly property real transportH: 34 * root.s
+    readonly property real colGap: 10 * root.s
+    /** The artist line only takes a row on the stack when it has something to say. */
+    readonly property bool hasSub: root.sub.length > 0
+    /** Rows on the stack: the artist line joins them when it has content. */
+    readonly property int rowCount: root.hasSub ? 5 : 4
+    /** Height of the centre column, gaps included. */
+    readonly property real contentH: root.headerH + root.titleH + (root.hasSub ? root.subH : 0)
+        + root.seekH + root.transportH + (root.rowCount - 1) * root.colGap
+    /** The card is exactly as tall as its content plus its own padding. */
+    implicitHeight: root.contentH + 2 * root.pad
+
+    /**
+     * Diameter of the album-art disc — the deck's hero.
+     *
+     * It used to be pinned at 88*s while `discD`, which promised 180*s, sat
+     * here unreferenced. So the card could grow around a disc that no longer
+     * matched it: the taller the deck, the more the disc looked lost beside a
+     * column that had grown. The disc now answers to the card it lives in — as
+     * large as the content box allows, capped so it never dwarfs the deck — and
+     * it breathes with the card when the artist line comes and goes.
+     */
+    property real discD: Math.min(116 * root.s, root.contentH - 2 * root.pad)
+    Behavior on discD { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph; easing.bezierCurve: Motion.morphCurve } }
 
     property real sealPulse: 0
 
@@ -360,16 +404,16 @@ component ArtDot: Rectangle {
     Item {
         id: discWell
         anchors.left: parent.left
-        anchors.leftMargin: 16 * root.s
+        anchors.leftMargin: root.artMargin
         anchors.verticalCenter: parent.verticalCenter
-        width: 88 * root.s
-        height: 88 * root.s
+        width: root.discD
+        height: root.discD
 
         MediaDisc {
             id: deckDisc
             anchors.centerIn: parent
-            width: 86 * root.s
-            height: 86 * root.s
+            width: root.discD - 2 * root.s
+            height: root.discD - 2 * root.s
             s: root.s
             spinning: root.playing
             coverUrl: root.coverSource
@@ -379,20 +423,20 @@ component ArtDot: Rectangle {
     Column {
         id: discCol
         anchors.left: discWell.right
-        anchors.leftMargin: 16 * root.s
+        anchors.leftMargin: root.colInset
         anchors.right: infoStack.left
-        anchors.rightMargin: 16 * root.s
+        anchors.rightMargin: root.colInset
         anchors.top: parent.top
         anchors.topMargin: root.pad
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.pad
-        spacing: 10 * root.s
+        spacing: root.colGap
 
         // Source pill badge row / player picker
         Item {
             id: srcHeader
             width: discCol.width
-            height: root.picking ? 22 * root.s : 18 * root.s
+            height: root.headerH
             Behavior on height { NumberAnimation { duration: Motion.fast } }
 
             Item {
@@ -540,7 +584,7 @@ component ArtDot: Rectangle {
         // Track Title: Bold, crisp typography (Theme.bright, 15px)
         Item {
             width: discCol.width
-            height: 19 * root.s
+            height: root.titleH
 
             Marquee {
                 id: titleLbl
@@ -556,8 +600,8 @@ component ArtDot: Rectangle {
         // Artist & Album: Subtly muted in Theme.dim (12px)
         Item {
             width: discCol.width
-            height: 15 * root.s
-            visible: root.sub.length > 0
+            height: root.subH
+            visible: root.hasSub
 
             Marquee {
                 id: subLbl
@@ -574,7 +618,7 @@ component ArtDot: Rectangle {
         Item {
             id: seekRow
             width: discCol.width
-            height: 16 * root.s
+            height: root.seekH
 
             Text {
                 id: posLbl
@@ -682,7 +726,7 @@ component ArtDot: Rectangle {
         Row {
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 6 * root.s
-            height: 34 * root.s
+            height: root.transportH
 
             // Seek -10s micro-chip
             Item {
@@ -957,10 +1001,10 @@ component ArtDot: Rectangle {
     Item {
         id: infoStack
         anchors.right: parent.right
-        anchors.rightMargin: 16 * root.s
+        anchors.rightMargin: root.railInset
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: 96 * root.s
+        width: root.railW
         Column {
             id: infoCol
             anchors.left: parent.left

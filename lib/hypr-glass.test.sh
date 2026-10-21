@@ -63,7 +63,7 @@ ok "the singleton runs no hyprctl mutation at all" \
 # --- what following actually follows -------------------------------------
 FLAGS="$ROOT/Singletons/Flags.qml"
 ok "there is a flag for following the compositor" \
-    "$(grep -c 'glassFollowHypr' "$FLAGS")" "1"
+    "$(grep -c 'glassFollowHypr' "$FLAGS")" "2"
 
 # The fill: HyprGlass.pillOpacity, which is the active value rather than the
 # inactive one — matching the unfocused number would dim the bar below every

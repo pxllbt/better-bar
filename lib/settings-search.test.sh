@@ -60,8 +60,8 @@ ok "keybindings search opens the native keybinds surface" \
 ok "lock search opens the lock style surface" \
     "$(printf '%s' "$OUT" | sed -n 's/^lock://p')" "true"
 
-ok "plymouth search opens the Plymouth surface" \
-    "$(printf '%s' "$OUT" | sed -n 's/^plymouth://p')" "true"
+ok "plymouth search does not open a surface that was pruned" \
+    "$(printf '%s' "$OUT" | sed -n 's/^plymouth://p')" "false"
 
 ok "hide search returns real settings" \
     "$(printf '%s' "$OUT" | sed -n 's/^hide://p')" "true"

@@ -465,7 +465,7 @@ SettingsSurface {
                                 color: Theme.cream
                                 font.family: Theme.font
                                 font.pixelSize: 10.5 * root.s
-                                font.weight: Font.SemiBold
+                                font.weight: Font.DemiBold
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -552,7 +552,7 @@ SettingsSurface {
                                 color: Theme.cream
                                 font.family: Theme.font
                                 font.pixelSize: 10 * root.s
-                                font.weight: Font.SemiBold
+                                font.weight: Font.DemiBold
                                 anchors.verticalCenter: parent.verticalCenter
                             }
                         }
@@ -657,7 +657,7 @@ SettingsSurface {
                             color: Theme.bright
                             font.family: Theme.font
                             font.pixelSize: 11 * root.s
-                            font.weight: Font.SemiBold
+                            font.weight: Font.DemiBold
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
@@ -777,7 +777,7 @@ SettingsSurface {
                             color: applyBtnMouse.containsMouse ? Theme.bright : Theme.cream
                             font.family: Theme.font
                             font.pixelSize: 10.5 * root.s
-                            font.weight: Font.SemiBold
+                            font.weight: Font.DemiBold
                         }
 
                         MouseArea {
@@ -857,7 +857,7 @@ SettingsSurface {
                             color: Theme.bright
                             font.family: Theme.font
                             font.pixelSize: 12.5 * root.s
-                            font.weight: Font.SemiBold
+                            font.weight: Font.DemiBold
                             elide: Text.ElideRight
                             width: parent.width
                         }
@@ -919,7 +919,7 @@ SettingsSurface {
                             color: Theme.bright
                             font.family: Theme.font
                             font.pixelSize: 12.5 * root.s
-                            font.weight: Font.SemiBold
+                            font.weight: Font.DemiBold
                             elide: Text.ElideRight
                             width: parent.width
                         }
@@ -983,7 +983,7 @@ SettingsSurface {
                         color: Theme.bright
                         font.family: Theme.font
                         font.pixelSize: 12 * root.s
-                        font.weight: Font.SemiBold
+                        font.weight: Font.DemiBold
                     }
 
                     // Progress Bar
@@ -1050,7 +1050,7 @@ SettingsSurface {
                         color: Theme.bright
                         font.family: Theme.font
                         font.pixelSize: 12 * root.s
-                        font.weight: Font.SemiBold
+                        font.weight: Font.DemiBold
                     }
 
                     // Progress Bar
