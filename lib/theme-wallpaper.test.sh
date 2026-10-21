@@ -99,14 +99,25 @@ ok "a pick made on another theme does not block this theme's wallpaper" \
     "$(can_apply "$THEME_BG")" "yes"
 
 # End to end: the wallpaper on screen really changes.
-setup
-set_theme "lawson-night"
-user_is_showing
-set_theme "other-theme"
-bash "$WALLSH" set "$OTHER_THEME_BG" >/dev/null 2>&1
-ok "switching theme changes the wallpaper" \
-    "$(readlink "$HOME/.local/state/omarchy/current/background" 2>/dev/null |
-        xargs -r basename 2>/dev/null || echo none)" "other.png"
+#
+# This one is the only case that goes through the PAINT path, so it is the
+# only one that needs a wallpaper daemon. awww is an Omarchy daemon and is
+# not on a CI runner, and without it the script never repoints
+# current/background -- the case would report "none" for a reason that has
+# nothing to do with what it is testing. The cases above are on the guard's
+# decision path and run anywhere; this one runs where there is a daemon.
+if ! command -v awww >/dev/null 2>&1; then
+    printf 'SKIP switching theme changes the wallpaper (no wallpaper daemon here)\n'
+else
+    setup
+    set_theme "lawson-night"
+    user_is_showing
+    set_theme "other-theme"
+    bash "$WALLSH" set "$OTHER_THEME_BG" >/dev/null 2>&1
+    ok "switching theme changes the wallpaper" \
+        "$(readlink "$HOME/.local/state/omarchy/current/background" 2>/dev/null |
+            xargs -r basename 2>/dev/null || echo none)" "other.png"
+fi
 
 # The old pick must not keep governing after the theme's wallpaper took over, or
 # the next arrival would try to restore it -- the wallpaper snapping back. What
