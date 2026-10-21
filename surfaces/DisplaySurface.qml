@@ -19,7 +19,7 @@ SettingsSurface {
     implicitHeight: content.implicitHeight
 
     rows: [
-        { item: mainRow, kind: "seg", vals: ["minimal", "classic", "system", "strip"], get: function () { return Flags.mainDisplay; }, set: function (v) { Flags.mainDisplay = v; } },
+        { item: mainRow, kind: "seg", vals: ["minimal", "classic", "system", "strip", "notch"], get: function () { return Flags.mainDisplay; }, set: function (v) { Flags.mainDisplay = v; } },
         { item: timeRow, kind: "seg", vals: [false, true], get: function () { return Flags.time12h; }, set: function (v) { Flags.time12h = v; } },
         { item: secRow, kind: "toggle", get: function () { return Flags.clockSeconds; }, set: function (v) { Flags.clockSeconds = v; } },
         { item: vizStyleRow, kind: "seg", vals: ["bars", "wave"], get: function () { return Flags.musicStyle; }, set: function (v) { Flags.musicStyle = v; } },
@@ -90,7 +90,7 @@ SettingsSurface {
 
                             SettingsSeg {
                                 s: root.s
-                                options: [{ label: "Minimal", value: "minimal" }, { label: "Classic", value: "classic" }, { label: "System", value: "system" }, { label: "Strip", value: "strip" }]
+                                options: [{ label: "Minimal", value: "minimal" }, { label: "Classic", value: "classic" }, { label: "System", value: "system" }, { label: "Strip", value: "strip" }, { label: "Notch", value: "notch" }]
                                 value: Flags.mainDisplay
                                 onPicked: (v) => Flags.mainDisplay = v
                             }

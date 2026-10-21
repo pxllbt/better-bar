@@ -343,6 +343,26 @@ Item {
     readonly property bool stripBar: Flags.mainDisplay === "strip"
 
     /**
+     * The NOTCH face: the classic resting content, cut INTO the top edge of
+     * the screen instead of floating in it.
+     *
+     * The capsule hangs below the top edge with a band of desktop above it and
+     * rounds all four corners. The notch does the opposite: its top edge is
+     * square and MEETS the screen border, and only its bottom corners stay
+     * rounded, so the bar reads as a bite taken out of the screen rather than
+     * a bubble sitting in front of it. It runs the full width of the monitor,
+     * which is what makes that square top read as an edge.
+     *
+     * It is the SAME content as the classic face -- clock, date, time, badge,
+     * media bud, and the one recording chip. The notch changes the box, not
+     * the bar.
+     */
+    readonly property bool notchBar: Flags.mainDisplay === "notch"
+
+    /** The notch's width: the whole monitor. The bar's own window IS the monitor. */
+    readonly property real notchW: barWindow ? barWindow.width : 1920
+
+    /**
      * True when this pill sits on the monitor Hyprland currently has focused.
      * Only used to drop the cursor latch on focus loss: `hidden` itself is
      * central and does not key off monitor focus, so transient (OSD/toast)
@@ -713,8 +733,9 @@ Item {
      * glyph. The content now stands flush-left inside the face's own
      * padding, which is the same rule the resting face follows.
      */
-    readonly property real hoverW: hoverRow.implicitWidth + hoverPad
-        + (bud.shown ? hoverBudReserve : hoverPad)
+    readonly property real hoverW: (pill.notchBar ? pill.notchW
+        : hoverRow.implicitWidth + hoverPad
+        + (bud.shown ? hoverBudReserve : hoverPad))
     /**
      * How far left of the centre the expanded row stands.
      *
@@ -1389,6 +1410,9 @@ Item {
             case "minimal": return 76 * s;
             case "classic": return 130 * s;
             case "system":  return 150 * s;
+            // The notch's own resting face is the monitor's width, so this is
+            // only the floor for the faces that borrow the resting width.
+            case "notch":   return 320 * s;
             default:        return 120 * s;
         }
     }
@@ -1415,7 +1439,8 @@ Item {
      */
     readonly property size restSize: stripBar
         ? Qt.size(stripFaceW, restH)
-        : Qt.size(Math.max(minFaceW, (pill.recastFaceVisible && !pill.stripBar
+        : Qt.size(pill.notchBar ? pill.notchW
+              : Math.max(minFaceW, (pill.recastFaceVisible && !pill.stripBar
               ? recastRestRow.implicitWidth
               : restRow.implicitWidth) + 2 * pill.restPad + pill.budSlot), restH)
 
@@ -1776,7 +1801,7 @@ Item {
          */
         property real gameFlat: pill.mode === "game" ? 1 : 0
         Behavior on gameFlat { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph; easing.bezierCurve: Motion.morphCurve } }
-        property real topFlat: pill.mode === "game" ? 1 : 0
+        property real topFlat: (pill.mode === "game" || pill.notchBar) ? 1 : 0
         Behavior on topFlat { NumberAnimation { duration: Motion.morph; easing.type: Motion.easeMorph; easing.bezierCurve: Motion.morphCurve } }
 
         radius: pill.morphRadius
@@ -3348,7 +3373,10 @@ Item {
              */
             Row {
                 id: restDateTime
-                visible: !pill.recastActive && Flags.mainDisplay === "classic"
+                // The notch shows the CLASSIC content. It is a different box,
+                // not a different bar -- so the date and the time come with it.
+                visible: !pill.recastActive
+                    && (Flags.mainDisplay === "classic" || pill.notchBar)
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 9 * pill.s
                 AltText {

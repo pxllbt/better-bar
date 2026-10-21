@@ -1032,7 +1032,7 @@ ShellRoot {
                     property string menuRoute: root.menuRoute
                     hostRoot: root
                     anchors.top: parent.top
-                    anchors.topMargin: (pill.mode === "game") ? 0 : overlay.topGap
+                    anchors.topMargin: (pill.mode === "game" || pill.notchBar) ? 0 : overlay.topGap
                     anchors.horizontalCenter: parent.horizontalCenter
 
                     Behavior on anchors.topMargin {
@@ -1086,7 +1086,7 @@ ShellRoot {
                 OsdPopup {
                     id: osdPopup
                     anchors.top: parent.top
-                    anchors.topMargin: (pill.mode === "game") ? 0 : overlay.topGap
+                    anchors.topMargin: (pill.mode === "game" || pill.notchBar) ? 0 : overlay.topGap
                     anchors.horizontalCenter: parent.horizontalCenter
                     s: overlay.s
                     screenName: overlay.modelData.name
