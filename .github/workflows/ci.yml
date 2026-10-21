@@ -48,9 +48,6 @@ jobs:
       - name: Run Media Pill Tests
         run: bash lib/media-pill.test.sh .
 
-      - name: Run Plymouth Custom Tests
-        run: bash lib/plymouth-custom.test.sh .
-
       - name: Run Plugins Surface Compact Tests
         run: bash lib/plugins-surface-compact.test.sh .
 
@@ -227,3 +224,70 @@ jobs:
 
       - name: Run Keybinds Model Tests
         run: node --test lib/keybinds.test.mjs
+
+      # --- the gates ------------------------------------------------------
+      # These are the checks that catch the whole-tree mistakes a per-file
+      # test cannot: a QML file that is not registered in its module's
+      # qmldir, a surface the settings search offers but that no longer
+      # exists, a CI step pointing at a test that was deleted.
+      #
+      # They were written but never wired in, which is the same failure as
+      # not writing them at all -- a gate nobody runs is not a gate.
+      - name: Run QML Integrity Gate
+        run: bash lib/qml-audit.test.sh .
+
+      - name: Fail on Unreviewed QML Findings
+        run: python3 lib/qml-audit.py --check .
+
+      - name: Run Better Doctor Self-Test
+        run: bash lib/better-doctor.test.sh .
+
+      - name: Run Alphacoders Source Tests
+        run: bash lib/alphacoders.test.sh scripts/wallpaper-search.sh
+
+      - name: Run Gamemode Surface Block Tests
+        run: bash lib/gamemode-blocks-surfaces.test.sh .
+
+      - name: Run Media Bud Theme Tests
+        run: bash lib/media-bud-theme.test.sh .
+
+      - name: Run Menu Keybind Removal Tests
+        run: bash lib/menu-keybind-removed.test.sh .
+
+      - name: Run Plugin Auto Integration Tests
+        run: bash lib/plugin-auto-integration.test.sh .
+
+      - name: Run Plugins Autocheck Tests
+        run: bash lib/plugins-autocheck.test.sh .
+
+      - name: Run Stylus Sync Tests
+        run: bash lib/stylus-sync.test.sh .
+
+      - name: Run Surface Null Guard Tests
+        run: bash lib/surface-null-guard.test.sh .
+
+      - name: Run Theme Today Cell Tests
+        run: bash lib/theme-today-cell.test.sh .
+
+      - name: Run Wallpaper Preserve Pick Tests
+        run: bash lib/wallpaper-preserve-pick.test.sh .
+
+      - name: Run Pill Special View Tests
+        run: bash lib/pill-special-view.test.sh .
+
+      - name: Run Pill Media Announcement Tests
+        run: bash lib/media-bud.test.sh .
+
+      - name: Run Doctor Self-Check
+        run: bash scripts/better-doctor.sh --static
+
+      # lib/omshell-load.test.sh and lib/surface-smoke.test.sh are deliberately
+      # NOT run here. They launch a whole omarchy-shell against a live Wayland
+      # session -- one loads the bar and answers its IPC targets, the other
+      # opens every surface and reads the shell's log for what QML complained
+      # about. A build agent has neither. They run on a real desktop with
+      #   SHELL_SRC=/usr/share/omarchy/shell OMARCHY_PATH=/usr/share/omarchy \
+      #   bash lib/omshell-load.test.sh .
+      #   SHELL_SRC=/usr/share/omarchy/shell OMARCHY_PATH=/usr/share/omarchy \
+      #   bash lib/surface-smoke.test.sh .
+      # and the doctor runs them too, under --deep.
