@@ -2,6 +2,30 @@ import QtQuick
 import QtQuick.Controls as QQC
 import qs.Commons
 
+/**
+ * A numeric field.
+ *
+ * WHY THE FIELD IS `readOnly` AND NOT EDITABLE, which looks like a bug and is
+ * not:
+ *
+ * Every `QQuickTextInput` connects to the clipboard in its constructor, and
+ * `q_canPasteChanged()` then calls `mimeData()->hasText()` -- on Wayland an
+ * unbounded, deadline-free transfer of whatever another client offered. The
+ * read is gated on `!m_readOnly`, so an editable native field reopens that
+ * path for exactly as long as it is editable, and a foreign clipboard producer
+ * can stall or exhaust the process every surface of the bar shares.
+ *
+ * `maximumLength` does not close it: that bounds what is STORED, not the
+ * transfer.
+ *
+ * The bar's rule, everywhere else, is `readOnly: true` plus editing driven
+ * from `Singletons/TextEntry.qml`. This component was the one place that rule
+ * was broken -- its field was editable whenever the spinbox was editable.
+ *
+ * It is currently unused, so this change breaks nothing. Anyone reviving it
+ * must drive the editing through `TextEntry` rather than by making the field
+ * editable again.
+ */
 Column {
   id: root
 
@@ -77,7 +101,7 @@ Column {
       selectedTextColor: root.foreground
       horizontalAlignment: Qt.AlignHCenter
       verticalAlignment: Qt.AlignVCenter
-      readOnly: !spin.editable
+      readOnly: true
       validator: spin.validator
       inputMethodHints: Qt.ImhFormattedNumbersOnly
     }
