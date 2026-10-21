@@ -106,9 +106,17 @@ have() { command -v "$1" >/dev/null 2>&1; }
 # worse than no diagnostic, because it reports success.
 # ---------------------------------------------------------------------------
 MISSING_DEPS=""
-for dep in jq hyprctl python3; do
+for dep in jq python3; do
     have "$dep" || MISSING_DEPS="$MISSING_DEPS $dep"
 done
+# hyprctl is only used by the RUNTIME checks, and --static does not run
+# them. A checkout on a build agent has no compositor, so asking it for
+# hyprctl there reported a missing tool as a problem with the machine --
+# and the doctor counts a WARN as an issue, so it failed CI over a tool
+# that CI does not need and cannot have.
+if [ "$STATIC_ONLY" = false ]; then
+    have hyprctl || MISSING_DEPS="$MISSING_DEPS hyprctl"
+fi
 if [ -n "$MISSING_DEPS" ]; then
     record "dependencies" "WARN" "missing tool(s):$MISSING_DEPS -- some checks below cannot answer"
 else
