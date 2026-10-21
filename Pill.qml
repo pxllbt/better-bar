@@ -526,21 +526,51 @@ Item {
      * right edge: the disc sat half outside the bar, on the desktop, looking
      * like a widget that had escaped rather than part of the bar.
      *
-     * The slot is a CONSTANT rather than the bud's live width, because the
-     * bud grows on hover -- a slot sized to the live width would make the pill
-     * resize the moment the pointer touched the bud, and the bud would chase
-     * its own edge.
+     * The numbers below are the whole geometry of the resting face, and they
+     * are three because the pill's two ends have to match:
      *
-     * The row is CENTRED, so the extra width comes out of the slack on both
-     * sides and the row drifts left by half the slot. That drift is what
-     * keeps the row and the bud from overlapping: the row's right edge ends
-     * at (24s + slot)/2 from the pill's right, and the bud's left edge is at
-     * (budInset + 30s) from it. The numbers below are chosen so the row's
-     * last item -- the notification badge -- clears the disc by a few pixels
-     * instead of being half-covered by it.
+     *   restPad   the capsule's inset at both ends of the row. The left end
+     *             and the disc's right end share this number, so the bar is
+     *             symmetric instead of trailing air on one side.
+     *   budGap    the air between the row and the disc -- the disc's
+     *             neighbour, so this is a hair, not a margin.
+     *   budRestW  the disc's width.
+     *
+     * The disc does NOT grow on hover any more. It used to swell from 24*s
+     * to 30*s, and a swell that changes a layout has to be paid for out of
+     * one of the gaps around it -- which is why the gap the disc sits in was
+     * never allowed to be small, and why the bar kept a slot wider than the
+     * disc it was reserving room for. The bud now answers the pointer with
+     * the album art swelling inside the glass and the sheen catching the
+     * light, and the bubble keeps its size, so the gap beside it is exactly
+     * what it says it is at every moment.
      */
-    readonly property real budSlot: (bud.shown ? 56 * s : 0)
-    readonly property real budInset: 6 * s
+    readonly property real restPad: 5 * s
+    readonly property real budInset: restPad
+    readonly property real budRestW: 24 * s
+    readonly property real budGap: 3 * s
+    /**
+     * The room the pill reserves for the media bud: the hair of air between
+     * the row and the disc, plus the disc itself.
+     *
+     * It is a CONSTANT rather than the bud's live width, because a slot sized
+     * to the live width would make the pill resize the moment the pointer
+     * touched the bud, and the bud would chase its own edge.
+     */
+    readonly property real budSlot: (bud.shown ? budGap + budRestW : 0)
+
+    /**
+     * How far left of the pill's centre the resting content sits.
+     *
+     * The disc owns the pill's right edge, so a CENTRED row pushes half of
+     * the reserve out of the left side as dead space -- which is how the bar
+     * used to open with a third of a pill's width of nothing before its
+     * first glyph. Half the slot is exactly that much, so the row stands
+     * flush-left inside the capsule's inset while the group as a whole
+     * (row, gap, disc) stays centred on the screen.
+     */
+    readonly property real restFaceOffset: (bud.shown ? -budSlot / 2 : 0)
+
     readonly property real restH: 38 * s
 
     /**
@@ -561,7 +591,20 @@ Item {
      * screen the content lands around 500-600px wide. Lower-priority sections
      * (visualizer, then media) fold away first when the budget tightens.
      */
-    readonly property real stripPad: 20 * pill.s
+    /**
+     * The notch's inset at each end, and the gap between its sections.
+     *
+     * Both were 20*s and 16*s, which is a bar that opens with eighteen pixels
+     * of nothing before its first tile and holds its sections a full gap
+     * apart. The resting face runs on 5*s, and the expanded faces now run on
+     * the same order of magnitude rather than four times it: the notch still
+     * reads as a bar with room in it, and it no longer reads as a bar with
+     * two empty ends.
+     *
+     * `stripPad` is also the notch's title budget, so shrinking it gives the
+     * media title more room to breathe, not less.
+     */
+    readonly property real stripPad: 10 * pill.s
     readonly property real stripGap: 16 * s
     readonly property bool stripHover: stripFaceMouse.containsMouse
     property bool ghostStripHover: false
@@ -618,8 +661,49 @@ Item {
         let contentW = (stripFace && stripFace.implicitWidth > 0) ? stripFace.implicitWidth : (stripFixedW + (stripMediaEntry ? stripArtW + stripGap : 0) + (stripMedia ? 100 * s : 0));
         return Math.min(stripCap, Math.max(contentW + 2 * stripPad, neededW));
     }
-    readonly property real hoverPad: 20 * s
-    readonly property real hoverW: hoverRow.implicitWidth + 2 * hoverPad + budSlot
+    /**
+     * The expanded face's inset at its left end.
+     *
+     * It was 20*s, so the expanded bar opened with eighteen pixels of empty
+     * capsule before the logo, in a bar whose far end held a disc four
+     * pixels from the edge. The expanded face now runs on the same inset
+     * order as the resting one: the content stands where the resting row
+     * stands, the disc keeps the right corner, and the bar reads as one
+     * group from end to end.
+     */
+    readonly property real hoverPad: 8 * s
+    /**
+     * The corner of the bar the media bud keeps in the hover face as well.
+     *
+     * The disc holds the pill's right edge in this face too, so the reserve
+     * here is the gap plus the disc -- at rest and at its largest -- plus the
+     * disc's inset. The same corner of the bar, measured from a wider face.
+     */
+    readonly property real hoverBudReserve: bud.shown
+        ? budGap + budRestW + budInset
+        : 0
+    /**
+     * The expanded face's width: its content, its own padding, and the
+     * disc's corner.
+     *
+     * The content used to be CENTRED in a bar that was mostly the disc's
+     * reserve, so half of that reserve came out as dead air on the LEFT of
+     * the expanded bar -- nearly forty pixels of nothing before the first
+     * glyph. The content now stands flush-left inside the face's own
+     * padding, which is the same rule the resting face follows.
+     */
+    readonly property real hoverW: hoverRow.implicitWidth + hoverPad
+        + (bud.shown ? hoverBudReserve : hoverPad)
+    /**
+     * How far left of the centre the expanded row stands.
+     *
+     * Half the difference between the face's own padding and the disc's
+     * corner: the same arithmetic as the resting face, with the expanded
+     * face's larger padding.
+     */
+    readonly property real hoverFaceOffset: bud.shown
+        ? (hoverPad - hoverBudReserve) / 2
+        : 0
     readonly property real hoverH: 58 * s
     readonly property real mixerH: 214 * s
     readonly property real launcherW: 360 * s
@@ -1295,9 +1379,24 @@ Item {
         game:        () => Qt.size(gameW, gameH)
     })
 
+    /**
+     * The resting face's width: its content, the capsule's inset at both
+     * ends, and the room the media bud takes on the right.
+     *
+     * The face used to add a flat 24*s of padding and the bud's slot on top
+     * of it, and the row was CENTRED in the result. That is what put all of
+     * the bud's reserve on the LEFT as dead space: the resting pill opened
+     * with thirty-odd pixels of nothing before its first glyph and trailed
+     * another ten after the disc. The padding is now the inset at each end
+     * (`restPad`), the row sits flush-left inside it, and the only space
+     * between the row and the disc is the gap that was always meant to be
+     * there. The two ends of the capsule now carry the same inset.
+     */
     readonly property size restSize: stripBar
         ? Qt.size(stripFaceW, restH)
-        : Qt.size(Math.max(minFaceW, restRow.implicitWidth + 24 * s + budSlot), restH)
+        : Qt.size(Math.max(minFaceW, (pill.recastFaceVisible && !pill.stripBar
+              ? recastRestRow.implicitWidth
+              : restRow.implicitWidth) + 2 * pill.restPad + pill.budSlot), restH)
 
     readonly property size targetSize: {
         const sf = surfaces[mode];
@@ -1539,7 +1638,15 @@ Item {
          * once you are already looking for the bar is a control nobody finds.
          */
         readonly property bool shown: (pill.mode === "rest" || pill.mode === "hover") && (Flags.mediaAlways || Players.playing)
-        property real budR: (budArea.containsMouse ? 15 : 12) * pill.s
+        /* The bubble does not change size. It used to swell from 24*s to 30*s
+         * under the pointer, and a swell is a layout change: it has to be
+         * paid for out of the gap beside the disc, which is why that gap was
+         * never allowed to be a hair, and why the bar kept a slot wider than
+         * the disc it was holding room for. The bud answers the pointer from
+         * the inside now -- the album art swells within the glass and the
+         * sheen catches the light -- so the bubble keeps its size and the
+         * hair beside it stays a hair. */
+        property real budR: 12 * pill.s
         width: budR * 2
         height: budR * 2
         radius: budR
@@ -1567,10 +1674,11 @@ Item {
                 return -1;
             return stripTitle.mapToItem(pill, 0, 0).x + stripTitle.width + 10 * pill.s;
         }
-        /* Anchored on its LEFT edge, so the hover growth extends rightward
-         * into the slot the pill reserved for it instead of pushing the disc
-         * back over the row it sits next to. */
-        x: stripBudX >= 0 ? stripBudX : (pill.width - pill.budInset - 30 * pill.s)
+        /* Anchored on its RIGHT edge, against the capsule's inset, so the
+         * disc never leaves a hole at the right end of the bar and never
+         * needs a slot wider than itself: the hair of air in front of it is
+         * `budGap`, and the pill reserves the disc's width on top of that. */
+        x: stripBudX >= 0 ? stripBudX : (pill.width - pill.budInset - bud.width)
         anchors.verticalCenter: parent.verticalCenter
         visible: opacity > 0.01
         opacity: shown ? 1 : 0
@@ -1587,7 +1695,6 @@ Item {
         themeBackgroundFill: true
         sheenScale: (budArea.containsMouse ? 1.3 : 1)
         hovered: budArea.containsMouse
-        Behavior on budR { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
         Behavior on opacity { NumberAnimation { duration: Motion.standard } }
 
         // The same media disc the media surface uses, scaled into the pill. It
@@ -1600,6 +1707,13 @@ Item {
             s: pill.s
             spinning: budArea.containsMouse || (Players.has && Players.playing)
             coverUrl: Players.has && Players.artUrl ? Players.artUrl : ""
+            /* The hover answer, moved inside the glass. The bubble itself keeps
+             * its size so that nothing beside it has to move -- the art
+             * swells instead, which is the half of the disc the eye is
+             * actually looking at. 18*s inside a 24*s bubble leaves room for
+             * it: the swollen art is still inside the glass. */
+            scale: budArea.containsMouse ? 1.15 : 1
+            Behavior on scale { NumberAnimation { duration: Motion.fast; easing.type: Motion.easeStandard } }
         }
 
         MouseArea {
@@ -2692,11 +2806,18 @@ Item {
              * slot for it: without the spacer the bead would land on the
              * visualiser and the hairline that follow the title. The slot is
              * a fixed width so hovering the bud — which makes it grow — never
-             * reflows the bar under the pointer. */
+             * reflows the bar under the pointer.
+             *
+             * It is only that wide when the bud IS riding there. With no
+             * track to sit after, the bud falls back to the pill's right
+             * corner -- and this slot stayed 40*s wide anyway, so the row
+             * carried a fist of empty capsule in the middle of the bar with
+             * nothing in it. The room is handed to the corner slot below
+             * instead, so the bar reserves the bud once, where the bud is. */
             Item {
                 id: stripBudSlot
                 anchors.verticalCenter: parent.verticalCenter
-                width: (pill.stripBar && bud.shown) ? 40 * pill.s : 0
+                width: (pill.stripBar && bud.shown && bud.stripBudX >= 0) ? 40 * pill.s : 0
                 height: 1
             }
 
@@ -2842,6 +2963,30 @@ Item {
                     show: stripUpdateMouse.containsMouse
                 }
             }
+
+            /**
+             * The room the media bud takes when it cannot ride next to the
+             * title.
+             *
+             * With no track to sit after, the bud falls back to the pill's
+             * right corner -- and the row's last items ran straight under it:
+             * the disc painted itself over the keyboard layout. This is that
+             * room, at the end of the row, where the disc actually is, and
+             * the slot above gives its width back at the same time. One
+             * reserve, never two.
+             *
+             * The number is the disc's own width plus its inset, less the
+             * notch's own padding: what is left over once the notch's end
+             * and the disc's corner have each taken their share.
+             */
+            Item {
+                id: stripCornerSlot
+                anchors.verticalCenter: parent.verticalCenter
+                width: (pill.stripBar && bud.shown && bud.stripBudX < 0)
+                    ? (budRestW + budInset - stripPad)
+                    : 0
+                height: 1
+            }
         }
 
         /* Floating visualizer: when music is playing but the strip budget can't
@@ -2921,11 +3066,26 @@ Item {
         // ("Row will not function"), which scattered the chip's contents.
         Item {
             id: stripRecordingBox
-            // No surface/popup gate: a live recording is the one state that must
-            // always be readable, including while a surface is open or the pill
-            // is morphing between faces.
+            /* No surface/popup gate: a live recording is the one state that must
+             * always be readable, including while a surface is open or the pill
+             * is morphing between faces.
+             *
+             * Strip-mode only. The resting face has its OWN mirror of this
+             * chip (`recastRestRow`, gated `!pill.stripBar`), because the
+             * resting row hides itself the moment a recording starts
+             * (`!pill.recastActive`) and this chip is what takes its place --
+             * without the mirror, the normal pill showed an EMPTY capsule for
+             * the whole take: no REC, no countdown, no elapsed count. The two
+             * gates have to be exact opposites, or BOTH render in strip mode
+             * and the pill draws a second REC face over the first. */
             visible: pill.recastFaceVisible && pill.stripBar
-            anchors.centerIn: parent
+            /* The chip takes the row's place when the bar is recording, so it
+             * stands where the row stands: flush-left inside the capsule's
+             * inset, with the disc on its right. Centred in the pill it would
+             * sit half-way into the disc's reserve. */
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: pill.stripBar ? 0 : pill.restFaceOffset
+            anchors.verticalCenter: parent.verticalCenter
             width: stripRecordingFace.implicitWidth
             height: stripRecordingFace.implicitHeight
 
@@ -3056,8 +3216,36 @@ Item {
             visible: !pill.stripBar && opacity > 0.01
             opacity: (pill.mode === "rest" && !pill.recastActive) ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: Motion.fast } }
-            anchors.centerIn: parent
-            spacing: 9 * pill.s
+            /**
+             * The row is NOT centred in the pill.
+             *
+             * The media bud owns the pill's right edge, so a centred row
+             * would push half of the bud's reserve out of the LEFT side as
+             * dead space -- which is exactly what the bar used to do: it
+             * opened with a third of a pill's width of nothing before the
+             * waveform. The row sits flush-left inside the capsule's inset
+             * instead, and the offset below is what puts it there: the
+             * content group (row, gap, disc) stays centred on the screen,
+             * while the row itself starts at the inset.
+             *
+             * The offset is written from the bud's reserve rather than from
+             * the pill's live width, because the pill's width animates during
+             * a morph and the row must not drift while it does.
+             */
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: pill.restFaceOffset
+            anchors.verticalCenter: parent.verticalCenter
+            /**
+             * The row's rhythm.
+             *
+             * Nine scaled pixels between every pair of items was nine pixels
+             * of nothing between the waveform and the date, again between the
+             * date and the divider, again between the divider and the time.
+             * Five is enough for two pieces of information to sit apart and
+             * little enough that the bar reads as ONE group of information
+             * rather than five things standing on a shelf.
+             */
+            spacing: 5 * pill.s
             Item {
                 id: restClock
                 /**
@@ -3076,7 +3264,7 @@ Item {
                 height: clockGlyph.height
 
                 /** Audio leaving the speakers flips the clock face over to the live waveform. */
-                readonly property bool barsOn: Flags.musicViz && Cava.active
+                readonly property bool barsOn: Flags.musicViz && Cava.active && Players.playing
 
                 GlyphIcon {
                     id: clockGlyph
@@ -3115,31 +3303,43 @@ Item {
                 font.weight: Font.DemiBold
                 font.features: { "tnum": 1 }
             }
-            AltText {
+            /**
+             * The date and the time, as one group.
+             *
+             * They used to be two children of the row with a hairline between
+             * them, and the hairline was not free: it cost a divider PLUS a
+             * full row gap on each side, so the pair spent as much space on
+             * the gap around the rule as the rule itself. The rule is gone.
+             *
+             * The separation is now made of air and of type. The date is a
+             * small dim label; the time is a large bright one; and the two
+             * stand a whole gap apart inside their own group, which keeps
+             * them reading as two readings of the moment rather than one
+             * run-together string -- "Wed 21 Oct" and "7:21 PM" are still two
+             * things, and the bar is narrower for it.
+             */
+            Row {
+                id: restDateTime
                 visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "classic"
                 anchors.verticalCenter: parent.verticalCenter
-                text: clock.date
-                color: Theme.dim
-                font.family: Theme.font
-                font.pixelSize: 11.5 * pill.s
-                font.weight: Font.Medium
-            }
-            Rectangle {
-                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "classic"
-                anchors.verticalCenter: parent.verticalCenter
-                width: 1
-                height: 11 * pill.s
-                color: Theme.hair
-            }
-            AltText {
-                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "classic"
-                anchors.verticalCenter: parent.verticalCenter
-                text: clock.hhmm
-                color: Theme.bright
-                font.family: Theme.font
-                font.pixelSize: 15.5 * pill.s
-                font.weight: Font.Bold
-                font.features: { "tnum": 1 }
+                spacing: 9 * pill.s
+                AltText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: clock.date
+                    color: Theme.dim
+                    font.family: Theme.font
+                    font.pixelSize: 11 * pill.s
+                    font.weight: Font.Medium
+                }
+                AltText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: clock.hhmm
+                    color: Theme.bright
+                    font.family: Theme.font
+                    font.pixelSize: 15.5 * pill.s
+                    font.weight: Font.Bold
+                    font.features: { "tnum": 1 }
+                }
             }
             Rectangle {
                 id: restWsBadge
@@ -3182,24 +3382,35 @@ Item {
                     show: wsBadgeMouse.containsMouse && pill.mode === "rest"
                 }
             }
-            AltText {
+            /**
+             * The weekday and the time, as one group.
+             *
+             * The same treatment the classic face gives its date: the pair
+             * stands a whole gap apart inside a group of its own, so the
+             * row's tighter rhythm never squeezes the two readings together.
+             */
+            Row {
+                id: restWeekTime
                 visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
                 anchors.verticalCenter: parent.verticalCenter
-                text: clock.weekday
-                color: Theme.dim
-                font.family: Theme.font
-                font.pixelSize: 11 * pill.s
-                font.weight: Font.DemiBold
-            }
-            AltText {
-                visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
-                anchors.verticalCenter: parent.verticalCenter
-                text: clock.hhmm
-                color: Theme.bright
-                font.family: Theme.font
-                font.pixelSize: 15 * pill.s
-                font.weight: Font.DemiBold
-                font.features: { "tnum": 1 }
+                spacing: 9 * pill.s
+                AltText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: clock.weekday
+                    color: Theme.dim
+                    font.family: Theme.font
+                    font.pixelSize: 11 * pill.s
+                    font.weight: Font.DemiBold
+                }
+                AltText {
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: clock.hhmm
+                    color: Theme.bright
+                    font.family: Theme.font
+                    font.pixelSize: 15 * pill.s
+                    font.weight: Font.DemiBold
+                    font.features: { "tnum": 1 }
+                }
             }
             AltText {
                 visible: !pill.recastActive && pill.specialView === "" && Flags.mainDisplay === "system"
@@ -3439,8 +3650,23 @@ Item {
         readonly property bool live: pill.mode === "hover"
         Row {
             id: hoverRow
-            anchors.centerIn: parent
-            spacing: 16 * pill.s
+            /* Flush-left inside the expanded face's own padding, for the same
+             * reason the resting row is: the disc keeps the right corner, and
+             * a centred row would push half of that reserve out of the left
+             * side as dead air. */
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: pill.hoverFaceOffset
+            anchors.verticalCenter: parent.verticalCenter
+            /**
+             * The gap between the expanded face's sections.
+             *
+             * Sixteen scaled pixels put a fourteen-pixel void between the
+             * logo and the workspace dots, which is the one place the
+             * expanded bar read as two things rather than one. Eleven is
+             * still a clear section break at this size and it stops the
+             * middle of the bar looking empty.
+             */
+            spacing: 11 * pill.s
 
             OsMark {
                 id: osMark
