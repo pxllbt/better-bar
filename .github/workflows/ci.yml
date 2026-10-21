@@ -272,6 +272,12 @@ jobs:
       - name: Run Wallpaper Preserve Pick Tests
         run: bash lib/wallpaper-preserve-pick.test.sh .
 
+      - name: Run Pill Special View Tests
+        run: bash lib/pill-special-view.test.sh .
+
+      - name: Run Pill Media Announcement Tests
+        run: bash lib/media-bud.test.sh .
+
       - name: Run Doctor Self-Check
         run: bash scripts/better-doctor.sh --static
 
