@@ -4107,7 +4107,7 @@ Item {
                         anchors.centerIn: parent
                         spacing: 5 * pill.s
 
-                        LivelyIcon {
+                        GlyphIcon {
                             anchors.verticalCenter: parent.verticalCenter
                             width: pill.iconCell
                             height: pill.iconCell
@@ -4266,7 +4266,7 @@ Item {
                         width: pill.iconCell
                         height: pill.iconCell
 
-                        LivelyIcon {
+                        GlyphIcon {
                             anchors.fill: parent
                             name: "bluetooth"
                             color: btArea.containsMouse ? Theme.cream
@@ -4355,7 +4355,7 @@ Item {
                     height: pill.iconCell
                     property bool cellPresent: true
 
-                    LivelyIcon {
+                    GlyphIcon {
                         id: inboxGlyph
                         anchors.fill: parent
                         name: Flags.dnd ? "dnd" : "inbox"
@@ -4416,7 +4416,7 @@ Item {
                     visible: !Plugins.surfaceDisabled("mixer")
                     property bool cellPresent: !Plugins.surfaceDisabled("mixer")
 
-                    LivelyIcon {
+                    GlyphIcon {
                         anchors.fill: parent
                         name: "mixer"
                         color: mixerArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4455,7 +4455,7 @@ Item {
                     visible: Flags.pillShowSysmon
                     property bool cellPresent: Flags.pillShowSysmon
 
-                    LivelyIcon {
+                    GlyphIcon {
                         anchors.fill: parent
                         name: "monitor"
                         color: sysmonArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4494,7 +4494,7 @@ Item {
                     visible: Flags.pillShowWallpaper && !Plugins.surfaceDisabled("wallpaper")
                     property bool cellPresent: Flags.pillShowWallpaper && !Plugins.surfaceDisabled("wallpaper")
 
-                    LivelyIcon {
+                    GlyphIcon {
                         anchors.fill: parent
                         name: "wallpaper"
                         color: wallpaperArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4533,7 +4533,7 @@ Item {
                     visible: !Plugins.surfaceDisabled("clipboard")
                     property bool cellPresent: !Plugins.surfaceDisabled("clipboard")
 
-                    LivelyIcon {
+                    GlyphIcon {
                         anchors.fill: parent
                         name: "clipboard"
                         color: clipboardArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4573,7 +4573,7 @@ Item {
                     visible: Flags.pillShowLauncher && !Plugins.surfaceDisabled("launcher")
                     property bool cellPresent: Flags.pillShowLauncher && !Plugins.surfaceDisabled("launcher")
 
-                    LivelyIcon {
+                    GlyphIcon {
                         anchors.fill: parent
                         name: "app-window"
                         color: launcherArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4612,7 +4612,7 @@ Item {
                     visible: !Plugins.surfaceDisabled("appearance")
                     property bool cellPresent: !Plugins.surfaceDisabled("appearance")
 
-                    LivelyIcon {
+                    GlyphIcon {
                         anchors.fill: parent
                         name: "cog"
                         // Scale only, no stroke offset: the gear's teeth are
@@ -4659,7 +4659,7 @@ Item {
                     visible: Flags.pillShowPower && !Plugins.surfaceDisabled("power")
                     property bool cellPresent: Flags.pillShowPower && !Plugins.surfaceDisabled("power")
 
-                    LivelyIcon {
+                    GlyphIcon {
                         anchors.fill: parent
                         name: "shutdown"
                         color: powerArea.containsMouse ? Theme.cream : Theme.iconDim
