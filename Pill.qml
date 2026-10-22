@@ -3345,11 +3345,42 @@ Item {
                 visible: !pill.recastActive && (pill.specialView === "" || pill.notchBar)
                     && (Flags.mainDisplay === "system" ? barsOn : slotUsed)
                 anchors.verticalCenter: parent.verticalCenter
-                width: clockGlyph.width
-                height: clockGlyph.height
+                /**
+                 * The slot is as big as the LARGER of the two things that
+                 * live in it. It used to be exactly the clock glyph's box,
+                 * which is narrower than seven spectrum bars, so the bars
+                 * hung out of their own slot and into the date beside them
+                 * -- and in the notch, where there is no slack at all, they
+                 * were the first thing to go missing.
+                 *
+                 * The size is the MAXIMUM of the two, so it never changes:
+                 * the bar does not grow when the music starts and shrink
+                 * when it stops. It only ever has room for both.
+                 */
+                width: Math.max(clockGlyph.width, musicBars.width)
+                height: Math.max(clockGlyph.height, musicBars.height)
 
-                /** Audio leaving the speakers flips the clock face over to the live waveform. */
-                readonly property bool barsOn: Flags.musicViz && Cava.active && Players.playing && (pill.mode === "hover" || Players.justStarted)
+                /**
+                 * Audio leaving the speakers flips the clock face over to the
+                 * live waveform.
+                 *
+                 * The waveform used to be tied to a MOMENT -- the five seconds
+                 * after a track started -- and to a PLAYER. Both were wrong. A
+                 * bar that is open hides the resting row, so the "open" half
+                 * of the old condition could never be seen; and a moment is
+                 * not a state, so the one thing the bar is best at -- saying
+                 * what is playing RIGHT NOW -- lasted five seconds and then
+                 * went back to a clock.
+                 *
+                 * It is a state now: audio is coming out of the machine, so
+                 * the bar shows the audio. `Cava.active` is the honest
+                 * signal, because cava watches the default sink and hears
+                 * anything at all -- a game, a video, a call -- not only what
+                 * an MPRIS player is willing to admit to. The player check
+                 * stays as a second door, not a gate: with no player at all
+                 * the audio is still real.
+                 */
+                readonly property bool barsOn: Flags.musicViz && Cava.active && (Players.playing || !Players.has)
 
                 GlyphIcon {
                     id: clockGlyph
