@@ -370,6 +370,50 @@ Item {
 
     readonly property var layers: art[name] !== undefined ? art[name].layers : []
 
+    /** The 24-unit path space scaled into this cell, exactly as the line glyphs do it. */
+    readonly property real u: Math.min(width, height) / 24
+
+    /**
+     * The layers, grouped by paint.
+     *
+     * A `Shape` can only hold shape paths, and a `Repeater` can only
+     * create items -- so the artwork cannot be instantiated from a list.
+     * It can, however, be PAINTED from a list: one path can carry many
+     * subpaths, and every subpath in a path shares its fill and its
+     * stroke. So the layers are grouped by the paint they use, each
+     * group's paths are joined into one path string, and a fixed set of
+     * path slots takes them.
+     *
+     * Six slots is enough for every icon here; the empty ones cost
+     * nothing, because a path with no data has no bounds and no paint.
+     */
+    readonly property var groups: groupLayers(layers)
+
+    function groupLayers(list) {
+        const out = [];
+        for (let i = 0; i < list.length; i++) {
+            const l = list[i];
+            const key = (l.fill || "") + "|" + (l.stroke || "") + "|" + (l.w || 0);
+            let g = null;
+            for (let j = 0; j < out.length; j++) {
+                if (out[j].key === key) {
+                    g = out[j];
+                    break;
+                }
+            }
+            if (!g) {
+                g = { "key": key, "fill": l.fill || "transparent", "stroke": l.stroke || "transparent", "w": l.w || 0, "d": "" };
+                out.push(g);
+            }
+            g.d += (g.d ? " " : "") + l.d;
+        }
+        return out;
+    }
+
+    function groupAt(i) {
+        return i < groups.length ? groups[i] : { "fill": "transparent", "stroke": "transparent", "w": 0, "d": "" };
+    }
+
     /**
      * The bounce.
      *
@@ -412,21 +456,58 @@ Item {
         preferredRendererType: Shape.CurveRenderer
         visible: root.layers.length > 0
 
-        Repeater {
-            model: root.layers
+        ShapePath {
+            fillColor: root.groupAt(0).fill
+            strokeColor: root.groupAt(0).stroke
+            strokeWidth: root.groupAt(0).w
+            capStyle: ShapePath.RoundCap
+            joinStyle: ShapePath.RoundJoin
+            PathSvg { path: root.groupAt(0).d }
+        }
 
-            delegate: ShapePath {
-                required property var modelData
-                fillColor: modelData.fill !== undefined ? modelData.fill : "transparent"
-                strokeColor: modelData.stroke !== undefined ? modelData.stroke : "transparent"
-                strokeWidth: modelData.w !== undefined ? modelData.w : 0
-                capStyle: ShapePath.RoundCap
-                joinStyle: ShapePath.RoundJoin
+        ShapePath {
+            fillColor: root.groupAt(1).fill
+            strokeColor: root.groupAt(1).stroke
+            strokeWidth: root.groupAt(1).w
+            capStyle: ShapePath.RoundCap
+            joinStyle: ShapePath.RoundJoin
+            PathSvg { path: root.groupAt(1).d }
+        }
 
-                PathSvg {
-                    path: modelData.d
-                }
-            }
+        ShapePath {
+            fillColor: root.groupAt(2).fill
+            strokeColor: root.groupAt(2).stroke
+            strokeWidth: root.groupAt(2).w
+            capStyle: ShapePath.RoundCap
+            joinStyle: ShapePath.RoundJoin
+            PathSvg { path: root.groupAt(2).d }
+        }
+
+        ShapePath {
+            fillColor: root.groupAt(3).fill
+            strokeColor: root.groupAt(3).stroke
+            strokeWidth: root.groupAt(3).w
+            capStyle: ShapePath.RoundCap
+            joinStyle: ShapePath.RoundJoin
+            PathSvg { path: root.groupAt(3).d }
+        }
+
+        ShapePath {
+            fillColor: root.groupAt(4).fill
+            strokeColor: root.groupAt(4).stroke
+            strokeWidth: root.groupAt(4).w
+            capStyle: ShapePath.RoundCap
+            joinStyle: ShapePath.RoundJoin
+            PathSvg { path: root.groupAt(4).d }
+        }
+
+        ShapePath {
+            fillColor: root.groupAt(5).fill
+            strokeColor: root.groupAt(5).stroke
+            strokeWidth: root.groupAt(5).w
+            capStyle: ShapePath.RoundCap
+            joinStyle: ShapePath.RoundJoin
+            PathSvg { path: root.groupAt(5).d }
         }
     }
 
