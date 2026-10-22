@@ -493,6 +493,46 @@ cmd="${1:-}"
 target=""
 
 # ---------------------------------------------------------------------------
+# a dangling background
+# ---------------------------------------------------------------------------
+#
+# `current/background` is the link every wallpaper reader trusts: omarchy
+# writes it, the bar follows it, the dock reads it. It can point at a file
+# that is no longer there -- a wallpaper folder that got cleaned out, a sync
+# that took the file away -- and then the screen is blank, because nothing
+# is wrong enough to report: the link exists, it simply leads nowhere.
+#
+# So the link is healed on the way in, on every invocation. The theme's own
+# wallpaper takes the place of the missing one, and a machine that boots
+# into a deleted wallpaper opens with the theme's picture rather than with
+# nothing.
+theme_background() {
+    local dir file theme_name
+    theme_name=$(cat "$HOME/.local/state/omarchy/current/theme.name" 2>/dev/null) || theme_name=""
+    for dir in "$HOME/.local/state/omarchy/current/theme/backgrounds" \
+               "$HOME/.config/omarchy/backgrounds/$theme_name"; do
+        [ -d "$dir" ] || continue
+        for file in "$dir"/*; do
+            [ -f "$file" ] || continue
+            printf '%s\n' "$file"
+            return 0
+        done
+    done
+    return 1
+}
+
+heal_dangling_background() {
+    local link="$HOME/.local/state/omarchy/current/background" bg
+    [ -L "$link" ] || return 0
+    [ -e "$link" ] && return 0
+    bg=$(theme_background) || return 0
+    ln -nsf "$bg" "$link" 2>/dev/null || true
+    printf 'better: the wallpaper was gone; using the theme wallpaper instead\n' >&2
+}
+
+heal_dangling_background
+
+# ---------------------------------------------------------------------------
 # wallpaper ownership
 # ---------------------------------------------------------------------------
 #
@@ -723,6 +763,15 @@ should_apply() {
 
     current=$(cat "$STATE" 2>/dev/null) || current=""
     [ -n "$current" ] || return 0
+    # A pick whose file is GONE cannot outrank anything.
+    #
+    # The guard protects the wallpaper the user picked, so that a theme
+    # wallpaper arriving on its own does not replace it. When the picked
+    # file has been deleted there is nothing left to protect, and the
+    # guard was protecting a ghost: the theme's wallpaper was refused, and
+    # the screen stayed blank because the one thing the guard was keeping
+    # was the one thing that was missing.
+    [ -f "$current" ] || return 0
     [ "$(wallpaper_owner "$current")" = "user" ] || return 0
 
     # A wallpaper you picked is yours while you are on the theme you picked it

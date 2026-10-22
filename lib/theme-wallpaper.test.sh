@@ -88,6 +88,21 @@ user_is_showing
 ok "a pick made on this theme is protected from a theme wallpaper arriving on its own" \
     "$(can_apply "$THEME_BG")" "no"
 
+# --- the pick is gone ------------------------------------------------------
+# A pick whose file has been deleted cannot outrank anything.
+#
+# The guard protects the wallpaper the user picked, so that a theme wallpaper
+# arriving on its own does not replace it. When the picked file has been
+# deleted there is nothing left to protect: the guard was protecting a
+# ghost, the theme's wallpaper was refused, and the screen stayed blank --
+# the one thing the guard was keeping was the one thing that was missing.
+setup
+set_theme "lawson-night"
+user_is_showing
+rm -f "$USER_BG"
+ok "a pick whose file is gone does not freeze the screen" \
+    "$(can_apply "$THEME_BG")" "yes"
+
 # --- the switch the user asked for --------------------------------------
 setup
 set_theme "lawson-night"
