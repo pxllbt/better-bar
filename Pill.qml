@@ -368,7 +368,8 @@ Item {
      * the first attempt and it read as a divider across the desktop, not as
      * a bar.
      */
-    readonly property real notchW: restRow.implicitWidth + 2 * pill.notchPad + pill.budSlot
+    readonly property real notchW: Math.max(restRow.implicitWidth, 140 * pill.s)
+        + 2 * pill.notchPad + pill.budSlot
 
     /**
      * The notch's own inset and row spacing.
@@ -1107,18 +1108,19 @@ Item {
     /**
      * The face the bar is showing.
      *
-     * The notch never leaves its own face. It used to follow the expanded
-     * face like every other mode, and in a notch that face collapses: the
-     * hover row is built from the workspace dots and the status cells, and
-     * in a tab cut into the top edge there is no room for either, so the
-     * row's width fell to the width of the workspace indicator alone and
-     * the bar became a sliver with a blue dash floating in it.
+     * A notch is a shape, not a face and not a width. The shape is
+     * `topFlat` -- square top corners, flush against the screen edge -- and
+     * it holds for every mode while the display is set to notch, so the bar
+     * can expand into the hover face with its workspace dots and its status
+     * cells and still read as a tab cut into the top edge.
      *
-     * That is what a workspace switch used to leave behind: not a wider
-     * bar, but a smaller one, in a shape the setting never asked for. A
-     * notch is a shape, not a width, so the shape is kept and the content
-     * with it. Surfaces still open over it -- they are a different kind of
-     * face entirely, and they are the bar's own doing.
+     * What must not happen is the notch pinning the RESTING face while it is
+     * expanded. The resting face fades out on hover, and the hover face only
+     * draws while it is the mode, so pinning the mode to "rest" in a notch
+     * left both faces hidden: hovering the bar made it go completely blank,
+     * with only the clock slot and the waveform still drawing. The face
+     * follows the state like every other display; the setting controls the
+     * shape, not which face is allowed to speak.
      */
     readonly property string mode: dragActive ? "dragOver"
         : (Flags.gameMode ? "game"
@@ -1126,7 +1128,7 @@ Item {
         : (surfaceOpen && Object.prototype.hasOwnProperty.call(pill.surfaces, surface) ? surface
         : (toastActive && Notifs.toastCritical && !held ? "toast"
         : (toastActive && !held ? "toast"
-        : (expanded && !pill.notchBar ? "hover" : "rest"))))))
+        : (expanded ? "hover" : "rest"))))))
 
     /**
      * AppImage drag-install state, live only while a file hovers the resting pill.
@@ -3364,6 +3366,9 @@ Item {
                 readonly property bool slotUsed: barsOn || Flags.clockIcon
                 visible: !pill.recastActive && (pill.specialView === "" || pill.notchBar)
                     && (Flags.mainDisplay === "system" ? barsOn : slotUsed)
+                // The Row measures implicit widths; an Item placed by a
+                // bound width would otherwise report zero (notch-width).
+                implicitWidth: width
                 anchors.verticalCenter: parent.verticalCenter
                 /**
                  * The slot is as big as the LARGER of the two things that
@@ -3483,6 +3488,9 @@ Item {
             Rectangle {
                 id: restWsBadge
                 visible: !pill.recastActive && ws && ws.activeWs !== ""
+                // See restClock: a Row measures implicit widths, and this
+                // badge is placed by an explicit width.
+                implicitWidth: width
                 anchors.verticalCenter: parent.verticalCenter
                 width: Math.max(18 * pill.s, restWsText.implicitWidth + 10 * pill.s)
                 height: 17 * pill.s
@@ -3714,6 +3722,8 @@ Item {
                 id: restAgentChip
                 anchors.verticalCenter: parent.verticalCenter
                 visible: Agents.urgent > 0
+                // See restClock: the Row measures implicit widths.
+                implicitWidth: width
                 width: 18 * pill.s
                 height: 18 * pill.s
                 radius: 9 * pill.s
@@ -3737,6 +3747,8 @@ Item {
             Item {
                 id: restUpdate
                 visible: Updater.omarchyUpdateAvailable
+                // See restClock: the Row measures implicit widths.
+                implicitWidth: width
                 anchors.verticalCenter: parent.verticalCenter
                 width: 16 * pill.s
                 height: 16 * pill.s
