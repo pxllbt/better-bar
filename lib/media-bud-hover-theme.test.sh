@@ -95,11 +95,27 @@ ok "the disc face is a theme surface, not a hardcoded grey" \
 ok "the disc no longer paints a fixed near-black face" \
     "$(grep -c 'Qt.rgba(0.07, 0.07, 0.08' "$DISC")" "0"
 
-ok "the spindle hub is derived from the theme surface" \
-    "$(grep -c 'Qt.darker(Theme.tileBg' "$DISC")" "1"
-
 ok "the disc no longer paints a fixed black hub" \
     "$(grep -c 'Qt.rgba(0, 0, 0, 0.9)' "$DISC")" "0"
+
+# The spindle hub is gone altogether.
+#
+# A record has a hole in it, and the disc used to carry one -- a dark disc
+# over the middle of the artwork. On a record that works because the record
+# is mostly black; on a cover that is mostly colour it read as a lens, a
+# black pupil in the middle of someone's face. The cover is now the cover,
+# all the way out to the rim, and the roundness comes from the light.
+ok "the disc carries no spindle hub at all" \
+    "$(grep -c 'Qt.darker(Theme.tileBg' "$DISC")" "0"
+
+# And the light does not turn with the record.
+#
+# The dome and the specular sweep were painted inside the rotating item, so
+# they turned with the artwork and the disc appeared to wobble instead of to
+# spin -- a viewer could not tell a playing record from a still one. The
+# light is painted above the disc now, and stays put.
+ok "the light is painted outside the rotating disc" \
+    "$(awk '/id: disc/{d=NR} /id: finish/{print (d && NR > d) ? "outside" : "inside"}' "$DISC" | head -1)" "outside"
 
 # --- the card dismisses itself when nothing is playing --------------------
 # The auto-dismiss block runs from its banner to the end of the Players

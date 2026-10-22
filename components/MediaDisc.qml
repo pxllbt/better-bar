@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import "../Singletons"
 
 /**
@@ -202,15 +203,18 @@ Item {
             }
         }
 
-        // The album art, clipped to a circle. A rounded clip does the same job
-        // as the old mask effect for a fraction of the cost: one clipped node
-        // instead of a second render target.
-        Rectangle {
+        // The album art, clipped to a circle by the mask effect below. A
+        // plain `clip` cannot do it: Qt Quick clips to the bounding rectangle,
+        // so a rounded rectangle clips square.
+        Item {
             id: artWrap
             anchors.fill: parent
-            radius: width / 2
-            clip: true
             visible: root.coverUrl.length > 0
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: discMask
+            }
 
             Image {
                 id: art
@@ -223,6 +227,16 @@ Item {
                 cache: String(source).indexOf("file:") !== 0
                 visible: status === Image.Ready || status === Image.Loading
             }
+        }
+
+        // The circular mask the art is cut to.
+        Rectangle {
+            id: discMask
+            anchors.fill: parent
+            radius: width / 2
+            color: "black"
+            visible: false
+            layer.enabled: true
         }
 
         // The light on the disc: a dome from the upper left, an inner shadow
