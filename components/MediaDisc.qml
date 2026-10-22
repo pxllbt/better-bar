@@ -12,11 +12,18 @@ import "../Singletons"
  * The disc is built like the thing it pretends to be. The art is clipped to a
  * circle; the surface carries a dome of light and an inner shadow, so it
  * reads as a physical object rather than a picture of a circle; the rim
- * catches the light on one side and falls away on the other; the spindle hole
- * sits in the middle. With no artwork it falls back to a record — concentric
- * grooves and a label tinted with the theme's accent.
+ * catches the light on one side and falls away on the other; a small spindle
+ * hole is punched through the middle. With no artwork it falls back to a
+ * record — concentric grooves and a label tinted with the theme's accent.
  *
- * The light is painted once into a canvas and afterwards only rotated, so a
+ * The art turns and the LIGHT DOES NOT. The dome, the inner shadow, the
+ * specular sweep and the spindle hole are painted in a layer above the
+ * rotating disc, where a real light is: a record turns under a fixed lamp,
+ * and a highlight that turned with the artwork made the disc look like it
+ * was wobbling rather than spinning. A viewer could not tell a playing
+ * record from a still one.
+ *
+ * The light is painted once into a canvas and afterwards only read, so a
  * spinning disc costs one transform and nothing else: no shader, no blur, no
  * per-frame repaint of anything around it.
  *
@@ -44,13 +51,15 @@ Item {
     readonly property int coastMs: 900
     /**
      * Motion is a preference, not a decoration. With reduced motion on the
-     * disc holds still — and the ring, the art and the state all still say
+     * disc holds still — and the rim, the art and the state all still say
      * what the music is doing.
      */
     readonly property bool motion: !Flags.reduceMotion
     readonly property bool turning: root.spinning && root.motion
     /** Fine detail only pays for itself on a disc big enough to show it. */
     readonly property bool fine: root.width >= 40
+    /** A spindle hole needs a few pixels before it reads as a hole. */
+    readonly property bool holed: root.width >= 26
     /** The angle the loop resumes from, so a resume never snaps back. */
     property real spinFrom: 0
 
@@ -75,7 +84,7 @@ Item {
     readonly property color sheenColor: root.mix(root.light, Theme.accent, 0.25)
 
     /**
-     * Everything the finish is painted with, in one string, so a theme change
+     * Everything the light is painted with, in one string, so a theme change
      * can ask for a repaint without the canvas having to know what it
      * depends on.
      */
@@ -138,6 +147,10 @@ Item {
         }
     }
 
+    /**
+     * The record itself: the body, the grooves and the artwork. This is the
+     * part that turns.
+     */
     Item {
         id: disc
         anchors.centerIn: parent
@@ -166,10 +179,9 @@ Item {
                 width: parent.width * 0.46
                 height: parent.width * 0.46
                 radius: width / 2
-                color: Qt.alpha(Theme.accent, 0.14)
+                color: Qt.alpha(Theme.accent, 0.16)
                 border.width: Math.max(1, 1 * root.s)
-                border.color: Qt.alpha(Theme.accent, 0.24)
-                visible: root.fine
+                border.color: Qt.alpha(Theme.accent, 0.26)
             }
 
             Rectangle {
@@ -238,102 +250,128 @@ Item {
             visible: false
             layer.enabled: true
         }
+    }
 
-        // The light on the disc: a dome from the upper left, an inner shadow
-        // at the rim, a specular sweep across the surface, and the edge itself
-        // lit on one side and in shadow on the other.
-        Canvas {
-            id: finish
-            anchors.fill: parent
-            renderStrategy: Canvas.Cooperative
-            onPaint: {
-                const ctx = getContext("2d");
-                const w = width, h = height;
-                ctx.clearRect(0, 0, w, h);
-                if (w <= 0 || h <= 0)
-                    return;
-                const r = Math.min(w, h) / 2;
-                const cx = w / 2, cy = h / 2;
+    /**
+     * The light on the disc, painted ABOVE the record so it stays put while
+     * the record turns under it: a dome from the upper left, an inner shadow
+     * at the rim, a specular sweep across the surface, the edge lit on one
+     * side and in shadow on the other, and the spindle hole punched through
+     * the middle.
+     */
+    Canvas {
+        id: finish
+        anchors.centerIn: parent
+        width: root.width
+        height: root.height
+        renderStrategy: Canvas.Cooperative
+        onPaint: {
+            const ctx = getContext("2d");
+            const w = width, h = height;
+            ctx.clearRect(0, 0, w, h);
+            if (w <= 0 || h <= 0)
+                return;
+            const r = Math.min(w, h) / 2;
+            const cx = w / 2, cy = h / 2;
 
-                ctx.save();
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2);
+            ctx.clip();
+
+            // The dome: light falls from the upper left, so the disc is
+            // brightest a little above and left of its centre.
+            const dome = ctx.createRadialGradient(cx - r * 0.20, cy - r * 0.24, r * 0.04,
+                    cx - r * 0.20, cy - r * 0.24, r * 0.98);
+            dome.addColorStop(0.0, root.css(root.sheenColor, 0.13));
+            dome.addColorStop(0.55, root.css(root.sheenColor, 0.05));
+            dome.addColorStop(1.0, root.css(root.sheenColor, 0.0));
+            ctx.fillStyle = dome;
+            ctx.fillRect(0, 0, w, h);
+
+            // The inner shadow: the rim falls away into shadow.
+            const vig = ctx.createRadialGradient(cx, cy, r * 0.40, cx, cy, r);
+            vig.addColorStop(0.0, "rgba(0,0,0,0)");
+            vig.addColorStop(0.70, "rgba(0,0,0,0.04)");
+            vig.addColorStop(0.90, "rgba(0,0,0,0.16)");
+            vig.addColorStop(1.0, "rgba(0,0,0,0.30)");
+            ctx.fillStyle = vig;
+            ctx.fillRect(0, 0, w, h);
+
+            if (root.fine) {
+                // The specular sweep: a soft band of light crossing the
+                // surface, the way light crosses a record.
+                const ang = -Math.PI / 3;
+                const dx = Math.cos(ang), dy = Math.sin(ang);
+                const mid = -r * 0.28;
+                const mx = cx + dx * mid, my = cy + dy * mid;
+                const band = ctx.createLinearGradient(mx - dy * r, my + dx * r,
+                        mx + dy * r, my - dx * r);
+                band.addColorStop(0.00, root.css(root.sheenColor, 0.0));
+                band.addColorStop(0.34, root.css(root.sheenColor, 0.16));
+                band.addColorStop(0.50, root.css(root.sheenColor, 0.30));
+                band.addColorStop(0.66, root.css(root.sheenColor, 0.16));
+                band.addColorStop(1.00, root.css(root.sheenColor, 0.0));
+                ctx.fillStyle = band;
+                ctx.fillRect(0, 0, w, h);
+
+                // The lit edge: the rim catches the light on the upper left
+                // and falls into shadow on the lower right. It sits just
+                // inside the hairline rim, which would otherwise bury it.
+                ctx.lineWidth = Math.max(1, 1.2 * root.s);
+                ctx.lineCap = "round";
+                ctx.strokeStyle = root.css(Theme.cream, 0.38);
                 ctx.beginPath();
-                ctx.arc(cx, cy, r - 0.5, 0, Math.PI * 2);
-                ctx.clip();
-
-                // The dome: light falls from the upper left, so the disc is
-                // brightest a little above and left of its centre.
-                const dome = ctx.createRadialGradient(cx - r * 0.20, cy - r * 0.24, r * 0.04,
-                        cx - r * 0.20, cy - r * 0.24, r * 0.98);
-                dome.addColorStop(0.0, root.css(root.sheenColor, 0.11));
-                dome.addColorStop(0.55, root.css(root.sheenColor, 0.04));
-                dome.addColorStop(1.0, root.css(root.sheenColor, 0.0));
-                ctx.fillStyle = dome;
-                ctx.fillRect(0, 0, w, h);
-
-                // The inner shadow: the rim falls away into shadow.
-                const vig = ctx.createRadialGradient(cx, cy, r * 0.40, cx, cy, r);
-                vig.addColorStop(0.0, "rgba(0,0,0,0)");
-                vig.addColorStop(0.70, "rgba(0,0,0,0.04)");
-                vig.addColorStop(0.90, "rgba(0,0,0,0.16)");
-                vig.addColorStop(1.0, "rgba(0,0,0,0.30)");
-                ctx.fillStyle = vig;
-                ctx.fillRect(0, 0, w, h);
-
-                if (root.fine) {
-                    // The specular sweep: a soft band of light crossing the
-                    // surface, the way light crosses a record.
-                    const ang = -Math.PI / 3;
-                    const dx = Math.cos(ang), dy = Math.sin(ang);
-                    const mid = -r * 0.28;
-                    const mx = cx + dx * mid, my = cy + dy * mid;
-                    const band = ctx.createLinearGradient(mx - dy * r, my + dx * r,
-                            mx + dy * r, my - dx * r);
-                    band.addColorStop(0.00, root.css(root.sheenColor, 0.0));
-                    band.addColorStop(0.34, root.css(root.sheenColor, 0.10));
-                    band.addColorStop(0.50, root.css(root.sheenColor, 0.17));
-                    band.addColorStop(0.66, root.css(root.sheenColor, 0.10));
-                    band.addColorStop(1.00, root.css(root.sheenColor, 0.0));
-                    ctx.fillStyle = band;
-                    ctx.fillRect(0, 0, w, h);
-
-                    // The lit edge: the rim catches the light on the upper
-                    // left and falls into shadow on the lower right.
-                    ctx.lineWidth = Math.max(1, 1.2 * root.s);
-                    ctx.lineCap = "round";
-                    ctx.strokeStyle = root.css(Theme.cream, 0.42);
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, r - ctx.lineWidth * 0.5, Math.PI * 1.12, Math.PI * 1.62);
-                    ctx.stroke();
-                    ctx.strokeStyle = "rgba(0,0,0,0.35)";
-                    ctx.beginPath();
-                    ctx.arc(cx, cy, r - ctx.lineWidth * 0.5, Math.PI * 0.12, Math.PI * 0.62);
-                    ctx.stroke();
-                }
-                ctx.restore();
+                ctx.arc(cx, cy, r - ctx.lineWidth * 1.8, Math.PI * 1.12, Math.PI * 1.62);
+                ctx.stroke();
+                ctx.strokeStyle = "rgba(0,0,0,0.32)";
+                ctx.beginPath();
+                ctx.arc(cx, cy, r - ctx.lineWidth * 1.8, Math.PI * 0.12, Math.PI * 0.62);
+                ctx.stroke();
             }
-        }
 
-        // The rim: a hairline that keeps the edge crisp over a busy pill.
-        Rectangle {
-            anchors.fill: parent
-            radius: width / 2
-            color: "transparent"
-            border.width: Math.max(1, 1 * root.s)
-            border.color: root.rimColor
-            Behavior on border.color { ColorAnimation { duration: Motion.fast } }
-        }
+            if (root.holed) {
+                // The spindle hole: a small hole punched through the middle,
+                // with the light catching its far wall. It is drawn here,
+                // in the light, so it stays put while the artwork turns
+                // around it — and it is a HOLE, not a dark disc laid over
+                // the cover: the artwork runs unbroken to the rim.
+                const hr = r * 0.11;
+                const shade = ctx.createRadialGradient(cx - hr * 0.4, cy - hr * 0.4, hr * 0.5,
+                        cx, cy, hr * 2.2);
+                shade.addColorStop(0.0, "rgba(0,0,0,0.30)");
+                shade.addColorStop(1.0, "rgba(0,0,0,0)");
+                ctx.fillStyle = shade;
+                ctx.beginPath();
+                ctx.arc(cx, cy, hr * 2.2, 0, Math.PI * 2);
+                ctx.fill();
 
-        // Spindle hub, in the media surface's idiom: dark centre with a light
-        // ring, so it reads as a hole rather than a flat dot.
-        Rectangle {
-            anchors.centerIn: parent
-            width: parent.width * 0.24
-            height: parent.width * 0.24
-            radius: width / 2
-            color: Qt.darker(Theme.tileBg, 1.7)
-            border.width: Math.max(1, 1 * root.s)
-            border.color: Qt.alpha(Theme.cream, 0.25)
+                ctx.fillStyle = "rgba(4,4,6,0.94)";
+                ctx.beginPath();
+                ctx.arc(cx, cy, hr, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.lineWidth = Math.max(1, 1 * root.s);
+                ctx.strokeStyle = root.css(Theme.cream, 0.32);
+                ctx.beginPath();
+                ctx.arc(cx, cy, hr - ctx.lineWidth * 0.5, Math.PI * 0.06, Math.PI * 0.86);
+                ctx.stroke();
+            }
+            ctx.restore();
         }
+    }
+
+    // The rim: a hairline that keeps the edge crisp over a busy pill, and
+    // the only part of the disc that says anything about the state.
+    Rectangle {
+        anchors.centerIn: parent
+        width: root.width
+        height: root.height
+        radius: width / 2
+        color: "transparent"
+        border.width: Math.max(1, 1 * root.s)
+        border.color: root.rimColor
+        Behavior on border.color { ColorAnimation { duration: Motion.fast } }
     }
 
     // --- the platter --------------------------------------------------------
@@ -437,6 +475,8 @@ Item {
         shadow.requestPaint();
         finish.requestPaint();
     }
+
+    onHoledChanged: finish.requestPaint()
 
     onThemeStampChanged: finish.requestPaint()
 
