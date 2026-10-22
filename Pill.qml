@@ -1104,13 +1104,29 @@ Item {
             Qt.callLater(pill.reapJs);
     }
 
+    /**
+     * The face the bar is showing.
+     *
+     * The notch never leaves its own face. It used to follow the expanded
+     * face like every other mode, and in a notch that face collapses: the
+     * hover row is built from the workspace dots and the status cells, and
+     * in a tab cut into the top edge there is no room for either, so the
+     * row's width fell to the width of the workspace indicator alone and
+     * the bar became a sliver with a blue dash floating in it.
+     *
+     * That is what a workspace switch used to leave behind: not a wider
+     * bar, but a smaller one, in a shape the setting never asked for. A
+     * notch is a shape, not a width, so the shape is kept and the content
+     * with it. Surfaces still open over it -- they are a different kind of
+     * face entirely, and they are the bar's own doing.
+     */
     readonly property string mode: dragActive ? "dragOver"
         : (Flags.gameMode ? "game"
         : (pluginSurfaceOpen ? "plugin"
         : (surfaceOpen && Object.prototype.hasOwnProperty.call(pill.surfaces, surface) ? surface
         : (toastActive && Notifs.toastCritical && !held ? "toast"
         : (toastActive && !held ? "toast"
-        : (expanded ? "hover" : "rest"))))))
+        : (expanded && !pill.notchBar ? "hover" : "rest"))))))
 
     /**
      * AppImage drag-install state, live only while a file hovers the resting pill.
@@ -1785,6 +1801,10 @@ Item {
             s: pill.s
             spinning: budArea.containsMouse || (Players.has && Players.playing)
             coverUrl: Players.has && Players.artUrl ? Players.artUrl : ""
+            /* The disc answers the pointer too: its rim takes the theme's
+             * accent under the cursor, so the bud says "this is live" without
+             * anything beside it having to move. */
+            hovered: budArea.containsMouse
             /* The hover answer, moved inside the glass. The bubble itself keeps
              * its size so that nothing beside it has to move -- the art
              * swells instead, which is the half of the disc the eye is
@@ -4075,7 +4095,7 @@ Item {
                         anchors.centerIn: parent
                         spacing: 5 * pill.s
 
-                        GlyphIcon {
+                        LivelyIcon {
                             anchors.verticalCenter: parent.verticalCenter
                             width: pill.iconCell
                             height: pill.iconCell
@@ -4234,7 +4254,7 @@ Item {
                         width: pill.iconCell
                         height: pill.iconCell
 
-                        GlyphIcon {
+                        LivelyIcon {
                             anchors.fill: parent
                             name: "bluetooth"
                             color: btArea.containsMouse ? Theme.cream
@@ -4323,11 +4343,21 @@ Item {
                     height: pill.iconCell
                     property bool cellPresent: true
 
-                    GlyphIcon {
+                    LivelyIcon {
+                        id: inboxGlyph
                         anchors.fill: parent
                         name: Flags.dnd ? "dnd" : "inbox"
                         color: Flags.dnd ? Theme.verm : (inboxArea.containsMouse ? Theme.cream : Theme.iconDim)
                         stroke: 1.7
+                        /**
+                         * A new notification makes the bell give a bounce.
+                         * The count is watched rather than the icon: the
+                         * glyph itself does not change when one arrives, so
+                         * without this the only sign of a new notification
+                         * was a dot that had already been there.
+                         */
+                        property int lastUnread: Notifs.unread
+                        onLastUnreadChanged: inboxGlyph.pulse()
                     }
 
                     Rectangle {
@@ -4374,7 +4404,7 @@ Item {
                     visible: !Plugins.surfaceDisabled("mixer")
                     property bool cellPresent: !Plugins.surfaceDisabled("mixer")
 
-                    GlyphIcon {
+                    LivelyIcon {
                         anchors.fill: parent
                         name: "mixer"
                         color: mixerArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4413,7 +4443,7 @@ Item {
                     visible: Flags.pillShowSysmon
                     property bool cellPresent: Flags.pillShowSysmon
 
-                    GlyphIcon {
+                    LivelyIcon {
                         anchors.fill: parent
                         name: "monitor"
                         color: sysmonArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4452,7 +4482,7 @@ Item {
                     visible: Flags.pillShowWallpaper && !Plugins.surfaceDisabled("wallpaper")
                     property bool cellPresent: Flags.pillShowWallpaper && !Plugins.surfaceDisabled("wallpaper")
 
-                    GlyphIcon {
+                    LivelyIcon {
                         anchors.fill: parent
                         name: "wallpaper"
                         color: wallpaperArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4491,7 +4521,7 @@ Item {
                     visible: !Plugins.surfaceDisabled("clipboard")
                     property bool cellPresent: !Plugins.surfaceDisabled("clipboard")
 
-                    GlyphIcon {
+                    LivelyIcon {
                         anchors.fill: parent
                         name: "clipboard"
                         color: clipboardArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4531,7 +4561,7 @@ Item {
                     visible: Flags.pillShowLauncher && !Plugins.surfaceDisabled("launcher")
                     property bool cellPresent: Flags.pillShowLauncher && !Plugins.surfaceDisabled("launcher")
 
-                    GlyphIcon {
+                    LivelyIcon {
                         anchors.fill: parent
                         name: "app-window"
                         color: launcherArea.containsMouse ? Theme.cream : Theme.iconDim
@@ -4570,7 +4600,7 @@ Item {
                     visible: !Plugins.surfaceDisabled("appearance")
                     property bool cellPresent: !Plugins.surfaceDisabled("appearance")
 
-                    GlyphIcon {
+                    LivelyIcon {
                         anchors.fill: parent
                         name: "cog"
                         // Scale only, no stroke offset: the gear's teeth are
@@ -4617,7 +4647,7 @@ Item {
                     visible: Flags.pillShowPower && !Plugins.surfaceDisabled("power")
                     property bool cellPresent: Flags.pillShowPower && !Plugins.surfaceDisabled("power")
 
-                    GlyphIcon {
+                    LivelyIcon {
                         anchors.fill: parent
                         name: "shutdown"
                         color: powerArea.containsMouse ? Theme.cream : Theme.iconDim

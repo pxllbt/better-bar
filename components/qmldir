@@ -2,6 +2,7 @@ Ame Ame.qml
 Filament Filament.qml
 LiquidGlass LiquidGlass.qml
 GlyphIcon GlyphIcon.qml
+LivelyIcon LivelyIcon.qml
 HeatHold HeatHold.qml
 KbLayout KbLayout.qml
 LinkToggle LinkToggle.qml
