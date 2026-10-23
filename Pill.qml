@@ -126,6 +126,47 @@ Item {
      * clicked.
      */
     property bool revealSession: false
+
+    /**
+     * Polling-based reveal trigger. The compositor's hover routing through the
+     * WlrLayershell mask is unreliable for the full-screen top overlay, so we
+     * poll the cursor position and latch revealSession when it enters the
+     * reveal strip. Mirrors the dock's 350ms grace via revealTimer.
+     */
+    Process {
+        id: cursorPollProc
+        command: ["hyprctl", "-j", "cursorpos"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const raw = (text || "").trim();
+                if (raw === "") return;
+                let pos;
+                try { pos = JSON.parse(raw); } catch (e) { return; }
+                if (!pos || pos.x === undefined || pos.y === undefined) return;
+                const mons = Hyprland.monitors;
+                // find this monitor's geometry
+                let mon = null;
+                for (const m of mons) { if (m.name === pill.screenName) { mon = m; break; } }
+                if (!mon) return;
+                const lx = pos.x - mon.x;
+                const ly = pos.y - mon.y;
+                const revealW = pill.stripBar ? Math.max(420 * pill.s, pill.stripFaceW) : 420 * pill.s;
+                const cx = mon.width / 2;
+                if (ly >= 0 && ly <= 10 * pill.s
+                        && lx >= cx - revealW / 2 && lx <= cx + revealW / 2) {
+                    if (Flags.autoHide && !pill.revealSession && !pill.expanded
+                            && !pill.surfaceOpen && pill.mode !== "game")
+                        pill.revealSession = true;
+                }
+            }
+        }
+    }
+    Timer {
+        interval: 80
+        running: Flags.autoHide && !pill.revealSession
+        repeat: true
+        onTriggered: { if (!cursorPollProc.running) cursorPollProc.running = true; }
+    }
     property bool pinned: false
     property bool forcePinned: false
     /**
