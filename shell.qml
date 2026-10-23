@@ -894,18 +894,6 @@ ShellRoot {
                  * Kept alive for the island so the island can be dismissed by
                  * leaving the bar, and re-shown by returning to it.
                  */
-                HoverHandler {
-                    id: pillHover
-                    parent: overlay
-                    enabled: true
-                    onHoveredChanged: {
-                        pill.hovered = hovered;
-                        if (hovered && Flags.autoHide && !pill.revealSession
-                                && !pill.expanded && !pill.surfaceOpen
-                                && pill.mode !== "game")
-                            pill.revealSession = true;
-                    }
-                }
                 Keys.onEscapePressed: {
                     if (pill.stripMenuOpen) {
                         pill.closeStripMenus();
