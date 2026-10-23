@@ -148,10 +148,16 @@ Item {
                 let mon = null;
                 for (const m of mons) { if (m.name === pill.screenName) { mon = m; break; } }
                 if (!mon) return;
-                const lx = pos.x - mon.x;
-                const ly = pos.y - mon.y;
+                const o = mon.lastIpcObject || {};
+                const mx = o.x !== undefined ? o.x : mon.x;
+                const my = o.y !== undefined ? o.y : mon.y;
+                const mw = o.width !== undefined ? o.width : mon.width;
+                const mh = o.height !== undefined ? o.height : mon.height;
+                if (mw === undefined || mh === undefined) return;
+                const lx = pos.x - mx;
+                const ly = pos.y - my;
                 const revealW = pill.stripBar ? Math.max(420 * pill.s, pill.stripFaceW) : 420 * pill.s;
-                const cx = mon.width / 2;
+                const cx = mw / 2;
                 if (ly >= 0 && ly <= 10 * pill.s
                         && lx >= cx - revealW / 2 && lx <= cx + revealW / 2) {
                     if (Flags.autoHide && !pill.revealSession && !pill.expanded
