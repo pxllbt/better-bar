@@ -885,8 +885,7 @@ ShellRoot {
                 visible: enabled
                 onEntered: {
                     pill.hovered = true;
-                    if (!pill.revealSession && !pill.expanded)
-                        pill.revealSession = true;
+                    pill.revealSession = true;
                 }
                 onExited: pill.hovered = false
             }
