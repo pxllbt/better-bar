@@ -898,7 +898,13 @@ ShellRoot {
                     id: pillHover
                     parent: overlay
                     enabled: true
-                    onHoveredChanged: pill.hovered = hovered
+                    onHoveredChanged: {
+                        pill.hovered = hovered;
+                        if (hovered && Flags.autoHide && !pill.revealSession
+                                && !pill.expanded && !pill.surfaceOpen
+                                && pill.mode !== "game")
+                            pill.revealSession = true;
+                    }
                 }
                 Keys.onEscapePressed: {
                     if (pill.stripMenuOpen) {
