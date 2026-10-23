@@ -210,21 +210,21 @@ Item {
      * for it. `chipPadBottom` reserves the strip the running-dot occupies (and,
      * in full mode, the label).
      */
-    readonly property real chipPadTop: (root.titled ? 9 : 7) * s
-    readonly property real chipPadBottom: (root.titled ? 16 : 12) * s
-    readonly property real chipIconMax: (root.titled ? 27 : 32) * s
+    readonly property real chipPadTop: (root.titled ? 7 : 5) * s
+    readonly property real chipPadBottom: (root.titled ? 13 : 9) * s
+    readonly property real chipIconMax: (root.titled ? 30 : 36) * s
     readonly property real chipIconSize: Math.max(12 * s, Math.min(
         root.chipIconMax, root.dockH - root.chipPadTop - root.chipPadBottom))
 
     readonly property real dockH: matchHeight > 0
         ? Math.max(matchHeight, root.minDockH)
-        : (minimal ? 58 : 68) * s
+        : (minimal ? 52 : 62) * s
     /* Full mode carries a label under the icon, so its chips are wider than
      * minimal's: at 58 the label box was 52px — about nine characters — and
      * every real name ("MissionCenter", "RQuickShare") elided. 68 gives the
      * label 62px. The drag step is derived from chipW, so the wider chip moves
      * the drop slots with it rather than needing its own constant. */
-    readonly property real chipW: (minimal ? 56 : 68) * s
+    readonly property real chipW: (minimal ? 50 : 62) * s
     readonly property int chipSpacing: 2
 
     // ---- pinned-chip drag reorder ----
