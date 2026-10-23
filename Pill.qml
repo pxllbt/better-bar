@@ -1721,6 +1721,7 @@ Item {
 
     LiquidGlass {
         id: bud
+        z: 100
         /* The media bud is the bar's entry point to the player, and an entry
          * that disappears with its content is not an entry.
          *
