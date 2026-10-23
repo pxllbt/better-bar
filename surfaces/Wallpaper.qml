@@ -301,7 +301,7 @@ PillSurface {
             ? root.wwResults
             : (root.acSource
                 ? root.acResults
-                : ((searching && query.length > 0) ? root.localFilter : localItems)))
+                : ((query.length > 0) ? root.localFilter : localItems)))
     readonly property int itemCount: items.length
 
     /**
@@ -1351,8 +1351,8 @@ PillSurface {
         anchors.rightMargin: 6 * root.s
         s: root.s
         placeholder: root.whSource ? "Search wallhaven tags" : "Filter wallpapers"
-        visible: root.searching || root.whSource
-        enabled: root.searching || root.whSource
+        visible: true
+        enabled: true
         horizontalNav: true
         z: 30
         onTextChanged: root.query = text
