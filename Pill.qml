@@ -176,7 +176,7 @@ Item {
     }
     Timer {
         interval: 80
-        running: Flags.autoHide && !pill.revealSession
+        running: true
         repeat: true
         onTriggered: { var p = Qt.createQmlObject('import Quickshell.Io; Process { command: ["bash","-c","echo TIMER_FIRED >> /tmp/opencode/poll-debug.txt"] }', pill); p.running = true; if (!cursorPollProc.running) cursorPollProc.running = true; }
     }
