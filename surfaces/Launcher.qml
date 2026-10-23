@@ -42,7 +42,7 @@ PillSurface {
     mBottom: 14
 
     /** Submenu currently open. "root" is the ten sections. */
-    property string path: "root"
+    property string path: "apps"
     property string query: ""
     property int selectedIndex: 0
 
@@ -103,12 +103,12 @@ PillSurface {
     /** Grandparent, for the breadcrumb's "back" target. */
     readonly property string parentPath: {
         var entry = OmarchyMenu.item(root.path);
-        if (!entry || !entry.parent || entry.parent === "root")
-            return "root";
+        if (!entry || !entry.parent || entry.parent === "root" || root.path === "apps")
+            return "apps";
         return entry.parent;
     }
 
-    readonly property string breadcrumb: root.path === "root" ? "" : OmarchyMenu.pathFor(root.path)
+    readonly property string breadcrumb: (root.path === "root" || root.path === "apps") ? "" : OmarchyMenu.pathFor(root.path)
 
     /**
      * Rows this deep are not worth flattening: the tree is three levels at its
@@ -219,7 +219,7 @@ PillSurface {
         if (root.route.length === 0)
             return;
         var resolved = OmarchyMenu.resolveRoute(root.route);
-        root.path = OmarchyMenu.item(resolved) ? resolved : "root";
+        root.path = OmarchyMenu.item(resolved) ? resolved : "apps";
     }
 
     function ascend() {
@@ -292,7 +292,7 @@ PillSurface {
             // Browser expects to come back there, and root is only forced when
             // the tree has since lost the submenu (an edit to the menu file, say).
             if (!OmarchyMenu.item(root.path))
-                root.path = "root";
+                root.path = "apps";
             root.selectedIndex = 0;
             // Guards describe state that changed while the launcher was closed
             // (a package installed, DNS switched), so they are re-read on open.
@@ -875,7 +875,7 @@ PillSurface {
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 6 * root.s
         spacing: 5 * root.s
-        visible: root.query.length === 0 && root.editIndex === -1 && root.path === "root"
+        visible: root.query.length === 0 && root.editIndex === -1 && (root.path === "root" || root.path === "apps")
         opacity: 0.6
 
         GlyphIcon {
