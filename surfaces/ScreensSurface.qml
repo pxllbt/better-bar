@@ -560,12 +560,13 @@ SettingsSurface {
                     readOnly: true
                     onActiveFocusChanged: cursorVisible = activeFocus
                     onTextChanged: root.newProfileName = text
-                }
+
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.IBeamCursor
                         onClicked: nameField.forceActiveFocus()
                     }
+                }
             }
         }
 
