@@ -139,7 +139,6 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 const raw = (text || "").trim();
-                console.log("POLL raw=" + raw);
                 if (raw === "") return;
                 let pos;
                 try { pos = JSON.parse(raw); } catch (e) { return; }
