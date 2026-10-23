@@ -269,7 +269,7 @@ PillSurface {
     onRouteChanged: {
         if (!root.open)
             return;
-        var hadRoute = root.path !== "root";
+        var hadRoute = root.path !== "apps";
         root.applyRoute();
         // Navigating away from root clears the route so the launcher is back to
         // being a plain launcher next time it opens.
