@@ -51,14 +51,15 @@ Singleton {
      * over the derived one. Each falls back to the derived value, so a partial
      * theme still renders.
      */
-    readonly property var omarchy: ({})
+    readonly property var omarchy: ThemeColors.palette
 
     function omarchyColor(key, fallback) {
-        // Decoupled from Omarchy's theme: always use the fallback (the pill's own fixed palette).
-        return (fallback || "");
+        var p = ThemeColors.palette;
+        var value = p ? p[String(key || "")] : null;
+        return (value !== undefined && value !== null && String(value).length > 0) ? String(value) : (fallback || "");
     }
 
-    readonly property string omarchyBackground: ""
+    readonly property string omarchyBackground: (ThemeColors.palette && ThemeColors.palette["background"]) ? String(ThemeColors.palette["background"]) : ""
     /**
      * Animated form of `omarchyBackground`.
      *
@@ -87,7 +88,7 @@ Singleton {
             easing.type: Easing.InOutQuad
         }
     }
-    readonly property string omarchyForeground: ""
+    readonly property string omarchyForeground: (ThemeColors.palette && ThemeColors.palette["foreground"]) ? String(ThemeColors.palette["foreground"]) : ""
     /**
      * The theme's dim-text colour, from `dark_foreground`.
      *
@@ -98,14 +99,14 @@ Singleton {
      * neutral grey beside the theme's own accent and foreground, which reads as
      * "this colour is not synced" rather than as a missing token.
      */
-    readonly property string omarchyDarkFg: ""
-    readonly property string omarchyDarker: ""
-    readonly property string omarchyMuted: ""
+    readonly property string omarchyDarkFg: (ThemeColors.palette && ThemeColors.palette["dark_foreground"]) ? String(ThemeColors.palette["dark_foreground"]) : ""
+    readonly property string omarchyDarker: (ThemeColors.palette && ThemeColors.palette["darker_background"]) ? String(ThemeColors.palette["darker_background"]) : ""
+    readonly property string omarchyMuted: (ThemeColors.palette && ThemeColors.palette["muted"]) ? String(ThemeColors.palette["muted"]) : ""
     /** Omarchy's accent, when the active theme names one. */
-    readonly property string omarchyAccent: ""
-    readonly property string omarchyLight: ""
-    readonly property string omarchyLightFg: ""
-    readonly property string omarchyBrightFg: ""
+    readonly property string omarchyAccent: (ThemeColors.palette && ThemeColors.palette["accent"]) ? String(ThemeColors.palette["accent"]) : ""
+    readonly property string omarchyLight: (ThemeColors.palette && ThemeColors.palette["lighter_background"]) ? String(ThemeColors.palette["lighter_background"]) : ""
+    readonly property string omarchyLightFg: (ThemeColors.palette && ThemeColors.palette["light_foreground"]) ? String(ThemeColors.palette["light_foreground"]) : ""
+    readonly property string omarchyBrightFg: (ThemeColors.palette && ThemeColors.palette["bright_foreground"]) ? String(ThemeColors.palette["bright_foreground"]) : ""
 
     readonly property string customHex: Flags.accentOverride
 
