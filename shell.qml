@@ -874,6 +874,7 @@ ShellRoot {
 
             MouseArea {
                 id: pillRevealHover
+                z: 999
                 width: pill.stripBar ? Math.max(420 * overlay.s, pill.stripFaceW) : 420 * overlay.s
                 height: 10 * overlay.s
                 anchors.horizontalCenter: parent.horizontalCenter
