@@ -162,8 +162,8 @@ Rectangle {
         : (glass.glassy
             ? Qt.alpha(blend(Theme.cardBot, accentColor, accent * 0.6), tintAlpha)
             : Qt.alpha(Theme.cardBot, tintAlpha))
-    border.width: 0
-    border.color: "transparent"
+    border.width: activeRing.ringWidth > 0 ? 0 : 1
+    border.color: glass.borderColor
 
     /**
      * Clipped so the gradient ring below is trimmed to this surface's rounded
