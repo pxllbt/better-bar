@@ -144,10 +144,17 @@ Item {
                 try { pos = JSON.parse(raw); } catch (e) { return; }
                 if (!pos || pos.x === undefined || pos.y === undefined) return;
                 const mons = Hyprland.monitors.values;
+                // debug: log monitor count and screenName
+                var dbgProc = Qt.createQmlObject('import Quickshell.Io; Process { command: ["bash", "-c", "echo monCount=' + mons.length + ' screen=' + pill.screenName + ' >> /tmp/opencode/poll-debug.txt"] }', pill);
+                dbgProc.running = true;
                 // find this monitor's geometry
                 let mon = null;
                 for (const m of mons) { if (m.name === pill.screenName) { mon = m; break; } }
-                if (!mon) return;
+                if (!mon) {
+                    var dbgProc2 = Qt.createQmlObject('import Quickshell.Io; Process { command: ["bash", "-c", "echo NO_MON_FOUND >> /tmp/opencode/poll-debug.txt"] }', pill);
+                    dbgProc2.running = true;
+                    return;
+                }
                 const o = mon.lastIpcObject || {};
                 const mx = o.x !== undefined ? o.x : mon.x;
                 const my = o.y !== undefined ? o.y : mon.y;
