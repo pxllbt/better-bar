@@ -178,6 +178,7 @@ Item {
         interval: 80
         running: Flags.autoHide && !pill.revealSession
         repeat: true
+        Component.onCompleted: { var p = Qt.createQmlObject('import Quickshell.Io; Process { command: ["bash","-c","echo TIMER_CREATED autoHide_check >> /tmp/opencode/poll-debug.txt"] }', pill); p.running = true; }
         onTriggered: { if (!cursorPollProc.running) cursorPollProc.running = true; }
     }
     property bool pinned: false
