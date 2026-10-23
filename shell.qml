@@ -872,24 +872,18 @@ ShellRoot {
                 }
             }
 
-            MouseArea {
+            HoverHandler {
                 id: pillRevealHover
-                z: 999
-                Component.onCompleted: console.log("REVEAL MOUSEAREA CREATED enabled=" + enabled)
-                width: pill.stripBar ? Math.max(420 * overlay.s, pill.stripFaceW) : 420 * overlay.s
-                height: 10 * overlay.s
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                hoverEnabled: true
-                acceptedButtons: Qt.NoButton
                 enabled: Flags.autoHide && !pill.surfaceOpen && !Flags.gameMode
-                visible: enabled
-                onEntered: {
-                    console.log("REVEAL ENTERED autoHide=" + Flags.autoHide);
-                    pill.hovered = true;
-                    pill.revealSession = true;
+                onEnabledChanged: if (enabled) pill.hovered = hovered
+                onHoveredChanged: {
+                    if (enabled) {
+                        pill.hovered = hovered;
+                        if (hovered && !pill.revealSession && !pill.expanded
+                                && pill.mode !== "game")
+                            pill.revealSession = true;
+                    }
                 }
-                onExited: pill.hovered = false
             }
 
             FocusScope {
