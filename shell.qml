@@ -875,6 +875,7 @@ ShellRoot {
             MouseArea {
                 id: pillRevealHover
                 z: 999
+                Component.onCompleted: console.log("REVEAL MOUSEAREA CREATED enabled=" + enabled)
                 width: pill.stripBar ? Math.max(420 * overlay.s, pill.stripFaceW) : 420 * overlay.s
                 height: 10 * overlay.s
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -884,7 +885,7 @@ ShellRoot {
                 enabled: Flags.autoHide && !pill.surfaceOpen && !Flags.gameMode
                 visible: enabled
                 onEntered: {
-                    console.log("REVEAL ENTERED");
+                    console.log("REVEAL ENTERED autoHide=" + Flags.autoHide);
                     pill.hovered = true;
                     pill.revealSession = true;
                 }
