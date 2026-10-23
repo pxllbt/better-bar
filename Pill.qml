@@ -144,17 +144,10 @@ Item {
                 try { pos = JSON.parse(raw); } catch (e) { return; }
                 if (!pos || pos.x === undefined || pos.y === undefined) return;
                 const mons = Hyprland.monitors.values;
-                // debug: log monitor count and screenName
-                var dbgProc = Qt.createQmlObject('import Quickshell.Io; Process { command: ["bash", "-c", "echo monCount=' + mons.length + ' screen=' + pill.screenName + ' >> /tmp/opencode/poll-debug.txt"] }', pill);
-                dbgProc.running = true;
                 // find this monitor's geometry
                 let mon = null;
                 for (const m of mons) { if (m.name === pill.screenName) { mon = m; break; } }
-                if (!mon) {
-                    var dbgProc2 = Qt.createQmlObject('import Quickshell.Io; Process { command: ["bash", "-c", "echo NO_MON_FOUND >> /tmp/opencode/poll-debug.txt"] }', pill);
-                    dbgProc2.running = true;
-                    return;
-                }
+                if (!mon) return;
                 const o = mon.lastIpcObject || {};
                 const mx = o.x !== undefined ? o.x : mon.x;
                 const my = o.y !== undefined ? o.y : mon.y;
@@ -176,9 +169,9 @@ Item {
     }
     Timer {
         interval: 80
-        running: true
+        running: Flags.autoHide && !pill.revealSession
         repeat: true
-        onTriggered: { var p = Qt.createQmlObject('import Quickshell.Io; Process { command: ["bash","-c","echo TIMER_FIRED >> /tmp/opencode/poll-debug.txt"] }', pill); p.running = true; if (!cursorPollProc.running) cursorPollProc.running = true; }
+        onTriggered: { if (!cursorPollProc.running) cursorPollProc.running = true; }
     }
     property bool pinned: false
     property bool forcePinned: false
