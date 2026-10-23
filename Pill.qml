@@ -139,11 +139,12 @@ Item {
         stdout: StdioCollector {
             onStreamFinished: {
                 const raw = (text || "").trim();
+                console.log("POLL raw=" + raw);
                 if (raw === "") return;
                 let pos;
                 try { pos = JSON.parse(raw); } catch (e) { return; }
                 if (!pos || pos.x === undefined || pos.y === undefined) return;
-                const mons = Hyprland.monitors;
+                const mons = Hyprland.monitors.values;
                 // find this monitor's geometry
                 let mon = null;
                 for (const m of mons) { if (m.name === pill.screenName) { mon = m; break; } }
