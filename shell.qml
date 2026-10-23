@@ -884,6 +884,7 @@ ShellRoot {
                 enabled: Flags.autoHide && !pill.surfaceOpen && !Flags.gameMode
                 visible: enabled
                 onEntered: {
+                    console.log("REVEAL ENTERED");
                     pill.hovered = true;
                     pill.revealSession = true;
                 }
