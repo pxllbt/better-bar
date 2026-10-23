@@ -874,7 +874,7 @@ ShellRoot {
 
             HoverHandler {
                 id: pillRevealHover
-                enabled: Flags.autoHide && !pill.surfaceOpen && !Flags.gameMode
+                enabled: Flags.autoHide && !Flags.gameMode
                 onEnabledChanged: if (enabled) pill.hovered = hovered
                 onHoveredChanged: {
                     if (enabled) {
