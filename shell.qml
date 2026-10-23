@@ -872,16 +872,22 @@ ShellRoot {
                 }
             }
 
-            HoverHandler {
+            MouseArea {
                 id: pillRevealHover
-                enabled: true
-                onHoveredChanged: {
-                    pill.hovered = hovered;
-                    if (hovered && Flags.autoHide && !pill.revealSession
-                            && !pill.expanded && !pill.surfaceOpen
-                            && pill.mode !== "game")
+                width: pill.stripBar ? Math.max(420 * overlay.s, pill.stripFaceW) : 420 * overlay.s
+                height: 10 * overlay.s
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+                enabled: Flags.autoHide && !pill.surfaceOpen && !Flags.gameMode
+                visible: enabled
+                onEntered: {
+                    pill.hovered = true;
+                    if (!pill.revealSession && !pill.expanded)
                         pill.revealSession = true;
                 }
+                onExited: pill.hovered = false
             }
 
             FocusScope {
