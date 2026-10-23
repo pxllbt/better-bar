@@ -896,7 +896,7 @@ ShellRoot {
                  */
                 HoverHandler {
                     id: pillHover
-                    parent: pill
+                    parent: overlay
                     enabled: true
                     onHoveredChanged: pill.hovered = hovered
                 }
@@ -1000,28 +1000,6 @@ ShellRoot {
                  * install flow as the resting pill. Sits below the pill in the
                  * scene so drops on the visible pill itself keep winning.
                  */
-                /**
-                 * Reveal trigger for the auto-hidden pill. The pill itself is
-                 * parked off-screen while hidden, so its own HoverHandler never
-                 * fires over the reveal strip — without this the pill would
-                 * never slide back in on cursor approach. Mirrors the strip's
-                 * geometry so hovering the top-centre edge sets revealSession.
-                 */
-                MouseArea {
-                    id: revealHover
-                    width: pill.stripBar ? Math.max(420 * overlay.s, pill.width) : 420 * overlay.s
-                    height: 10 * overlay.s
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    hoverEnabled: true
-                    acceptedButtons: Qt.NoButton
-                    enabled: (Flags.autoHide || (Flags.cursorFollow && pill.hidden))
-                        && !pill.surfaceOpen && !Flags.gameMode
-                    visible: enabled
-                    onEntered: pill.revealSession = true
-                    onExited: { /* revealTimer handles retraction */ }
-                }
-
                 DropArea {
                     id: stripDrop
                     width: pill.stripBar ? Math.max(420 * overlay.s, pill.width) : 420 * overlay.s
