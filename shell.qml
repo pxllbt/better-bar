@@ -874,7 +874,6 @@ ShellRoot {
 
             HoverHandler {
                 id: pillRevealHover
-                parent: overlay
                 enabled: true
                 onHoveredChanged: {
                     pill.hovered = hovered;
