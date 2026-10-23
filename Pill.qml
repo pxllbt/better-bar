@@ -117,24 +117,6 @@ Item {
     }
 
     property bool hovered: false
-
-    /**
-     * Window-level hover feed for the reveal strip. The pill itself is
-     * parked off-screen while auto-hidden, so a handler parented to the pill
-     * never fires. Parenting to barWindow (the overlay) lets the compositor's
-     * input mask (revealRegion when hidden) route hover to it.
-     */
-    HoverHandler {
-        parent: pill.barWindow
-        enabled: true
-        onHoveredChanged: {
-            pill.hovered = hovered;
-            if (hovered && Flags.autoHide && !pill.revealSession
-                    && !pill.expanded && !pill.surfaceOpen
-                    && pill.mode !== "game")
-                pill.revealSession = true;
-        }
-    }
     /**
      * True while a reveal interaction is in flight: the pointer touched the
      * reveal strip and is still over it or the collapsed pill it pulled in.

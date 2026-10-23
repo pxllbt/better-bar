@@ -872,6 +872,19 @@ ShellRoot {
                 }
             }
 
+            HoverHandler {
+                id: pillRevealHover
+                parent: overlay
+                enabled: true
+                onHoveredChanged: {
+                    pill.hovered = hovered;
+                    if (hovered && Flags.autoHide && !pill.revealSession
+                            && !pill.expanded && !pill.surfaceOpen
+                            && pill.mode !== "game")
+                        pill.revealSession = true;
+                }
+            }
+
             FocusScope {
                 id: focusScope
                 anchors.fill: parent
