@@ -294,8 +294,10 @@ ac_parse_page() {
         }
         # The thumbnail for the tile being read. Kept as the last one seen so a
         # page that repeats the image per breakpoint still yields one thumb.
-        have && /thumbbig-[0-9]+\.webp/ {
-            if (match($0, /https:\/\/images[0-9]*\.alphacoders\.com\/[0-9]+\/thumbbig-[0-9]+\.webp/))
+        have && (/thumbbig-[0-9]+\.webp/ || /thumb-[0-9]+-[0-9]+\.webp/) {
+            if (match($0, /https:\/\/images[0-9]*\.alphacoders\.com\/[0-9]+\/thumbbig-[0-9]+\.webp/)) {
+            } else if (match($0, /https:\/\/images[0-9]*\.alphacoders\.com\/[0-9]+\/thumb-[0-9]+-[0-9]+\.webp/)) {
+            }
                 thumb = substr($0, RSTART, RLENGTH)
         }
         # End of tile: the </a> closes the link the id came from, which is the
@@ -316,12 +318,29 @@ ac_parse_page() {
 # an array; a page that cannot be fetched answers an empty array so the strip
 # shows its empty state rather than spinning.
 acsearch() {
-    local cat="${1:-}" page="${2:-1}" base cache raw code mapped
+    local cat="${1:-}" page="${2:-1}" query="${3:-}" base cache raw code mapped
     ac_category_ok "$cat" || cat="minimal"
     case "$page" in
         ''|*[!0-9]*) page=1 ;;
     esac
     [ "$page" -lt 1 ] && page=1
+
+    # Search mode: when a query is given, fetch the site's search results
+    # page instead of the category page. The search page has the same tile
+    # shape, so ac_parse_page handles it unchanged.
+    if [ -n "$query" ]; then
+        raw=$(curl -sL --max-time 20 -w $'\n%{http_code}' -A "$UA" \
+            "https://wall.alphacoders.com/search.php?search=$(printf '%s' "$query" | jq -sRr @uri)&page=$page")
+        code="${raw##*$'\n'}"
+        raw="${raw%$'\n'*}"
+        [ -n "$code" ] || code=000
+        [ "$code" = "200" ] || { printf '[]\n'; return 0; }
+        mapped=$(printf '%s\n' "$raw" | ac_parse_page \
+            | jq -R -s -c 'split("\n") | map(select(length > 0)) | map(fromjson)')
+        [ -z "$mapped" ] || [ "$mapped" = "[]" ] && { printf '[]\n'; return 0; }
+        printf '%s\n' "$mapped"
+        return 0
+    fi
 
     base=$(wh_state)
     cache="$base/ac-cache/$(printf '%s' "$cat-$page" | sha1sum | cut -c1-24).json"
@@ -400,7 +419,7 @@ acresolve() {
 # in the strip's entry shape, like whsearch, plus the matching total
 # so the UI can page without asking the server.
 wwsearch() {
-    local cat="${1:-}" count="${2:-17}" page="${3:-0}"
+    local cat="${1:-}" count="${2:-17}" page="${3:-0}" query="${4:-}"
     case "$count" in
         ''|*[!0-9]*) count=17 ;;
     esac
@@ -445,11 +464,17 @@ wwsearch() {
     # of KB) rather than the multi-megabyte master the image
     # field names — the strip renders tiles, not wallpapers,
     # and the master is fetched only when a pick is applied.
-    jq -c --arg cat "$cat" --arg u "https://raw.githubusercontent.com/not-ayan/storage/main/" \
+    jq -c --arg cat "$cat" --arg q "$query" --arg u "https://raw.githubusercontent.com/not-ayan/storage/main/" \
         --argjson skip "$(( page * count ))" --argjson take "$count" '
         ([.[] | select(.orientation == "Desktop" and .file_main_name != null and .file_main_name != "")]
          | if $cat == "all" then .
            else map(select((.category // "") | ascii_downcase == ("#" + ($cat | ascii_downcase)))) end
+         | if ($q | length) == 0 then .
+           else map(select(
+               ((.file_name // "") | ascii_downcase | contains($q | ascii_downcase)) or
+               ((.data.tags // []) | map(ascii_downcase) | any(contains($q | ascii_downcase))) or
+               ((.category // "") | ascii_downcase | contains($q | ascii_downcase))
+             )) end
          | sort_by(.timestamp) | reverse) as $all
          | {
             wallpapers: ($all[$skip : ($skip + $take)]
@@ -713,12 +738,11 @@ case "${1:-}" in
     # WallWidgy pages through the index: the bar passes category, page
     # size and the zero-based page. Without forwarding $4 every request
     # silently answered page 0, so the chevrons never moved.
-    wwsearch) wwsearch "${2:-}" "${3:-17}" "${4:-0}" ;;
+    wwsearch) wwsearch "${2:-}" "${3:-17}" "${4:-0}" "${5:-}" ;;
     # Alpha Coders: a category page, and the full-size URL for a picked
     # wallpaper (its detail page is the only place the real file appears, since
     # the listing gives no usable way to tell a jpg from a png).
-    acsearch) acsearch "${2:-}" "${3:-1}" ;;
-    acsearch) acsearch "${2:-}" "${3:-1}" ;;
+    acsearch) acsearch "${2:-}" "${3:-1}" "${4:-}" ;;
     acresolve) acresolve "${2:-}" ;;
     thumbget) thumbget "${2:-}" ;;
     download) download "${2:-}" ;;

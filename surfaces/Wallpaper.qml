@@ -611,6 +611,9 @@ PillSurface {
         } else if (root.wwSource) {
             root.wwResults = [];
             root.refreshWallwidgy();
+        } else if (root.acSource) {
+            root.acResults = [];
+            root.refreshAlphacoders();
         } else {
             centerOnCurrent();
         }
@@ -635,7 +638,7 @@ PillSurface {
      */
     function refreshWallwidgy() {
         searchProc.running = false;
-        searchProc.command = ["bash", root.searchScript, "wwsearch", root.wwCategory, "2000", "0"];
+        searchProc.command = ["bash", root.searchScript, "wwsearch", root.wwCategory, "2000", "0", root.query];
         searchProc.running = true;
     }
 
@@ -650,7 +653,7 @@ PillSurface {
     function refreshAlphacoders() {
         root.acEnd = false;
         searchProc.running = false;
-        searchProc.command = ["bash", root.searchScript, "acsearch", root.acCategory, "1"];
+        searchProc.command = ["bash", root.searchScript, "acsearch", root.acCategory, "1", root.query];
         searchProc.running = true;
     }
 
@@ -699,6 +702,38 @@ PillSurface {
         root.focusIndex = 0;
         root.pos = 0;
         root.refreshWallhaven(1);
+        searchField.input.focus = false;
+    }
+
+    /**
+     * Wallwidgy search fired on Enter in the field: re-run the collection
+     * filtered by the typed query (matched against file name, tags and
+     * category). Field focus is then released so a following Enter applies
+     * the focused wallpaper instead of re-searching.
+     */
+    function searchWallwidgyNow() {
+        if (!root.wwSource)
+            return;
+        root.wwResults = [];
+        root.focusIndex = 0;
+        root.pos = 0;
+        root.refreshWallwidgy();
+        searchField.input.focus = false;
+    }
+
+    /**
+     * Alphacoders search fired on Enter in the field: fetch the search page
+     * for the typed query, resetting focus and page to the top.
+     */
+    function searchAlphacodersNow() {
+        if (!root.acSource)
+            return;
+        root.acEnd = false;
+        root.acPage = 1;
+        root.acResults = [];
+        root.focusIndex = 0;
+        root.pos = 0;
+        root.refreshAlphacoders();
         searchField.input.focus = false;
     }
 
@@ -1357,7 +1392,9 @@ PillSurface {
         z: 30
         onTextChanged: root.query = text
         onMoved: (d) => root.move(d)
-        onAccepted: root.whSource ? root.searchWallhavenNow() : root.activate()
+        onAccepted: root.whSource ? root.searchWallhavenNow()
+            : (root.wwSource ? root.searchWallwidgyNow()
+            : (root.acSource ? root.searchAlphacodersNow() : root.activate()))
         onDismissed: root.exitSearch()
         onKeyPressed: (e) => {
             if (!root.whSource
